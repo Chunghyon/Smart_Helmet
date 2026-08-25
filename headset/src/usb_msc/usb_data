@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<title>Smart Bluetooth Technology | Qualcomm</title>
+
+<style>
+a:link {
+  color: DeepSkyBlue;
+  background-color: transparent;
+  text-decoration: none;
+}
+
+a:visited {
+  color: DeepSkyBlue;
+  background-color: transparent;
+  text-decoration: none;
+}
+
+a:hover {
+  color: DodgerBlue;
+  background-color: transparent;
+  text-decoration: underline;
+}
+
+a:active {
+  color: DeepSkyBlue;
+  background-color: transparent;
+  text-decoration: underline;
+}
+</style>
+</head>
+
+<body>
+
+<p ><div style="background-color:#4A5A75;">
+      <br>
+      <h2 style="font-family:arial;text-align:center;color:white;">Get started with Qualcomm <a href="https://www.qualcomm.com/products/bluetooth">Bluetooth</a> solutions</h2>
+      <br>
+    </div>
+</p>
+
+</body>
+</html>

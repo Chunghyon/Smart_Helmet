@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2021 Qualcomm Technologies International, Ltd.-->
+<!--Chain for AEC reference-->
+
+<chain name="CHAIN_ANC" id="1" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="../headset_cap_ids.h"/>
+    <include_header name="kymera_chain_roles.h"/>
+
+    <operator name="OPR_ANC_SPC_1" id="HS_CAP_ID_SWITCHED_PASSTHROUGH">
+        <sink name="IN_1" terminal="0"/>
+        <sink name="IN_2" terminal="1"/>
+        <sink name="IN_3" terminal="2"/>
+        <sink name="IN_4" terminal="3"/>
+    </operator>
+	
+    <input sink="OPR_ANC_SPC_1.IN_1" role="EPR_ANC_SPC_1_IN"/>
+    <input sink="OPR_ANC_SPC_1.IN_2" role="EPR_ANC_SPC_2_IN"/>
+    <input sink="OPR_ANC_SPC_1.IN_3" role="EPR_ANC_SPC_3_IN"/>
+    <input sink="OPR_ANC_SPC_1.IN_4" role="EPR_ANC_SPC_4_IN"/>
+		    
+</chain>

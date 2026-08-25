@@ -1,0 +1,44 @@
+/*!
+\copyright  Copyright (c) 2008-2022 Qualcomm Technologies International, Ltd.\n
+            All Rights Reserved.\n
+            Qualcomm Technologies International, Ltd. Confidential and Proprietary.
+\version    
+\file       authentication.h
+\defgroup   authentication Authentication
+\ingroup    bt_domain
+\brief      Header file for authentication and security functions
+*/
+
+#ifndef AUTHENTICATION_H
+#define AUTHENTICATION_H
+
+#include <connection_abstraction.h>
+#include <connection.h>
+
+/*! @{ */
+
+/*! Handler for connection library messages not sent directly
+
+    This function is called to handle any connection library messages sent to
+    the application that the authorisation module is interested in. If a message
+    is processed then the function returns TRUE.
+
+    \note Some connection library messages can be sent directly as the
+        request is able to specify a destination for the response.
+
+    \param  id              Identifier of the connection library message
+    \param  message         The message content (if any)
+    \param  already_handled Indication whether this message has been processed by
+                            another module. The handler may choose to ignore certain
+                            messages if they have already been handled.
+
+    \returns TRUE if the message has been processed, otherwise returns the
+        value in already_handled
+ */
+extern bool appAuthHandleConnectionLibraryMessages(MessageId id, Message message,
+                                                   bool already_handled);
+
+
+/*! @} */
+
+#endif /* AUTHENTICATION_H */

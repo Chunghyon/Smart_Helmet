@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2019 - 2021 Qualcomm Technologies International, Ltd.-->
+
+<types name="av">
+    <include_header name="marshal_common.h"/>
+    <include_header name="task_list.h"/>
+
+    <source>
+#include "domain_marshal_types.h"
+
+#ifndef HOSTED_TEST_ENVIRONMENT
+COMPILE_TIME_ASSERT(sizeof(avInstanceTaskData) &lt; 120, avInstanceTaskData_exceeded_target_pool_size);
+#endif
+    </source>
+
+    <typedef_header_source>
+#include "avrcp_typedef.h"
+#include "a2dp_typedef.h"
+#include "av_callback_interface.h"
+
+    </typedef_header_source>
+
+    <typedef_struct name="avInstanceTaskData" doc="AV Instance task data structure">
+        <member marshal="false" doc="Task/Message information for this instance">TaskData av_task</member>
+        <member marshal="false" doc="Bluetooth Address of remote device">bdaddr bd_addr</member>
+        <member marshal="true" doc="Delay timer for sending internal AVRCP pause for unrouted source post handover">uint8 send_avrcp_unrouted_pause_post_handover</member>
+        <member marshal="true" doc="AVRCP task data">avrcpTaskData avrcp</member>
+        <member marshal="true" doc="A2DP task data">a2dpTaskData a2dp</member>
+        <member marshal="false" doc="Is a rejected connection expected">uint8 avrcp_reject_pending</member>
+        <member marshal="false" doc="Flag indicating if the instance is about to be detatched">uint8 detach_pending</member>
+        <member marshal="false" doc="A pointer to the plugin interface">const av_callback_interface_t *av_callbacks</member>
+    </typedef_struct>
+
+</types>

@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2022 Qualcomm Technologies International, Ltd.-->
+
+<chain name="CHAIN_PROMPT_AAC" id="0" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="../headset_cap_ids.h"/>
+    <include_header name="kymera_chain_roles.h"/>
+
+    <operator name="OPR_TONE_PROMPT_ENCODED_BUFFER" id="CAP_ID_BASIC_PASS">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT" terminal="0"/>
+    </operator>
+
+    <operator name="OPR_AAC_DECODER" id="CAP_ID_AAC_DECODER" processor="P0,P1">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT" terminal="0"/>
+    </operator>
+
+    <operator name="OPR_TONE_PROMPT_DECODED_BUFFER" id="CAP_ID_BASIC_PASS" processor="P0,P1">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT" terminal="0"/>
+    </operator>
+
+    <input sink="OPR_TONE_PROMPT_ENCODED_BUFFER.IN" role="EPR_PROMPT_IN"/>
+    <connection source="OPR_TONE_PROMPT_ENCODED_BUFFER.OUT" sink="OPR_AAC_DECODER.IN"/>
+    <connection source="OPR_AAC_DECODER.OUT" sink="OPR_TONE_PROMPT_DECODED_BUFFER.IN"/>
+    <output source="OPR_TONE_PROMPT_DECODED_BUFFER.OUT" role="EPR_TONE_PROMPT_CHAIN_OUT"/>
+
+</chain>

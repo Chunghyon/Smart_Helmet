@@ -1,0 +1,40 @@
+/******************************************************************************
+ *  Copyright (c) 2021 Qualcomm Technologies International, Ltd.
+ *  %%version
+ *  %%appversion
+ *
+ *  FILE
+ *      gatt_tmas_server_db.dbi
+ *
+ *  DESCRIPTION
+ *
+ *      This file defines the Telephony and Media Audio Service in JSON format.
+ *      This file is included in the main application data base file which is
+ *      used to produce ATT flat data base. 
+ *
+ *****************************************************************************/
+
+#ifndef __GATT_TMAS_SERVER_DB_DBI__
+#define __GATT_TMAS_SERVER_DB_DBI__
+
+#include "gatt_tmas_server_uuids.h"
+
+/* Primary service declaration of Telephony and Media Audio Service */
+
+primary_service {
+    uuid : UUID_TELEPHONY_MEDIA_AUDIO_SERVICE,
+    name : "TELEPHONY_MEDIA_AUDIO_SERVICE",
+
+    /* Role characteristic - 2-octet. */
+
+    characteristic {
+        uuid        : UUID_ROLE,
+        name        : "ROLE",
+        flags       : [ FLAG_IRQ, FLAG_ENCR_R ],
+        properties  : [ read ],
+        
+        value       : [ 0x00, 0x00]
+    }
+},
+
+#endif /* __GATT_TMAS_SERVER_DB_DBI__ */

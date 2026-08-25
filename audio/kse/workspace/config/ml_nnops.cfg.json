@@ -1,0 +1,75 @@
+{
+    "stream": [
+        {
+            "interface": "pcm",
+            "type": "source",
+            "kwargs": {
+                "backing": "file",
+                "filename": "resource/input_basic_model.wav"
+            }
+        },
+        {
+            "interface": "pcm",
+            "type": "sink",
+            "kwargs": {
+                "backing": "file",
+                "filename": "tmp/output_ml_nnops_graph.wav",
+                "sample_rate": 16000,
+                "sample_width": 16
+            }
+        }
+    ],
+    "endpoint": [
+        {
+            "interface": "pcm",
+            "type": "source",
+            "kwargs": {
+                "instance": 0,
+                "channel": 0,
+                "pcm_sync_rate": 16000,
+                "pcm_sample_rising_edge": 0,
+                "pcm_master_mode": 1,
+                "pcm_slot_count": 4,
+                "pcm_sample_format": 1,
+                "pcm_master_clock_rate": 3072000
+            }
+        },
+        {
+            "interface": "pcm",
+            "type": "sink",
+            "kwargs": {
+                "instance": 0,
+                "channel": 0,
+                "pcm_sync_rate": 16000,
+                "pcm_sample_rising_edge": 0,
+                "pcm_master_mode": 1,
+                "pcm_slot_count": 4,
+                "pcm_sample_format": 1,
+                "pcm_master_clock_rate": 3072000
+            }
+        }
+    ],
+    "operator": [
+        {
+            "interface": "DOWNLOAD_ML_NNOPS"
+        }
+    ],
+    "graph": [
+        [
+            "stream0",
+            "endpoint0"
+        ],
+        [
+            "endpoint0",
+            "operator0i0"
+        ],
+        [
+            "operator0o0",
+            "endpoint1"
+        ],
+        [
+            "endpoint1",
+            "stream1"
+        ]
+    ]
+}

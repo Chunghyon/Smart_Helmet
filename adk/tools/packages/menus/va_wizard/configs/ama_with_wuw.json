@@ -1,0 +1,9 @@
+{
+    "capability_project": "download_apva.x2p",
+    "provider_options": ["include_wuw"],
+    "vendor_file": "\\\\root.pri\\fileroot\\Departments\\ACBU\\Shared\\Cambridge\\ACBU_Development\\internal_releases\\Voice_Assistant\\WuW_AOV\\2_dev\\APVA\\pryon_lite_2.15.1-qualcomm-kalimba-2022.02.24.2121.zip",
+    "prompts_folder" : "\\\\root.pri\\fileroot\\Departments\\ACBU\\Shared\\Cambridge\\ACBU_Development\\internal_releases\\Voice_Assistant\\WuW_AOV\\2_dev\\APVA\\2_15_1\\qcc517x_qcc307x",
+    "models": ["en-GB", "en-IN", "fr-CA", "it-IT", "en-US", "es-MX", "en-AU", "de-DE", "fr-FR", "ja-JP", "es-ES", "en-CA"],
+	"selected_models": ["en-GB"],
+	"default_model": "en-GB"
+}

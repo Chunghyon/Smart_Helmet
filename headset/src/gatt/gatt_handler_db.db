@@ -1,0 +1,40 @@
+/*
+ *   Copyright (c) 2008-2022 Qualcomm Technologies International, Ltd.
+ *   All Rights Reserved.
+ *   Qualcomm Technologies International, Ltd. Confidential and Proprietary.
+*/
+
+#include "gatt_server_db.dbi"
+#include "gatt_gap_server_db.dbi"
+#ifdef INCLUDE_GATT_BATTERY_SERVER
+#include "gatt_battery_server_db.dbi"
+#endif
+/* #if defined GATT_GAIA_SERVER && defined ENABLE_GAIA */
+#if defined INCLUDE_GATT_GAIA_SERVER
+#include "gaia_db.dbi"
+#endif
+
+#ifdef INCLUDE_FAST_PAIR
+#include "gatt_fast_pair_server_db.dbi"
+#endif
+
+#include "gatt_root_key_server_db.dbi"
+
+#include "gatt_role_selection_server_db.dbi"
+
+#ifdef INCLUDE_GATT_BATTERY_SERVER
+/* report battery */
+ADD_BATTERY_SERVICE(1)
+#endif
+
+#ifdef INCLUDE_GATT_AMS_PROXY
+#include "gatt_ams_proxy_server_db.dbi"
+#endif
+
+#ifdef INCLUDE_GATT_ANCS_PROXY
+#include "gatt_ancs_proxy_server_db.dbi"
+#endif
+
+
+
+

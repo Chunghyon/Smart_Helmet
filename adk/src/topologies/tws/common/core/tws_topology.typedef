@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2019-2021 Qualcomm Technologies International, Ltd.-->
+
+<types name="tws_topology">
+
+    <include_header name="marshal_common.h"/>
+
+    <typedef_struct name="tws_topology_unused_t" doc="Topology doesn't currently marshal any state, but leaving this type here for future marshalling requirements">
+        <member marshal="true" doc="Dummy member">uint16 dummy</member>
+    </typedef_struct>
+
+</types>

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2020 Qualcomm Technologies International, Ltd.-->
+<!--Chain for A2DP  (aptX HD codec) -->
+
+<chain name="CHAIN_INPUT_APTXHD_STEREO" id="0" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="../headset_cap_ids.h"/>
+    <include_header name="kymera_chain_roles.h"/>
+
+    <operator name="OPR_RTP_DECODER" id="CAP_ID_RTP_DECODE">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT" terminal="0"/>
+    </operator>
+
+    <operator name="OPR_APTXHD_DECODER" id="CAP_ID_APTXHD_DECODER" processor="P0,P1">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT_0" terminal="0"/>
+        <source name="OUT_1" terminal="1"/>
+    </operator>
+	
+    <input sink="OPR_RTP_DECODER.IN" role="EPR_SINK_MEDIA"/>
+    <connection source="OPR_RTP_DECODER.OUT" sink="OPR_APTXHD_DECODER.IN"/>
+    <output source="OPR_APTXHD_DECODER.OUT_0" role="EPR_SOURCE_DECODED_PCM"/>
+    <output source="OPR_APTXHD_DECODER.OUT_1" role="EPR_SOURCE_DECODED_PCM_RIGHT"/>
+</chain>

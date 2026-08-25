@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2019-2021 Qualcomm Technologies International, Ltd.-->
+
+<types name="sensor_profile" standalone="true">
+
+    <source_conditional name="INCLUDE_SENSOR_PROFILE"/>
+
+    <include_header name="sensor_profile.h"/>
+
+    <typedef_struct name="sensor_profile_control_peer_ind_t" basic="true" doc="Enable/Disable tx of sensor data command sent from Primary to Secondary">
+        <member marshal="true" doc="Enable or Disable sensor streaming in peer.">bool enable_peer</member>
+        <member marshal="true" doc="Sensor interval to configure application.">uint16 sensor_interval</member>
+        <member marshal="true" doc="Sensor data processing source.">sensor_profile_processing_source_t processing_source</member>
+        <member marshal="true" doc="Transmition value to remote device.">uint16 report_id</member>
+    </typedef_struct>
+
+    <typedef_struct name="sensor_profile_peer_status_cfm_t" basic="true" doc="Enabled/Disabled status confirmation sent from Secondary to Primary">
+        <member marshal="true" doc="Enable or Disable sensor streaming in peer.">bool peer_enabled</member>
+        <member marshal="true" doc="Sensor interval to configure application.">uint16 sensor_interval</member>
+        <member marshal="true" doc="Sensor data processing source.">sensor_profile_processing_source_t processing_source</member>
+    </typedef_struct>
+
+</types>

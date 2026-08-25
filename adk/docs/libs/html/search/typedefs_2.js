@@ -1,0 +1,24 @@
+var searchData=
+[
+  ['cl_5fdm_5fble_5fext_5fadv_5fregister_5fapp_5fadv_5fset_5fcfm_5ft_6534',['CL_DM_BLE_EXT_ADV_REGISTER_APP_ADV_SET_CFM_T',['../group__connection.html#ga7a981eabfd4359c608767118bb89cfdb',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fext_5fadv_5fset_5fscan_5fresponse_5fdata_5fcfm_5ft_6535',['CL_DM_BLE_EXT_ADV_SET_SCAN_RESPONSE_DATA_CFM_T',['../group__connection.html#gab652af185b3ac9ea0022d4a0c389fa51',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fext_5fadv_5funregister_5fapp_5fadv_5fset_5fcfm_5ft_6536',['CL_DM_BLE_EXT_ADV_UNREGISTER_APP_ADV_SET_CFM_T',['../group__connection.html#gad1c9fe9676a521b7c95a98e84000b74c',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fext_5fadvertise_5fenable_5fcfm_5ft_6537',['CL_DM_BLE_EXT_ADVERTISE_ENABLE_CFM_T',['../group__connection.html#gaf59bffdc3919e31ae2bcfbb1a46735e5',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fext_5fscan_5fenable_5fcfm_5ft_6538',['CL_DM_BLE_EXT_SCAN_ENABLE_CFM_T',['../group__connection.html#gac3cf1011e5ef6dc240c54c8f0a8c15a0',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fext_5fscan_5funregister_5fscanner_5fcfm_5ft_6539',['CL_DM_BLE_EXT_SCAN_UNREGISTER_SCANNER_CFM_T',['../group__connection.html#ga3f2c32ef6f9c0e2d8accf834f721171c',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fper_5fadv_5fset_5fdata_5fcfm_5ft_6540',['CL_DM_BLE_PER_ADV_SET_DATA_CFM_T',['../group__connection.html#gae122fd7038a24d381638b8da21225d21',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fper_5fadv_5fset_5fparams_5fcfm_5ft_6541',['CL_DM_BLE_PER_ADV_SET_PARAMS_CFM_T',['../group__connection.html#ga88c951471d998ceae2b7be0b042d8250',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fper_5fadv_5fstart_5fcfm_5ft_6542',['CL_DM_BLE_PER_ADV_START_CFM_T',['../group__connection.html#gaa43a52d066fb4e6eed03d4ff36abcf65',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fper_5fadv_5fstop_5fcfm_5ft_6543',['CL_DM_BLE_PER_ADV_STOP_CFM_T',['../group__connection.html#gaa82fc61961cbf44488bbdd65f88d4305',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fperiodic_5fscan_5fstart_5ffind_5ftrains_5fcfm_5ft_6544',['CL_DM_BLE_PERIODIC_SCAN_START_FIND_TRAINS_CFM_T',['../group__connection.html#ga826d05e859af29cc782aa97166f34200',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fperiodic_5fscan_5fstop_5ffind_5ftrains_5fcfm_5ft_6545',['CL_DM_BLE_PERIODIC_SCAN_STOP_FIND_TRAINS_CFM_T',['../group__connection.html#ga63b4c53871dc01724eb835f0fd2ba4f9',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fperiodic_5fscan_5fsync_5fadv_5freport_5fenable_5fcfm_5ft_6546',['CL_DM_BLE_PERIODIC_SCAN_SYNC_ADV_REPORT_ENABLE_CFM_T',['../group__connection.html#ga240905772858434e227c4da7184aa5d0',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fperiodic_5fscan_5fsync_5fcancel_5fcfm_5ft_6547',['CL_DM_BLE_PERIODIC_SCAN_SYNC_CANCEL_CFM_T',['../group__connection.html#ga004822217b2a61721b8bd0ac7a9a1787',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fperiodic_5fscan_5fsync_5ftransfer_5fcfm_5ft_6548',['CL_DM_BLE_PERIODIC_SCAN_SYNC_TRANSFER_CFM_T',['../group__connection.html#ga1221732a0910111253fee0166468e65c',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fset_5fdata_5frelated_5faddress_5fchanges_5fcfm_5ft_6549',['CL_DM_BLE_SET_DATA_RELATED_ADDRESS_CHANGES_CFM_T',['../group__connection.html#ga676704966e32ee24b7e53c77118f2d2d',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fset_5fext_5fadv_5fdata_5fcfm_5ft_6550',['CL_DM_BLE_SET_EXT_ADV_DATA_CFM_T',['../group__connection.html#ga55a73a65a430713d83fe134adc913bec',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fset_5fext_5fscan_5fparams_5fcfm_5ft_6551',['CL_DM_BLE_SET_EXT_SCAN_PARAMS_CFM_T',['../group__connection.html#ga3a4220686de547d33fbc6f9b34f5ce4f',1,'connection.h']]],
+  ['cl_5fdm_5fble_5fset_5fper_5fadv_5fparams_5fcfm_5ft_6552',['CL_DM_BLE_SET_PER_ADV_PARAMS_CFM_T',['../group__connection.html#ga345510631c0e70281b5fb324e6ae6f59',1,'connection.h']]],
+  ['cl_5fdm_5fulp_5fperiodic_5fadv_5fenable_5fcfm_5ft_6553',['CL_DM_ULP_PERIODIC_ADV_ENABLE_CFM_T',['../group__connection.html#ga1ad2119584a7024b897eaed72e6ea3f5',1,'connection.h']]],
+  ['connection_5fid_5ft_6554',['connection_id_t',['../group__gatt.html#gae60a2386f52d83828b6bffdfd055db32',1,'gatt.h']]]
+];

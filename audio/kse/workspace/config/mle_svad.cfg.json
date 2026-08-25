@@ -1,0 +1,83 @@
+{
+    "file_mgr_file": [
+        {
+            "filename": "resource/self_vad_ces.keai",
+            "usecase_id":1,
+            "auto_remove": 1,
+            "batch_reset_count": 0
+        }
+    ],
+    "stream": [
+        {
+            "interface": "file",
+            "type": "source",
+            "kwargs": {
+                "backing": "file",
+                "filename": "resource/input_svad.raw",
+                "sample_rate": 0,
+                "sample_width":8,
+                "frame_size":360,
+                "metadata_enable": true
+            }
+        },
+        {
+            "interface": "tester",
+            "type": "sink",
+            "kwargs": {
+                "backing": "file",
+                "filename": "tmp/output_svad.raw",
+                "sample_rate": 0,
+                "sample_width": 32,
+                "frame_size":1
+            }
+        }
+    ],
+    "endpoint": [
+        {
+            "interface": "file",
+            "type": "source",
+            "kwargs": {
+                "stream": 0
+            }
+        },
+        {
+            "interface": "tester",
+            "type": "sink",
+            "kwargs": {
+                "stream": 0
+            }
+        }
+    ],
+    "operator": [
+        {
+            "interface": "ML_ENGINE",
+            "args": [
+                [
+                    "SET_DATA_FORMAT",
+                    [
+                        13,
+                        13
+                    ]
+                ]
+            ]
+        }
+    ],
+    "graph": [
+        [
+            "stream0",
+            "endpoint0"
+        ],
+        [
+            "endpoint0",
+            "operator0i0"
+        ],
+        [
+            "operator0o0",
+            "endpoint1"
+        ],
+        [
+            "endpoint1",
+            "stream1"
+        ]
+    ]
+}

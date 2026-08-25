@@ -1,0 +1,25 @@
+var group__bt__domain =
+[
+    [ "Authentication", "group__authentication.html", "group__authentication" ],
+    [ "BR/EDR Sacn Manager", "group__bredr__scan__manager.html", "group__bredr__scan__manager" ],
+    [ "BT Device", "group__bt__device__domain.html", "group__bt__device__domain" ],
+    [ "Bandwidth Manager", "group__bandwidth__manager.html", "group__bandwidth__manager" ],
+    [ "BlueTooth pairing", "group__pairing.html", "group__pairing" ],
+    [ "Connection Manager", "group__connection__manager__domain.html", "group__connection__manager__domain" ],
+    [ "Connection Message Dispatcher", "group__connection__message__dispatcher.html", "group__connection__message__dispatcher" ],
+    [ "Device Database Serialiser", "group__device__database__serialiser.html", "group__device__database__serialiser" ],
+    [ "Device Information Service", "group__gatt__server__dis.html", "group__gatt__server__dis" ],
+    [ "Device PS Key", "group__device__pskey.html", "group__device__pskey" ],
+    [ "Device Sync", "group__device__sync.html", "group__device__sync" ],
+    [ "Device Sync PS Key", "group__device__sync__pskey.html", "group__device__sync__pskey" ],
+    [ "Fast Pair", "group__fast__pair__domain.html", "group__fast__pair__domain" ],
+    [ "Inquiry Manager", "group__inquiry__manager.html", "group__inquiry__manager" ],
+    [ "Key Sync", "group__key__sync.html", "group__key__sync" ],
+    [ "L2cap Manager", "group__l2cap__manager.html", "group__l2cap__manager" ],
+    [ "LE Advertising", "group__le__advertising__manager__new__api.html", null ],
+    [ "LE Advertising Manager", "group__le__advertising__manager.html", "group__le__advertising__manager" ],
+    [ "LE Scan Manager", "group__le__scan__manager.html", null ],
+    [ "Le_scan_manager_periodic", "group__le__scan__manager__periodic.html", null ],
+    [ "Peer pairing", "group__peer__pairing.html", "group__peer__pairing" ],
+    [ "Profiles", "group__profiles.html", "group__profiles" ]
+];

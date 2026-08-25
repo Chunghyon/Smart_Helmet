@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2020 Qualcomm Technologies International, Ltd.-->
+<!--Chain for USB Audio -->
+
+<chain name="CHAIN_INPUT_USB_STEREO" id="0" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="../headset_cap_ids.h"/>
+    <include_header name="kymera_chain_roles.h"/>
+
+    <operator name="OPR_USB_AUDIO_RX" id="CAP_ID_USB_AUDIO_RX">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT_0" terminal="0"/>
+        <source name="OUT_1" terminal="1"/>
+    </operator>
+
+    <input sink="OPR_USB_AUDIO_RX.IN" role="EPR_USB_FROM_HOST"/>
+    <output source="OPR_USB_AUDIO_RX.OUT_0" role="EPR_SOURCE_DECODED_PCM"/>
+    <output source="OPR_USB_AUDIO_RX.OUT_1" role="EPR_SOURCE_DECODED_PCM_RIGHT"/>
+</chain>

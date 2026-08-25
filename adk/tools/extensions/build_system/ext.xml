@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+    <ext_id>
+        <uuid></uuid>
+        <devkit></devkit>
+        <checksum></checksum>
+        <version></version>
+        <build></build>
+        <target>amd64</target>
+    </ext_id>
+    <ext_info>
+        <name>Build system</name>
+        <description>Select build system: make or scons</description>
+    </ext_info>
+    <commands type="move">
+        <env type="move">
+            <item type="replace" name="build_system">__BUILD_SYSTEM__=make</item>
+        </env>
+    </commands>
+</root>

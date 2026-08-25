@@ -1,0 +1,6 @@
+
+VARIANTS := ultra_quiet_dac debug
+
+# Include DEBUG
+CFLAGS_debug := -DDEBUG_PRINT_ENABLED
+CFLAGS_ultra_quiet_dac := -DAUDIO_OUTPUT_ULTRA_QUIET_DAC #Flag for ultra_quiet_dac which is available on QCC517x onwards IP 

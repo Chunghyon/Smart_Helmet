@@ -1,0 +1,10 @@
+{
+	"addon_name": "gaa",
+    "capability_project": "download_gva.x2p",
+    "provider_options": ["include_wuw"],
+	"models": [ "'3002': 'ok/cs_cz.ota'", "'3007': 'ok/fa_ir.ota'" , "'3009': 'ok/fi_fi.ota'", "'300B': 'ok/hr_hr.ota'", "'300I': 'ok/ro_ro.ota'", "'300L': 'ok/universal.ota'", "'300O': 'x/da_dk.ota'", "'300P': 'x/de_de.ota'", "'300Q': 'x/cmn.ota'", "'300R': 'x/en_all.ota'", "'300S': 'x/es_es.ota'", "'300T': 'x/fr_fr.ota'", "'300U': 'x/hi_in.ota'", "'300V': 'x/it_it.ota'", "'300W': 'x/ja_jp.ota'", "'300X': 'x/ko_kr.ota'", "'300Y': 'x/nb_no.ota'", "'300Z': 'x/nl_nl.ota'", "'300a': 'x/pt_br.ota'", "'300b': 'x/ru_ru.ota'", "'300c': 'x/sv_se.ota'", "'300d': 'x/universal.ota'", "'300e': 'x/vi_vn.ota'"],
+    "vendor_file": "\\\\root.pri\\fileroot\\Departments\\ACBU\\Shared\\Cambridge\\ACBU_Development\\internal_releases\\Voice_Assistant\\WuW_AOV\\2_dev\\GAA\\305587581.zip",
+	"selected_models": ["300R:x/en_all.ota"],
+	"default_model": "300R:x/en_all.ota"
+
+}

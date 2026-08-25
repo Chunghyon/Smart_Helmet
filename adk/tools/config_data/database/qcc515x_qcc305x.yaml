@@ -1,0 +1,18 @@
+CHIP_VERSION_ID: 0x4b
+CHIP_ID: QCC515X
+CHIP_ROM_VERSION:
+    rom_name: 1.2
+    rom_version: 0x0000
+SUBSYSTEM_INFO: 
+    curator: 
+        sdb_name: curator
+        xml_file: system/qcc515x_qcc305x/bin/mib/mib.xml
+    btss: 
+        sdb_name: bt
+        xml_file: bluetooth/qcc515x_qcc305x/bin/mib/mib.xml
+    apps0: 
+        sdb_name: app
+        xml_file: os/qcc515x_qcc305x/{os}/bin/mib/mib.xml
+    audio: 
+        sdb_name: audio
+        xml_file: audio/qcc515x_qcc305x/bin/mib/mib.xml

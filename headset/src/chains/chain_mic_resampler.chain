@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2020 Qualcomm Technologies International, Ltd.-->
+
+<chain name="CHAIN_MIC_RESAMPLER" id="0" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="kymera_chain_roles.h"/>
+
+    <operator name="OPR_MIC_RESAMPLER" id="CAP_ID_IIR_RESAMPLER">
+        <sink name="IN_REF" terminal="0"/>
+        <sink name="IN1" terminal="1"/>
+        <sink name="IN2" terminal="2"/>
+        <sink name="IN3" terminal="3"/>
+        <sink name="IN4" terminal="4"/>
+        <sink name="IN5" terminal="5"/>
+        <sink name="IN6" terminal="6"/>
+        <sink name="IN7" terminal="7"/>
+        <source name="OUT_REF" terminal="0"/>
+        <source name="OUT1" terminal="1"/>
+        <source name="OUT2" terminal="2"/>
+        <source name="OUT3" terminal="3"/>
+        <source name="OUT4" terminal="4"/>
+        <source name="OUT5" terminal="5"/>
+        <source name="OUT6" terminal="6"/>
+        <source name="OUT7" terminal="7"/>
+    </operator>
+
+    <input sink="OPR_MIC_RESAMPLER.IN_REF" role="EPR_AEC_RESAMPLER_IN_REF"/>
+    <input sink="OPR_MIC_RESAMPLER.IN1"    role="EPR_MIC_RESAMPLER_IN1"/>
+    <input sink="OPR_MIC_RESAMPLER.IN2"    role="EPR_MIC_RESAMPLER_IN2"/>
+    <input sink="OPR_MIC_RESAMPLER.IN3"    role="EPR_MIC_RESAMPLER_IN3"/>
+    <input sink="OPR_MIC_RESAMPLER.IN4"    role="EPR_MIC_RESAMPLER_IN4"/>
+    <input sink="OPR_MIC_RESAMPLER.IN5"    role="EPR_MIC_RESAMPLER_IN5"/>
+    <input sink="OPR_MIC_RESAMPLER.IN6"    role="EPR_MIC_RESAMPLER_IN6"/>
+    <input sink="OPR_MIC_RESAMPLER.IN7"    role="EPR_MIC_RESAMPLER_IN7"/>
+    <output source="OPR_MIC_RESAMPLER.OUT_REF" role="EPR_AEC_RESAMPLER_OUT_REF"/>
+    <output source="OPR_MIC_RESAMPLER.OUT1"    role="EPR_MIC_RESAMPLER_OUT1"/>
+    <output source="OPR_MIC_RESAMPLER.OUT2"    role="EPR_MIC_RESAMPLER_OUT2"/>
+    <output source="OPR_MIC_RESAMPLER.OUT3"    role="EPR_MIC_RESAMPLER_OUT3"/>
+    <output source="OPR_MIC_RESAMPLER.OUT4"    role="EPR_MIC_RESAMPLER_OUT4"/>
+    <output source="OPR_MIC_RESAMPLER.OUT5"    role="EPR_MIC_RESAMPLER_OUT5"/>
+    <output source="OPR_MIC_RESAMPLER.OUT6"    role="EPR_MIC_RESAMPLER_OUT6"/>
+    <output source="OPR_MIC_RESAMPLER.OUT7"    role="EPR_MIC_RESAMPLER_OUT7"/>
+</chain>

@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<settings>
+    <group name="mde#2/deploy"/>
+    <group name="mde#2/deploy/Run on Device">
+        <item name="deploy">
+            <item name="device">device://tc/usb2tc/110/qcc3044</item>
+        </item>
+        <item name="watches">
+            <item name="number">0</item>
+        </item>
+        <item name="preferredFormats">
+            <item name="number">0</item>
+        </item>
+        <item name="breakpoints">
+            <item name="number">0</item>
+        </item>
+    </group>
+    <group name="mde#1/deploy"/>
+    <group name="mde#1/deploy/Run on Device">
+        <item name="watches">
+            <item name="number">0</item>
+        </item>
+        <item name="preferredFormats">
+            <item name="number">0</item>
+        </item>
+        <item name="breakpoints">
+            <item name="number">0</item>
+        </item>
+        <item name="deploy">
+            <item name="device">device://trb/usb2trb/176244/qcc3044</item>
+        </item>
+    </group>
+    <group name="mde#4/deploy"/>
+    <group name="mde#4/deploy/Run on Device">
+        <item name="deploy">
+            <item name="device">device://trb/usb2trb/176244/qcc3084</item>
+        </item>
+    </group>
+    <group name="mde#3/deploy"/>
+    <group name="mde#3/deploy/Run on Device"/>
+</settings>

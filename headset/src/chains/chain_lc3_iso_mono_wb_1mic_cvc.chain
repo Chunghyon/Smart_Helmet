@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2022 Qualcomm Technologies International, Ltd.-->
+<!--Chain for 1 mic WB with CVC LE Unicast Voice Back channel-->
+
+<chain name="CHAIN_LC3_ISO_MONO_WB_1MIC_CVC" id="1" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="../headset_cap_ids.h"/>
+    <include_header name="kymera_chain_roles.h"/>
+
+    <operator name="OPR_RATE_ADJUST" id="CAP_ID_RATE_ADJUST" priority="medium">
+        <sink name="AEC_IN" terminal="0"/>
+        <sink name="MIC1_IN" terminal="1"/>
+        <source name="OUT1" terminal="0"/>
+        <source name="OUT2" terminal="1"/>
+    </operator>
+
+    <operator name="OPR_CVC_SEND" id="CAP_ID_CVCHS1MIC_SEND_WB" priority="medium">
+        <sink name="AEC_IN" terminal="0"/>
+        <sink name="MIC1_IN" terminal="1"/>
+        <source name="OUT" terminal="0"/>
+    </operator>
+
+    <operator name="OPR_LC3_ENCODE_SCO_ISO" id="CAP_ID_LC3_SCO_ISO_ENC" priority="medium">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT" terminal="0"/>
+    </operator>
+
+    <input sink="OPR_RATE_ADJUST.AEC_IN" role="EPR_RATE_ADJUST_REF_IN"/>
+    <input sink="OPR_RATE_ADJUST.MIC1_IN" role="EPR_RATE_ADJUST_IN1"/>   
+    <connection source="OPR_RATE_ADJUST.OUT1" sink="OPR_CVC_SEND.AEC_IN"/>
+    <connection source="OPR_RATE_ADJUST.OUT2" sink="OPR_CVC_SEND.MIC1_IN"/>
+    <connection source="OPR_CVC_SEND.OUT" sink="OPR_LC3_ENCODE_SCO_ISO.IN"/>
+    <output source="OPR_LC3_ENCODE_SCO_ISO.OUT" role="EPR_ISO_TO_AIR_LEFT"/>
+
+</chain>

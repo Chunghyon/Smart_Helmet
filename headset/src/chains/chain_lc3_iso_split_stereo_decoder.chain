@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2022 Qualcomm Technologies International, Ltd.-->
+<!--Chain for LE Unicast/Broadcast Split Stereo -->
+
+<chain name="CHAIN_LC3_ISO_SPLIT_STEREO_DECODER" id="0" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="../headset_cap_ids.h"/>
+    <include_header name="kymera_chain_roles.h"/>
+
+    <operator name="OPR_LC3_DECODE_SCO_ISO" id="CAP_ID_LC3_SCO_ISO_DEC" processor="P0,P1">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT_L" terminal="0"/>
+    </operator>
+
+    <operator name="OPR_LC3_DECODE_SCO_ISO_RIGHT" id="CAP_ID_LC3_SCO_ISO_DEC" processor="P0,P1">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT_R" terminal="0"/>
+    </operator>
+
+    <input sink="OPR_LC3_DECODE_SCO_ISO.IN" role="EPR_ISO_FROM_AIR_LEFT"/>
+    <input sink="OPR_LC3_DECODE_SCO_ISO_RIGHT.IN" role="EPR_ISO_FROM_AIR_RIGHT"/>
+    <output source="OPR_LC3_DECODE_SCO_ISO.OUT_L" role="EPR_SOURCE_DECODED_PCM"/>
+    <output source="OPR_LC3_DECODE_SCO_ISO_RIGHT.OUT_R" role="EPR_SOURCE_DECODED_PCM_RIGHT"/>
+</chain>

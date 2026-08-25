@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2020 Qualcomm Technologies International, Ltd.-->
+
+<chain name="CHAIN_INPUT_WIRED_ANALOG_STEREO" id="0" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="../headset_cap_ids.h"/>
+    <include_header name="kymera_chain_roles.h"/>
+	
+	<operator name="OPR_LATENCY_BUFFER" id="CAP_ID_TTP_PASS">
+        <sink name="IN_L" terminal="0"/>
+		<sink name="IN_R" terminal="1"/>
+        <source name="OUT_L" terminal="0"/>
+		<source name="OUT_R" terminal="1"/>
+    </operator>
+
+    <input sink="OPR_LATENCY_BUFFER.IN_L" role="EPR_WIRED_STEREO_INPUT_L"/>
+    <input sink="OPR_LATENCY_BUFFER.IN_R" role="EPR_WIRED_STEREO_INPUT_R"/>	
+	
+    <output source="OPR_LATENCY_BUFFER.OUT_L" role="EPR_SOURCE_DECODED_PCM"/>
+    <output source="OPR_LATENCY_BUFFER.OUT_R" role="EPR_SOURCE_DECODED_PCM_RIGHT"/>
+</chain>

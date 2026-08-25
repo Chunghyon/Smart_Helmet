@@ -1,0 +1,85 @@
+{
+    "file_mgr_file": [
+        {
+            "filename": "resource/basic_model.keai",
+            "usecase_id":1,
+            "auto_remove": 1,
+            "batch_reset_count": 0
+        }
+    ],
+    "stream": [
+        {
+            "interface": "pcm",
+            "type": "source",
+            "kwargs": {
+                "backing": "file",
+                "filename": "resource/input_basic_model.wav",
+                "sample_rate": 16000,
+                "sample_width": 16
+            }
+        },
+        {
+            "interface": "pcm",
+            "type": "sink",
+            "kwargs": {
+                "backing": "file",
+                "filename": "tmp/output_basic_model.wav",
+                "sample_rate": 16000,
+                "sample_width": 16
+            }
+        }
+    ],
+    "endpoint": [
+        {
+            "interface": "pcm",
+            "type": "source",
+            "kwargs": {
+                "instance": 0,
+                "channel": 0,
+                "pcm_sync_rate": 16000,
+                "pcm_sample_rising_edge": 0,
+                "pcm_master_mode": 1,
+                "pcm_slot_count": 4,
+                "pcm_sample_format": 1,
+                "pcm_master_clock_rate": 3072000
+            }
+        },
+        {
+            "interface": "pcm",
+            "type": "sink",
+            "kwargs": {
+                "instance": 0,
+                "channel": 0,
+                "pcm_sync_rate": 16000,
+                "pcm_sample_rising_edge": 0,
+                "pcm_master_mode": 1,
+                "pcm_slot_count": 4,
+                "pcm_sample_format": 1,
+                "pcm_master_clock_rate": 3072000
+            }
+        }
+    ],
+    "operator": [
+        {
+            "interface": 51200
+        }
+    ],
+    "graph": [
+        [
+            "stream0",
+            "endpoint0"
+        ],
+        [
+            "endpoint0",
+            "operator0i0"
+        ],
+        [
+            "operator0o0",
+            "endpoint1"
+        ],
+        [
+            "endpoint1",
+            "stream1"
+        ]
+    ]
+}

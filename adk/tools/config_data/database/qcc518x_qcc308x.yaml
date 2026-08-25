@@ -1,0 +1,19 @@
+
+CHIP_VERSION_ID: 0x50
+CHIP_ID: QCC518X
+CHIP_ROM_VERSION:
+    rom_name: 1.0
+    rom_version: 0x0000
+SUBSYSTEM_INFO:
+    curator:
+        sdb_name: curator
+        xml_file: system/qcc518x_qcc308x/bin/mib/mib.xml
+    btss:
+        sdb_name: bt
+        xml_file: bluetooth/qcc518x_qcc308x/bin/mib/mib.xml
+    apps0: 
+        sdb_name: app
+        xml_file: os/qcc518x_qcc308x/{os}/bin/mib/mib.xml
+    audio: 
+        sdb_name: audio
+        xml_file: audio/qcc518x_qcc308x/bin/mib/mib.xml

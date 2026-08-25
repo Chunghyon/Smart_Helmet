@@ -1,0 +1,5 @@
+var struct_c_l___d_m___b_l_e___p_e_r___a_d_v___r_e_a_d___m_a_x___a_d_v___d_a_t_a___l_e_n___c_f_m___t =
+[
+    [ "adv_handle", "struct_c_l___d_m___b_l_e___p_e_r___a_d_v___r_e_a_d___m_a_x___a_d_v___d_a_t_a___l_e_n___c_f_m___t.html#a8039e49dba2ddf5b20f127b7820a9278", null ],
+    [ "max_adv_data", "struct_c_l___d_m___b_l_e___p_e_r___a_d_v___r_e_a_d___m_a_x___a_d_v___d_a_t_a___l_e_n___c_f_m___t.html#a499564c240a52aca70b25c805faf8904", null ]
+];

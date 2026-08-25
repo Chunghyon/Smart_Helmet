@@ -1,0 +1,51 @@
+{
+    "file_mgr_file": [
+        {
+            "filename": "resource/self_vad_ces.keai",
+            "usecase_id":1,
+            "auto_remove": 1,
+            "batch_reset_count": 0
+        }
+    ],
+    "stream": [
+        {
+            "interface": "pcm",
+            "type": "source",
+            "kwargs": {
+                "backing": "file",
+                "filename": "resource/input_svad.wav"
+            }
+        }
+    ],
+    "endpoint": [
+        {
+            "interface": "pcm",
+            "type": "source",
+            "kwargs": {
+                "instance": 0,
+                "channel": 0,
+                "pcm_sync_rate": 16000,
+                "pcm_sample_rising_edge": 0,
+                "pcm_master_mode": 1,
+                "pcm_slot_count": 4,
+                "pcm_sample_format": 1,
+                "pcm_master_clock_rate": 3072000
+            }
+        }
+    ],
+    "operator": [
+        {
+            "interface": "DOWNLOAD_ML_EXAMPLE_SVAD"
+        }
+    ],
+    "graph": [
+        [
+            "stream0",
+            "endpoint0"
+        ],
+        [
+            "endpoint0",
+            "operator0i0"
+        ]
+    ]
+}

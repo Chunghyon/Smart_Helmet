@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2020 Qualcomm Technologies International, Ltd.-->
+<!--Chain for USB Voice RX with mono channel -->
+
+<chain name="CHAIN_USB_VOICE_RX_MONO" id="0" generate_operator_roles_enum="False" generate_endpoint_roles_enum="False">
+
+    <include_header name="../headset_cap_ids.h"/>
+    <include_header name="kymera_chain_roles.h"/>
+
+    <operator name="OPR_USB_AUDIO_RX" id="CAP_ID_USB_AUDIO_RX" priority="medium">
+        <sink name="USB_IN" terminal="0"/>
+        <source name="OUT" terminal="0"/>
+    </operator>
+
+    <operator name="OPR_SPEAKER_RESAMPLER" id="CAP_ID_IIR_RESAMPLER">
+        <sink name="IN" terminal="0"/>
+        <source name="OUT" terminal="0"/>
+    </operator>
+
+
+    <input sink="OPR_USB_AUDIO_RX.USB_IN" role="EPR_USB_FROM_HOST"/>
+    <output source="OPR_SPEAKER_RESAMPLER.OUT" role="EPR_USB_RX_RESAMPLER_OUT"/>
+
+    <connection source="OPR_USB_AUDIO_RX.OUT" sink="OPR_SPEAKER_RESAMPLER.IN"/>
+
+</chain>
+
+

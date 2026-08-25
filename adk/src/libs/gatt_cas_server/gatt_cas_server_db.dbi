@@ -1,0 +1,37 @@
+/******************************************************************************
+ *  Copyright (c) 2021 Qualcomm Technologies International, Ltd.
+ *  %%version
+ *  %%appversion
+ *
+ *  FILE
+ *      gatt_cas_server_db.dbi
+ *
+ *  DESCRIPTION
+ *
+ *      This file defines the Common Audio Service in JSON format. This file is
+ *      included in the main application data base file which is used to
+ *      produce ATT flat data base. 
+ *
+ *****************************************************************************/
+
+#ifndef __GATT_CAS_SERVER_DB_DBI__
+#define __GATT_CAS_SERVER_DB_DBI__
+
+#include "gatt_cas_server_uuids.h"
+
+/* Primary service declaration of Common Audio Service */
+#define OPEN_COMMON_AUDIO_SERVICE \
+
+primary_service { \
+    uuid : UUID_COMMON_AUDIO_SERVICE, \
+    name : "COMMON_AUDIO_SERVICE"
+
+    /* There are no characteristics in this service. */
+#define CLOSE_COMMON_AUDIO_SERVICE }
+
+#ifdef GATT_DBI_LIB
+  OPEN_COMMON_AUDIO_SERVICE
+  CLOSE_COMMON_AUDIO_SERVICE
+#endif
+
+#endif /* __GATT_CAS_SERVER_DB_DBI__ */

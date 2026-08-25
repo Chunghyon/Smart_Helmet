@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--Copyright (c) 2021-2022 Qualcomm Technologies International, Ltd.-->
+
+<types name="hidd_profile">
+    <include_header name="marshal_common.h"/>
+
+    <source>
+#include "domain_marshal_types.h"
+    </source>
+
+    <typedef_enum name="hiddState" basic="true" doc="HIDD instance state machine states">
+        /*! Uninitialized */
+        HIDD_STATE_UNINITIALIZED,    
+        /*! Profile initialized, SDP registered */
+        HIDD_STATE_INITIALIZED,
+        /*! Waiting for incoming connection */
+        HIDD_STATE_CONNECT_ACCEPT,
+        /*! Connecting to remote device */
+        HIDD_STATE_CONNECTING,
+        /*! Connected, no operation in progress */
+        HIDD_STATE_DISCONNECTING,
+        /*! Disconnected */
+        HIDD_STATE_DISCONNECTED,
+        /*! Connected, no operation in progress */
+        HIDD_STATE_CONNECTED_IDLE,
+        /*! Connected, Sending data over interrupt Channel */
+        HIDD_STATE_CONNECTED_SENDING_DATA, 
+    </typedef_enum>
+
+    <typedef_struct name="hiddInstanceTaskData" doc="HIDD instance structure, contains all the information for a HIDD connection">
+        <member marshal="false" doc="HIDD task">TaskData task</member>
+        <member marshal="true" doc="Current state">hiddState state</member>
+        <member marshal="false" doc="Address of connected Host">bdaddr hidd_bd_addr</member>
+        <member marshal="false" doc="Address of requested outgoing connection">bdaddr req_bd_addr</member>
+        <member marshal="true" doc="Connection identifier">uint32 connection_id</member>
+        <member marshal="false" doc="Connection request pending">bool connect_requested</member>
+        <member marshal="false" doc="Remote disconnected. If false, locally disconnected">bool remote_disconnected</member>
+        <member marshal="false" doc="Registered SDP Data">const uint8* sdp_data</member>
+        <member marshal="false" doc="Registered SDP Data Len">uint16 sdp_len</member>
+    </typedef_struct>
+</types>
