@@ -1436,6 +1436,17 @@
     <file path="../../src/peripherals/thermistor_config.h"/>
     <file path="../../src/peripherals/thermistor_lp4549652p3m.h"/>
     <file path="../../src/peripherals/thermistor_ncp15xh103.h"/>
+    <file path="../../src/smart_helmet/smart_helmet.c"/>
+    <file path="../../src/smart_helmet/smart_helmet.h"/>
+    <file path="../../src/smart_helmet/smart_helmet_config.h"/>
+    <file path="../../src/smart_helmet/smart_helmet_i2c.c"/>
+    <file path="../../src/smart_helmet/smart_helmet_i2c.h"/>
+    <file path="../../src/smart_helmet/smart_helmet_adc.c"/>
+    <file path="../../src/smart_helmet/smart_helmet_adc.h"/>
+    <file path="../../src/smart_helmet/smart_helmet_uart.c"/>
+    <file path="../../src/smart_helmet/smart_helmet_uart.h"/>
+    <file path="../../src/smart_helmet/smart_helmet_sensors.c"/>
+    <file path="../../src/smart_helmet/smart_helmet_sensors.h"/>
     <targets>
         <target name="device"/>
     </targets>

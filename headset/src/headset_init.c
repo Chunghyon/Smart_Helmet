@@ -11,6 +11,11 @@
 #define HEADSET_INIT_C
 
 #include "headset_init.h"
+
+#ifdef INCLUDE_SMART_HELMET
+#include "smart_helmet.h"
+#endif
+
 #include "headset_config.h"
 #include "headset_sm.h"
 #include "headset_setup_audio.h"
@@ -524,6 +529,15 @@ static bool headset_FeatureManagerInit(Task init_task)
 }
 
 /*! \brief Table of initialisation functions */
+
+#ifdef INCLUDE_SMART_HELMET
+static bool headset_SmartHelmetInit(Task task)
+{
+    UNUSED(task);
+    return SmartHelmet_Init(appGetAppTask());
+}
+#endif
+
 static const system_state_step_t headsetInitTable[] =
 {
 #ifdef INIT_DEBUG
@@ -687,6 +701,10 @@ static const system_state_step_t headsetInitTable[] =
 
 #ifdef INCLUDE_SWIFT_PAIR
     {SwiftPair_Init, 0, NULL},
+#endif
+
+#ifdef INCLUDE_SMART_HELMET
+    {headset_SmartHelmetInit, 0, NULL},
 #endif
 };
 
