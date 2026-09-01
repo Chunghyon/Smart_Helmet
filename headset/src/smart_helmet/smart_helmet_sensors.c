@@ -116,13 +116,15 @@ static bool shReadMlx90614(uint8 ram_addr, int16 *out_x100)
 
 void SmartHelmet_SensorsInit(void)
 {
-	DEBUG_LOG_INFO("%s", __func__);
+    DEBUG_LOG_INFO("%s: enter", __func__);
     sh_sensors.ccs811_ok = FALSE;
     sh_sensors.lis3dh_ok = FALSE;
     sh_sensors.mlx90614_ok = FALSE;
 
+    DEBUG_LOG_INFO("%s: probe CCS811 @0x%02x", __func__, SMART_HELMET_ADDR_CCS811);
     if (shProbeCcs811())
     {
+        DEBUG_LOG_INFO("%s: CCS811 present, init", __func__);
         sh_sensors.ccs811_ok = shInitCcs811();
         DEBUG_LOG_INFO("SmartHelmet: CCS811 (CJMCU-8118) %s",
                        sh_sensors.ccs811_ok ? "ok" : "init fail");
@@ -133,8 +135,10 @@ void SmartHelmet_SensorsInit(void)
                        SMART_HELMET_ADDR_CCS811);
     }
 
+    DEBUG_LOG_INFO("%s: probe LIS3DH @0x%02x", __func__, SMART_HELMET_ADDR_LIS3DH);
     if (shProbeLis3dh())
     {
+        DEBUG_LOG_INFO("%s: LIS3DH present, init", __func__);
         sh_sensors.lis3dh_ok = shInitLis3dh();
         DEBUG_LOG_INFO("SmartHelmet: LIS3DH %s",
                        sh_sensors.lis3dh_ok ? "ok" : "init fail");
@@ -145,6 +149,7 @@ void SmartHelmet_SensorsInit(void)
                        SMART_HELMET_ADDR_LIS3DH);
     }
 
+    DEBUG_LOG_INFO("%s: probe MLX90614 @0x%02x", __func__, SMART_HELMET_ADDR_MLX90614);
     /* MLX90614 has no WHO_AM_I — try a temperature read */
     if (shReadMlx90614(MLX90614_RAM_TA, &sh_sensors.ambient_temp_x100))
     {
@@ -164,7 +169,8 @@ void SmartHelmet_SensorsInit(void)
             SMART_HELMET_SSD1315_ON_I2C1 ? smart_helmet_i2c_bus_1
                                         : smart_helmet_i2c_bus_0;
         uint8 dummy = 0x00;
-        /* OLED init sequence is display-specific; probe with a NOP write */
+        DEBUG_LOG_INFO("%s: probe SSD1315 @0x%02x on I2C%u",
+                       __func__, SMART_HELMET_ADDR_SSD1315, (unsigned)bus);
         if (SmartHelmet_I2cWrite(bus, SMART_HELMET_ADDR_SSD1315, &dummy, 1))
         {
             DEBUG_LOG_INFO("SmartHelmet: SSD1315 probe ok on I2C%u", (unsigned)bus);
@@ -175,6 +181,11 @@ void SmartHelmet_SensorsInit(void)
         }
     }
 #endif
+    DEBUG_LOG_INFO("%s: exit ccs=%u lis=%u mlx=%u",
+                   __func__,
+                   sh_sensors.ccs811_ok,
+                   sh_sensors.lis3dh_ok,
+                   sh_sensors.mlx90614_ok);
 }
 
 void SmartHelmet_SensorsPoll(void)
