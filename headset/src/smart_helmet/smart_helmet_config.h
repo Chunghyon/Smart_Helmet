@@ -69,10 +69,10 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /* Map each net to a vm_adc_source_type available on the pad used.            */
 /* Default uses LED-pad ADCs; change to match PCB.                            */
 /* -------------------------------------------------------------------------- */
-#define SMART_HELMET_ADC_SENS_IN           (adcsel_led0)  /* SENS_IN */
-#define SMART_HELMET_ADC_CO                (adcsel_led1)  /* CO (MICS-6814) */
-#define SMART_HELMET_ADC_NH3               (adcsel_led2)  /* NH3 */
-#define SMART_HELMET_ADC_NO2               (adcsel_led3)  /* NO2 */
+#define SMART_HELMET_ADC_SENS_IN           (adcsel_led4)  /* SENS_IN */
+#define SMART_HELMET_ADC_CO                (adcsel_led0)  /* CO (MICS-6814) */
+#define SMART_HELMET_ADC_NH3               (adcsel_led1)  /* NH3 */
+#define SMART_HELMET_ADC_NO2               (adcsel_led2)  /* NO2 */
 
 /*! Extra settling time after enabling sensor bias (ms), if any */
 #define SMART_HELMET_ADC_SETTLE_MS         (5)
