@@ -91,3 +91,32 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_TX_BUF_MIN      (64)
 
 #endif /* SMART_HELMET_CONFIG_H */
+
+/* -------------------------------------------------------------------------- */
+/* Vitals proxy (LIS3DH + PD-V12 / SENS_IN) — trend only, not clinical HR    */
+/* -------------------------------------------------------------------------- */
+#ifndef SMART_HELMET_ENABLE_VITALS_PROXY
+#define SMART_HELMET_ENABLE_VITALS_PROXY   (1)
+#endif
+
+/*! LIS3DH sample rate assumed by the proxy (Hz). Match SensorsPoll cadence. */
+#define SMART_HELMET_VITALS_FS_HZ          (25)
+
+/*! Motion gate: accel magnitude RMS above this (mg) => ACTIVITY */
+#define SMART_HELMET_MOTION_RMS_MG         (80)
+
+/*! Samples in short motion window (~1 s at 25 Hz) */
+#define SMART_HELMET_MOTION_WIN            (25)
+
+/*! Samples in band-energy window (~4 s) */
+#define SMART_HELMET_BAND_WIN              (100)
+
+/*! Baseline EMA time constant in windows (larger = slower baseline) */
+#define SMART_HELMET_BASELINE_ALPHA_Q8     (16)  /* alpha = 16/256 ≈ 0.06 */
+
+/*! Relative rise/fall thresholds vs baseline (percent) */
+#define SMART_HELMET_TREND_UP_PCT          (25)
+#define SMART_HELMET_TREND_DOWN_PCT        (20)
+
+/*! Consecutive calm windows required before trend is trusted */
+#define SMART_HELMET_CALM_WINDOWS_MIN      (3)

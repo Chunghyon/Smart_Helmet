@@ -3,7 +3,7 @@
     <group name="mde#2/debug"/>
     <group name="mde#2/debug/Run on Device">
         <item name="deploy">
-            <item name="device">device://tc/usb2tc/110/qcc3044</item>
+            <item name="device">device://trb/usb2trb/176244/qcc3044</item>
         </item>
         <item name="watches">
             <item name="number">0</item>

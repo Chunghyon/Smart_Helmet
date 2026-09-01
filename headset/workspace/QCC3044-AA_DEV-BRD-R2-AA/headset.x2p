@@ -1447,6 +1447,8 @@
     <file path="../../src/smart_helmet/smart_helmet_uart.h"/>
     <file path="../../src/smart_helmet/smart_helmet_sensors.c"/>
     <file path="../../src/smart_helmet/smart_helmet_sensors.h"/>
+    <file path="../../src/smart_helmet/smart_helmet_vitals.c"/>
+    <file path="../../src/smart_helmet/smart_helmet_vitals.h"/>
     <targets>
         <target name="device"/>
     </targets>

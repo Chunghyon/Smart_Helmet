@@ -5,6 +5,7 @@
 
 #include "smart_helmet.h"
 #include "smart_helmet_sensors.h"
+#include "smart_helmet_vitals.h"
 
 #include <message.h>
 #include <logging.h>
@@ -53,6 +54,7 @@ bool SmartHelmet_Init(Task client_task)
     }
 
     SmartHelmet_SensorsInit();
+    SmartHelmet_VitalsInit();
 
     sh_ready = TRUE;
     DEBUG_LOG_INFO("SmartHelmet: interfaces ready");
@@ -87,6 +89,29 @@ void SmartHelmet_PollSensors(void)
     }
     SmartHelmet_AdcRequestScan();
     SmartHelmet_SensorsPoll();
+
+    /* Feed LIS3DH into vitals proxy (raw LSB ~ mg scale depends on FS;
+     * treat as relative units until full-scale config is applied). */
+    {
+        const smart_helmet_sensor_data_t *s = SmartHelmet_SensorsGetData();
+        if (s && s->lis3dh_ok)
+        {
+            SmartHelmet_VitalsPushAccel(s->lis3dh_x, s->lis3dh_y, s->lis3dh_z);
+        }
+        {
+            const smart_helmet_adc_sample_t *adc = SmartHelmet_AdcGetLastSample();
+            if (adc && adc->valid[smart_helmet_adc_sens_in])
+            {
+                SmartHelmet_VitalsPushSensInMv(adc->millivolts[smart_helmet_adc_sens_in]);
+            }
+        }
+        SmartHelmet_VitalsProcess();
+    }
+}
+
+void SmartHelmet_VitalsTick(void)
+{
+    SmartHelmet_VitalsProcess();
 }
 
 bool SmartHelmet_WisunSend(const uint8 *data, uint16 len)

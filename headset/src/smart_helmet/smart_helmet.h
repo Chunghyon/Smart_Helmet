@@ -18,6 +18,7 @@ Schematic: SMART_HELMET_260816_1.DSN
 #include "smart_helmet_i2c.h"
 #include "smart_helmet_adc.h"
 #include "smart_helmet_uart.h"
+#include "smart_helmet_vitals.h"
 
 /*! \brief One-time bring-up of all enabled interfaces. */
 bool SmartHelmet_Init(Task client_task);
@@ -36,5 +37,8 @@ void SmartHelmet_PollSensors(void);
 
 /*! \brief Send a frame to the Wi-SUN module. */
 bool SmartHelmet_WisunSend(const uint8 *data, uint16 len);
+
+/*! \brief Run vitals proxy once (after accel/SENS samples were pushed). */
+void SmartHelmet_VitalsTick(void);
 
 #endif /* SMART_HELMET_H */
