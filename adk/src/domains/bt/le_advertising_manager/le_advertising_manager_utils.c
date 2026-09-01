@@ -177,7 +177,7 @@ void leAdvertisingManager_SetBlockingCondition(uint16 condition)
 {
     adv_mgr_task_data_t *adv_task_data = AdvManagerGetTaskData();
 
-    DEBUG_LOG_ALWAYS("leAdvertisingManager_SetBlockingCondition enum:le_adv_blocking_condition_t:%u->enum:le_adv_blocking_condition_t:%u",
+	DEBUG_LOG("leAdvertisingManager_SetBlockingCondition enum:le_adv_blocking_condition_t:%u->enum:le_adv_blocking_condition_t:%u",
               leAdvertisingManager_ConvertUintToBlockingCondition(adv_task_data->blockingCondition),
               leAdvertisingManager_ConvertUintToBlockingCondition(condition));
 
@@ -188,7 +188,7 @@ bool leAdvertisingManager_CheckBlockingCondition(uint16 condition)
 {
     adv_mgr_task_data_t *adv_task_data = AdvManagerGetTaskData();
 
-    DEBUG_LOG_ALWAYS("leAdvertisingManager_CheckBlockingCondition Is enum:le_adv_blocking_condition_t:%u Checking enum:le_adv_blocking_condition_t:%u",
+	DEBUG_LOG("leAdvertisingManager_CheckBlockingCondition Is enum:le_adv_blocking_condition_t:%u Checking enum:le_adv_blocking_condition_t:%u",
               leAdvertisingManager_ConvertUintToBlockingCondition(adv_task_data->blockingCondition),
               leAdvertisingManager_ConvertUintToBlockingCondition(condition));
 

@@ -20,10 +20,10 @@ if %errorlevel% neq 0 (
 set "PYTHON_PATH=C:\qtil\ADK_Toolkit_1.2.16.21_x64\tools\python27"
 set "TOOLKIT_PATH=C:\qtil\ADK_Toolkit_1.2.16.21_x64"
 set "UBUILD_PY=C:\qtil\ADK_Toolkit_1.2.16.21_x64\tools\ubuild\ubuild.py"
-set "SOURCE_PATH=D:\Projects\Projects_Qualcomm\HECA_11BCBe\headset\src"
-set "PROJECT_PATH=D:\Projects\Projects_Qualcomm\HECA_11BCBe\headset\workspace\QCC3044-AA_DEV-BRD-R2-AA"
-set "HYDRA_OS_PROJECT=D:\Projects\Projects_Qualcomm\HECA_11BCBe\os\qcc514x_qcc304x\hydra_os\src\fw\src\os.x2p"
-set "LIB_PROJECT=D:\Projects\Projects_Qualcomm\HECA_11BCBe\adk\src\libs\libs_qcc514x_qcc304x.x2p"
+set "SOURCE_PATH=D:\Projects\Projects_Qualcomm\Smart_helmet\headset\src"
+set "PROJECT_PATH=D:\Projects\Projects_Qualcomm\Smart_helmet\headset\workspace\QCC3044-AA_DEV-BRD-R2-AA"
+set "HYDRA_OS_PROJECT=D:\Projects\Projects_Qualcomm\Smart_helmet\os\qcc514x_qcc304x\hydra_os\src\fw\src\os.x2p"
+set "LIB_PROJECT=D:\Projects\Projects_Qualcomm\Smart_helmet\adk\src\libs\libs_qcc514x_qcc304x.x2p"
 set "BLUESUITE_PATH=C:\Program Files (x86)\QTIL\BlueSuite 4.0.9"
 set "BUILD_PATH=%PROJECT_PATH%\depend_%APP_NAME%_%APP_TYPE%_qcc514x_qcc304x"
 
@@ -31,7 +31,7 @@ for /F "tokens=5" %%a in ('findstr build_id_number %PROJECT_PATH%\build_id_str.c
 for /F "tokens=1" %%a in ('echo %PRE_EXTRACT:~-13,10%') do set "APP_BUILD_ID=%%a"
 
 set "APP_NEW=%APP_NAME%_%APP_TYPE%_test"
-set "OUT_FOLDER=D:\Projects\Projects_Qualcomm\HECA_11BCBe\0.build\test"
+set "OUT_FOLDER=D:\Projects\Projects_Qualcomm\Smart_helmet\0.build\test"
 
 set "XUV_TMP_PATH=%PROJECT_PATH%\image\tmp"
 if exist "%OUT_FOLDER%"\ (

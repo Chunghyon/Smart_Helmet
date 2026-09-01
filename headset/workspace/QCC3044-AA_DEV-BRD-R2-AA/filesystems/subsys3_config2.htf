@@ -1,28 +1,29 @@
 file=audio2
 
 # Select PIOs for I2S interface 0: SCK, WS, MCLK, SD_OUT, SD_IN.
-PcmPioConfig = [10 11 ff 12 13]
+#PcmPioConfig = [10 11 0f 12 13]
+PcmPioConfig = [fe fe fe fe fe]
 
 # Select PIOs for I2S interface 1: SCK, WS, MCLK, SD_OUT, SD_IN.
-Pcm1PioConfig = [3E 3D 36 3A 38]
+#Pcm1PioConfig = [10 11 ff 12 13]
 
-DigMic0G722FilterEnable = true
-DigMic0G722FirEnable = true
-DigMic0ChanSwap = false
-DigMic0ClockRate = 4000
-DigMic0PioConfig = [ff ff]
+#DigMic0G722FilterEnable = true
+#DigMic0G722FirEnable = true
+#DigMic0ChanSwap = false
+#DigMic0ClockRate = 4000
+#DigMic0PioConfig = [ff ff]
 
-DigMic1G722FilterEnable = true
-DigMic1G722FirEnable = true
-DigMic1ChanSwap = false
-DigMic1ClockRate = 4000
-DigMic1PioConfig = [ff ff]
+#DigMic1G722FilterEnable = true
+#DigMic1G722FirEnable = true
+#DigMic1ChanSwap = false
+#DigMic1ClockRate = 4000
+#DigMic1PioConfig = [ff ff]
 
-DigMic2G722FilterEnable = true
-DigMic2G722FirEnable = true
-DigMic2ChanSwap = false
-DigMic2ClockRate = 4000
-DigMic2PioConfig = [ff ff]
+#DigMic2G722FilterEnable = true
+#DigMic2G722FirEnable = true
+#DigMic2ChanSwap = false
+#DigMic2ClockRate = 4000
+#DigMic2PioConfig = [ff ff]
 
 CodecOutputDisableTimeout = 28000000
 

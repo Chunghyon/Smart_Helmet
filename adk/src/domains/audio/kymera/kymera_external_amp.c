@@ -67,11 +67,11 @@ void appKymeraExternalAmpControl(bool enable)
            to call OperatorFrameworkEnable() as audio S/S is still powered on from previous time */
         if(MessageCancelFirst(&theKymera->task, KYMERA_INTERNAL_AUDIO_SS_DISABLE))
         {
-            DEBUG_LOG("appKymeraExternalAmpControl, there is already a client for the audio SS");
+			DEBUG_LOG_INFO("appKymeraExternalAmpControl, there is already a client for the audio SS");
         }
         else
         {
-            DEBUG_LOG("appKymeraExternalAmpControl, adding a client to the audio SS");
+			DEBUG_LOG_INFO("appKymeraExternalAmpControl, adding a client to the audio SS");
             OperatorsFrameworkEnable();
         }
 
@@ -83,13 +83,13 @@ void appKymeraExternalAmpControl(bool enable)
         {
             OperatorsFrameworkDisable();
             audio_ss_client_count--;
-            DEBUG_LOG("appKymeraExternalAmpControl, removed audio source, count is %d", audio_ss_client_count);
+			DEBUG_LOG_INFO("appKymeraExternalAmpControl, removed audio source, count is %d", audio_ss_client_count);
         }
         else
         {
             /* If we're disabling the amp then send a timed message that will turn off the audio s/s later rather than
             immediately */
-            DEBUG_LOG("appKymeraExternalAmpControl, sending later KYMERA_INTERNAL_AUDIO_SS_DISABLE, count is %d", audio_ss_client_count);
+			DEBUG_LOG_INFO("appKymeraExternalAmpControl, sending later KYMERA_INTERNAL_AUDIO_SS_DISABLE, count is %d", audio_ss_client_count);
             MessageSendLater(&theKymera->task, KYMERA_INTERNAL_AUDIO_SS_DISABLE, NULL, appKymeraDacDisconnectionDelayMs());
             audio_ss_client_count = 0;
         }

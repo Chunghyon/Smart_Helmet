@@ -26,7 +26,8 @@
     UI_INPUT(ui_input_voice_call_cycle) \
     UI_INPUT(ui_input_voice_call_join_calls) \
     UI_INPUT(ui_input_voice_call_join_calls_and_hang_up) \
-    UI_INPUT(ui_input_toggle_play_pause = UI_INPUTS_MEDIA_PLAYER_MESSAGE_BASE)  \
+	UI_INPUT(ui_input_no_action) \
+	UI_INPUT(ui_input_toggle_play_pause = UI_INPUTS_MEDIA_PLAYER_MESSAGE_BASE)  \
     UI_INPUT(ui_input_play)  \
     UI_INPUT(ui_input_pause)  \
     UI_INPUT(ui_input_pause_all)  \

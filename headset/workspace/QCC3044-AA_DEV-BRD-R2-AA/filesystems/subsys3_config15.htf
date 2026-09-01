@@ -1,0 +1,9 @@
+file=audio15
+
+Codec0UseClassABAmplifier = true
+
+#Gain for the first codec output Output gain in approximate 3dB steps, with 15 corresponding to 0dB,
+#lower values to smaller gains (attenuation), and higher values to larger gains.
+#Depending on the range of gains implemented in a device,
+#settings towards the lower and upper ends of the range may result in the same gain. Refer to the device datasheet for details. When Codec0RawOutputGain is set, the value of this key will be ignored.
+Codec0OutputGain = 15

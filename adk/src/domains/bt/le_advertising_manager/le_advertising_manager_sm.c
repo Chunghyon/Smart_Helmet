@@ -204,7 +204,7 @@ void LeAdvertisingManagerSm_SetState(le_adv_mgr_state_t state)
 {
     le_adv_mgr_state_t old_state = sm->state;
 
-    DEBUG_LOG_STATE("LeAdvertisingManagerSm_SetState Transition enum:le_adv_mgr_state_t:%d->enum:le_adv_mgr_state_t:%d", old_state, state);
+	DEBUG_LOG("LeAdvertisingManagerSm_SetState Transition enum:le_adv_mgr_state_t:%d->enum:le_adv_mgr_state_t:%d", old_state, state);
 
     switch(old_state)
     {

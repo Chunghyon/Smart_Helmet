@@ -2,223 +2,435 @@
 <!--Copyright (c) 2018 Qualcomm Technologies International, Ltd.-->
 
 <message_map>
-
     <message_group name="default_message_group">
-
-        <message>
-            <messageName>APP_ANC_TOGGLE_ON_OFF</messageName>
-            <buttonEvent>IGNORE</buttonEvent>
+	    <message>
+		    <messageName>TAB_ENTER</messageName>
+			<buttonEvent>ENTER</buttonEvent>
+			<activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+		</message>
+		<message>
+            <messageName>PLUS_ENTER</messageName>
+            <buttonEvent>ENTER</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
         </message>
-
         <message>
-            <messageName>APP_ANC_SET_NEXT_MODE</messageName>
-            <buttonEvent>IGNORE</buttonEvent>
+            <messageName>MINUS_ENTER</messageName>
+            <buttonEvent>ENTER</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
         </message>
-
         <message>
-            <messageName>APP_ANC_ENABLE</messageName>
-            <buttonEvent>IGNORE</buttonEvent>
+            <messageName>TAB_RELEASE</messageName>
+            <buttonEvent>RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
         </message>
-
         <message>
-            <messageName>APP_ANC_DISABLE </messageName>
-            <buttonEvent>IGNORE</buttonEvent>
+            <messageName>PLUS_RELEASE</messageName>
+            <buttonEvent>RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
         </message>
-
         <message>
-            <messageName>LI_MFB_BUTTON_SINGLE_PRESS</messageName>
+            <messageName>MINUS_RELEASE</messageName>
+            <buttonEvent>RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+        </message>
+<!-- TAB_SINGLE_CLICK -->
+        <message>
+            <messageName>TAB_SINGLE_CLICK</messageName>
             <buttonEvent>SINGLE_CLICK</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
         </message>
 
+<!-- TAB_DOUBLE_CLICK -->
         <message>
-            <messageName>LI_MFB_BUTTON_RELEASE_1SEC</messageName>
-            <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>1000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_HELD_1SEC</messageName>
-            <buttonEvent>HELD</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>1000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_HELD_3SEC</messageName>
-            <buttonEvent>HELD</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>3000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_RELEASE_3SEC</messageName>
-            <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>3000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_RELEASE_4SEC</messageName>
-            <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>4000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_HELD_4SEC</messageName>
-            <buttonEvent>HELD</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>4000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_RELEASE_6SEC</messageName>
-            <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>6000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_HELD_6SEC</messageName>
-            <buttonEvent>HELD</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>6000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_RELEASE_8SEC</messageName>
-            <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>8000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_HELD_8SEC</messageName>
-            <buttonEvent>HELD</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>8000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>LI_MFB_BUTTON_RELEASE_DFU</messageName>
-            <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>12000</timeout_ms>
-        </message>
-
-
-        <message>
-            <messageName>LI_MFB_BUTTON_HELD_DFU</messageName>
-            <buttonEvent>HELD</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>12000</timeout_ms>
-        </message>
-
-        <message device_specific="true">
-            <messageName>LI_MFB_BUTTON_RELEASE_FACTORY_RESET_DS</messageName>
-            <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>15000</timeout_ms>
-        </message>
-
-        <message device_specific="true">
-            <messageName>LI_MFB_BUTTON_HELD_FACTORY_RESET_DS</messageName>
-            <buttonEvent>HELD</buttonEvent>
-            <activePinFriendlyName>SYS_CTRL</activePinFriendlyName>
-            <timeout_ms>15000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>APP_BUTTON_VOLUME_DOWN</messageName>
-            <buttonEvent>ENTER</buttonEvent>
-            <activePinFriendlyName>VOL_MINUS</activePinFriendlyName>
-            <negatePinFriendlyName>MUSIC</negatePinFriendlyName>
-        </message>
-
-        <message>
-            <messageName>APP_BUTTON_VOLUME_UP</messageName>
-            <buttonEvent>ENTER</buttonEvent>
-            <activePinFriendlyName>MUSIC</activePinFriendlyName>
-            <negatePinFriendlyName>VOL_MINUS</negatePinFriendlyName>
-        </message>
-
-        <message>
-            <messageName>APP_BUTTON_VOLUME_DOWN_RELEASE</messageName>
-            <buttonEvent>RELEASE</buttonEvent>
-            <activePinFriendlyName>VOL_MINUS</activePinFriendlyName>
-        </message>
-
-        <message>
-            <messageName>APP_BUTTON_VOLUME_UP_RELEASE</messageName>
-            <buttonEvent>RELEASE</buttonEvent>
-            <activePinFriendlyName>MUSIC</activePinFriendlyName>
-        </message>
-
-        <message>
-            <messageName>APP_VA_BUTTON_DOWN</messageName>
-            <buttonEvent>ENTER</buttonEvent>
-            <activePinFriendlyName>MFB</activePinFriendlyName>
-        </message>
-
-        <message>
-            <messageName>APP_VA_BUTTON_RELEASE</messageName>
-            <buttonEvent>RELEASE</buttonEvent>
-            <activePinFriendlyName>MFB</activePinFriendlyName>
-        </message>
-
-        <message>
-            <messageName>APP_VA_BUTTON_SINGLE_CLICK</messageName>
-            <buttonEvent>SINGLE_CLICK</buttonEvent>
-            <activePinFriendlyName>MFB</activePinFriendlyName>
-        </message>
-
-        <message>
-            <messageName>APP_VA_BUTTON_HELD_RELEASE</messageName>
-            <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>MFB</activePinFriendlyName>
-            <timeout_ms>1000</timeout_ms>
-        </message>
-
-        <message>
-            <messageName>APP_VA_BUTTON_DOUBLE_CLICK</messageName>
+            <messageName>TAB_DOUBLE_CLICK</messageName>
             <buttonEvent>DOUBLE_CLICK</buttonEvent>
-            <activePinFriendlyName>MFB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
         </message>
 
+<!-- TAB_TRIPLE_CLICK -->
         <message>
-            <messageName>APP_VA_BUTTON_HELD_1SEC</messageName>
+            <messageName>TAB_TRIPLE_CLICK</messageName>
+            <buttonEvent>MULTI_CLICK</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <count>3</count>
+        </message>
+
+<!-- TAB_HELD/RELEASE -->
+        <message>
+            <messageName>TAB_HELD_1SEC</messageName>
             <buttonEvent>HELD</buttonEvent>
-            <activePinFriendlyName>MFB</activePinFriendlyName>
-            <timeout_ms>1000</timeout_ms>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
         </message>
-
         <message>
-            <messageName>APP_LEAKTHROUGH_TOGGLE_ON_OFF</messageName>
+            <messageName>TAB_HELD_RELEASE_1SEC</messageName>
             <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>MFB</activePinFriendlyName>
-            <timeout_ms>2000</timeout_ms>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
         </message>
-
         <message>
-            <messageName>APP_LEAKTHROUGH_DISABLE</messageName>
-            <buttonEvent>IGNORE</buttonEvent>
+            <messageName>TAB_HELD_3SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
         </message>
-
         <message>
-            <messageName>APP_LEAKTHROUGH_ENABLE</messageName>
-            <buttonEvent>IGNORE</buttonEvent>
-        </message>
-
-        <message>
-            <messageName>APP_LEAKTHROUGH_SET_NEXT_MODE</messageName>
+            <messageName>TAB_HELD_RELEASE_3SEC</messageName>
             <buttonEvent>HELD_RELEASE</buttonEvent>
-            <activePinFriendlyName>MFB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>TAB_HELD_6SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
             <timeout_ms>6000</timeout_ms>
         </message>
+        <message>
+            <messageName>TAB_HELD_RELEASE_6SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <timeout_ms>6000</timeout_ms>
+        </message>
+        <message device_specific="true">
+            <messageName>TAB_HELD_9SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <timeout_ms>9000</timeout_ms>
+        </message>
+        <message device_specific="true">
+            <messageName>TAB_HELD_RELEASE_9SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <timeout_ms>9000</timeout_ms>
+        </message>
 
-    </message_group>
+<!-- PLUS_SINGLE_CLICK -->
+        <message>
+            <messageName>PLUS_SINGLE_CLICK</messageName>
+            <buttonEvent>SINGLE_CLICK</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+        </message>
 
+<!-- PLUS_DOUBLE_CLICK -->
+        <message>
+            <messageName>PLUS_DOUBLE_CLICK</messageName>
+            <buttonEvent>DOUBLE_CLICK</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+        </message>
+
+<!-- PLUS_TRIPLE_CLICK -->
+        <message>
+            <messageName>PLUS_TRIPLE_CLICK</messageName>
+            <buttonEvent>MULTI_CLICK</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <count>3</count>
+        </message>
+
+<!-- PLUS_HELD/RELEASE -->
+        <message>
+            <messageName>PLUS_HELD_1SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>PLUS_HELD_RELEASE_1SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>PLUS_HELD_3SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>PLUS_HELD_RELEASE_3SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
+        </message>
+
+        <message>
+            <messageName>PLUS_HELD_6SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>PLUS_HELD_RELEASE_6SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>PLUS_HELD_9SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>9000</timeout_ms>
+        </message>
+        <message>
+            <messageName>PLUS_HELD_RELEASE_9SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>9000</timeout_ms>
+        </message>
+
+<!-- MINUS_SINGLE_CLICK -->
+        <message>
+            <messageName>MINUS_SINGLE_CLICK</messageName>
+            <buttonEvent>SINGLE_CLICK</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+        </message>
+
+<!-- MINUS_DOUBLE_CLICK -->
+        <message>
+            <messageName>MINUS_DOUBLE_CLICK</messageName>
+            <buttonEvent>DOUBLE_CLICK</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+        </message>
+
+<!-- MINUS_TRIPLE_CLICK -->
+        <message>
+            <messageName>MINUS_TRIPLE_CLICK</messageName>
+            <buttonEvent>MULTI_CLICK</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <count>3</count>
+        </message>
+
+<!-- MINUS_HELD/RELEASE -->
+        <message>
+            <messageName>MINUS_HELD_1SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>MINUS_HELD_RELEASE_1SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>MINUS_HELD_3SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>MINUS_HELD_RELEASE_3SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>MINUS_HELD_6SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>MINUS_HELD_RELEASE_6SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>MINUS_HELD_9SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>9000</timeout_ms>
+        </message>
+        <message>
+            <messageName>MINUS_HELD_RELEASE_9SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>9000</timeout_ms>
+        </message>
+
+
+ <!-- DUAL_KEYs -->
+        <message>
+             <messageName>TP_SINGLE_CLICK</messageName>
+             <buttonEvent>SINGLE_CLICK</buttonEvent>
+             <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+             <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+        </message>
+        <message>
+             <messageName>TM_SINGLE_CLICK</messageName>
+             <buttonEvent>SINGLE_CLICK</buttonEvent>
+             <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+             <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+        </message>
+        <message>
+             <messageName>PM_SINGLE_CLICK</messageName>
+             <buttonEvent>SINGLE_CLICK</buttonEvent>
+             <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+             <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+        </message>
+        <message>
+             <messageName>TP_DOUBLE_CLICK</messageName>
+             <buttonEvent>DOUBLE_CLICK</buttonEvent>
+             <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+             <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+        </message>
+        <message>
+             <messageName>TM_DOUBLE_CLICK</messageName>
+             <buttonEvent>DOUBLE_CLICK</buttonEvent>
+             <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+             <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+        </message>
+        <message>
+             <messageName>PM_DOUBLE_CLICK</messageName>
+             <buttonEvent>DOUBLE_CLICK</buttonEvent>
+             <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+             <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+        </message>
+        <message>
+            <messageName>TP_ENTER</messageName>
+            <buttonEvent>ENTER</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+        </message>
+        <message>
+            <messageName>TP_HELD_100MS</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>100</timeout_ms>
+        </message>
+        <message>
+            <messageName>TP_HELD_1SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>TP_HELD_RELEASE_1SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+           <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>TP_HELD_3SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>TP_HELD_RELEASE_3SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+           <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>TP_HELD_6SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>TP_HELD_RELEASE_6SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+           <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>TM_HELD_1SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>TM_HELD_RELEASE_1SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+           <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>TM_HELD_3SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>TM_HELD_RELEASE_3SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+           <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>TM_HELD_6SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>TM_HELD_RELEASE_6SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_TAB</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+           <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>PM_HELD_1SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>PM_HELD_RELEASE_1SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+           <timeout_ms>900</timeout_ms>
+        </message>
+        <message>
+            <messageName>PM_HELD_3SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>PM_HELD_RELEASE_3SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+           <timeout_ms>3000</timeout_ms>
+        </message>
+        <message>
+            <messageName>PM_HELD_6SEC</messageName>
+            <buttonEvent>HELD</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+            <timeout_ms>6000</timeout_ms>
+        </message>
+        <message>
+            <messageName>PM_HELD_RELEASE_6SEC</messageName>
+            <buttonEvent>HELD_RELEASE</buttonEvent>
+            <activePinFriendlyName>BUTTON_MINUS</activePinFriendlyName>
+            <activePinFriendlyName>BUTTON_PLUS</activePinFriendlyName>
+           <timeout_ms>6000</timeout_ms>
+        </message>
+		<message>
+		    <messageName>BMS_RESET_ENTER</messageName>
+			<buttonEvent>ENTER</buttonEvent>
+			<activePinFriendlyName>BUTTON_BMS_RESET</activePinFriendlyName>
+		</message>
+	</message_group>
 </message_map>
-

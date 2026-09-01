@@ -302,12 +302,17 @@
 #define appConfigExternalAmpControlDisableMask() (1 << (appConfigExternalAmpControlPio() % 32))
 
 #else
-
+#ifdef SMART_HELMET
+#define appConfigExternalAmpControlRequired()    (TRUE)
+#define appConfigExternalAmpControlPio()         (21)
+#define appConfigExternalAmpControlEnableMask()  (0) // active on LOW AMP_EN
+#define appConfigExternalAmpControlDisableMask() (1 << (appConfigExternalAmpControlPio() % 32))                                       // shutdown on LOW sdb
+#else
 #define appConfigExternalAmpControlRequired()    (FALSE)
 #define appConfigExternalAmpControlPio()         (0)
 #define appConfigExternalAmpControlEnableMask()  (0)
 #define appConfigExternalAmpControlDisableMask() (0)
-
+#endif
 #endif /* defined(CE821_CF212) or defined(CF376_CF212) or defined(CE821_CE826) */
 //!@}
 
