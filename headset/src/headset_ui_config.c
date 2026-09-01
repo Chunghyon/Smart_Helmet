@@ -44,7 +44,7 @@ const focus_select_voice_tie_break_t voice_source_focus_priority[] =
 /*! \brief ui config table*/
 const ui_config_table_content_t headset_ui_config_table[] =
 {
-#ifdef SMART_HELMET
+#ifdef INCLUDE_SMART_HELMET
 //	{PM_SINGLE_CLICK,				ui_provider_app_sm,         context_app_sm_inactive,              ui_input_micspk_test_start          },
 //	{BMS_RESET_ENTER,				ui_provider_app_sm,         context_app_sm_inactive,              ui_input_factory_reset_request     },
 //	{BMS_RESET_ENTER,				ui_provider_app_sm,         context_app_sm_active,                ui_input_factory_reset_request     },

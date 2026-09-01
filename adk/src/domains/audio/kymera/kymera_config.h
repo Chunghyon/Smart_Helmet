@@ -302,7 +302,7 @@
 #define appConfigExternalAmpControlDisableMask() (1 << (appConfigExternalAmpControlPio() % 32))
 
 #else
-#ifdef SMART_HELMET
+#ifdef INCLUDE_SMART_HELMET
 #define appConfigExternalAmpControlRequired()    (TRUE)
 #define appConfigExternalAmpControlPio()         (21)
 #define appConfigExternalAmpControlEnableMask()  (0) // active on LOW AMP_EN

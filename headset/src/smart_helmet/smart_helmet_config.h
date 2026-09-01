@@ -82,8 +82,8 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /* Wi-SUN UART — TXD / RXD                                                    */
 /* Stream UART on QCC uses dedicated UART_TX / UART_RX pin functions.         */
 /* -------------------------------------------------------------------------- */
-#define SMART_HELMET_WISUN_UART_TX_PIO     (28)
-#define SMART_HELMET_WISUN_UART_RX_PIO     (29)
+#define SMART_HELMET_WISUN_UART_TX_PIO     (14)
+#define SMART_HELMET_WISUN_UART_RX_PIO     (13)
 #define SMART_HELMET_WISUN_UART_BAUD       (VM_UART_RATE_115K2)
 
 /*! RX assemble buffer */

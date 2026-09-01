@@ -57,6 +57,15 @@
 /*! PIO to control LED2 */
 #define appConfigLed2Pio()       CHIP_LED_2_PIO
 
+#elif defined(HAVE_2_LEDS)
+
+/* The number of LEDs led_manager will control. */
+#define appConfigNumberOfLeds()  (2)
+/*! PIO to control LED0 */
+#define appConfigLed0Pio()       CHIP_LED_0_PIO
+/*! PIO to control LED1 */
+#define appConfigLed1Pio()       CHIP_LED_1_PIO
+
 #else
 #error LED config not correctly defined.
 #endif

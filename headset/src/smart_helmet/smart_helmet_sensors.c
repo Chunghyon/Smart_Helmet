@@ -116,6 +116,7 @@ static bool shReadMlx90614(uint8 ram_addr, int16 *out_x100)
 
 void SmartHelmet_SensorsInit(void)
 {
+	DEBUG_LOG_INFO("%s", __func__);
     sh_sensors.ccs811_ok = FALSE;
     sh_sensors.lis3dh_ok = FALSE;
     sh_sensors.mlx90614_ok = FALSE;
