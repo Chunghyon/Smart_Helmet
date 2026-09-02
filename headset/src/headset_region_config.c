@@ -11,9 +11,31 @@
 #include "headset_region_config.h"
 #include "battery_region.h"
 
+#ifdef INCLUDE_SMART_HELMET
+#define ACTIVE_CURRENT_mA			50
+#define aCTIVE						ACTIVE_CURRENT_mA
+#define _MICRO_CURRENT_TIMEOUT		30
+#endif
+
 /*! \brief charge mode config table*/
 const charge_region_t headset_charge_mode_config_table[] =
 {
+#ifdef INCLUDE_SMART_HELMET
+    {0,       Vfloat_adjusted,   5000, 100, -40,  0,  1, NORMAL_REGION,   0},
+    {0,       Vfloat_adjusted,   5000, 100,   0, 45,  1, NORMAL_REGION,   0},
+    {0,       Vfloat_adjusted,   5000, 100,  45, 85,  1, NORMAL_REGION,   0},
+    {1,         3600, Vfloat_adjusted, 50,  -40,  0,  1, NORMAL_REGION,   _MICRO_CURRENT_TIMEOUT},
+    {FAST,      3600, Vfloat_adjusted, 50,    0, 45,  1, NORMAL_REGION,   CHARGING_TIMER_TIMEOUT},
+    {1,         3600, Vfloat_adjusted, 50,   45, 85,  1, NORMAL_REGION,   _MICRO_CURRENT_TIMEOUT},
+    {1,        Vcrit,			 3600, 50,  -40,  0,  1, NORMAL_REGION,   _MICRO_CURRENT_TIMEOUT},
+    {FAST,     Vcrit,			 3600, 50,    0, 45,  1, NORMAL_REGION,	  CHARGING_TIMER_TIMEOUT},
+    {1,        Vcrit,			 3600, 50,   45, 85,  1, NORMAL_REGION,   _MICRO_CURRENT_TIMEOUT},
+    ///////////////////////////////////////////////////////////////////////////
+    {FAST,     Vfast,			Vcrit, 50,  -40, 85,  1, CRITICAL_REGION, 0},
+    {aCTIVE,    2800,			Vfast, 50,  -40, 85,  1, CRITICAL_REGION, 0},
+    {PRE,       Vpre,			 2800, 50,  -40, 85,  1, CRITICAL_REGION, 0},
+    {TRICKLE,      0,			 Vpre, 50,  -40, 85,  1, CRITICAL_REGION, 0},
+#else
     {0,       Vfloat_adjusted,   5000, 100, -40, 0,  1, NORMAL_REGION, 0},
     {0,       Vfloat_adjusted,   5000, 100,  0,  45, 1, NORMAL_REGION, 0},
     {0,       Vfloat_adjusted,   5000, 100,  45, 85, 1, NORMAL_REGION, 0},
@@ -32,6 +54,7 @@ const charge_region_t headset_charge_mode_config_table[] =
     {0,            0,   Vpre, 50,  -40, 0,  1, CRITICAL_REGION, 0},
     {TRICKLE,      0,   Vpre, 50,    0, 45, 1, CRITICAL_REGION, 0},
     {0,            0,   Vpre, 50,   45, 85, 1, CRITICAL_REGION, 0},
+#endif
 };
 
 /*! \brief discharge mode config table*/

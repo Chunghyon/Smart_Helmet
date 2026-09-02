@@ -134,7 +134,7 @@ static void gaiaFramework_SendNotificationToEndpoint(gaia_features_t feature_id,
                 GaiaSendPacket(t, GAIA_V3_VENDOR_ID, command_id, GAIA_STATUS_NONE, length, payload);
         }
         else
-            DEBUG_LOG_WARN("GaiaFramework_SendNotification, feature_id %u, notification_id %u not active on transport %p", feature_id, notification_id, t);
+			DEBUG_LOG_DEBUG("GaiaFramework_SendNotification, feature_id %u, notification_id %u not active on transport %p", feature_id, notification_id, t);
 
         t = Gaia_TransportIterate(&index);
     }
