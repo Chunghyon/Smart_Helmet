@@ -53,7 +53,7 @@ bool SmartHelmet_Init(Task client_task)
         /* Non-fatal for sensor-only bring-up */
     }
 
-    SmartHelmet_SensorsInit();
+	SmartHelmet_SensorsInit();
     SmartHelmet_VitalsInit();
 
     sh_ready = TRUE;

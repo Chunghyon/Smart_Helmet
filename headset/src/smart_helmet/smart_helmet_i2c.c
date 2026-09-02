@@ -327,26 +327,45 @@ bool SmartHelmet_I2cTransfer(smart_helmet_i2c_bus_t bus,
         return FALSE;
     }
 
-    /* Combined write-then-read in one Bitserial I2C transaction.
-     * Do not issue a second transfer with tx=NULL — that path panicked P0. */
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialTransfer ENTER addr=0x%02x",
-                   (unsigned)bus, addr7);
-
-    result = BitserialTransfer(sh_i2c[bus].handle,
-                               BITSERIAL_NO_MSG,
-                               (tx_len && tx) ? (uint8 *)tx : NULL,
-                               tx_len,
-                               (rx_len && rx) ? rx : NULL,
-                               rx_len);
-
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialTransfer EXIT res=%d addr=0x%02x",
-                   (unsigned)bus, (int)result, addr7);
-
-    if (result != BITSERIAL_RESULT_SUCCESS)
+    /* P0 panic 231 was observed inside BitserialTransfer() in I2C master
+     * mode (log: "BitserialTransfer ENTER" then PANIC_P0 231).
+     * Use the I2C-facing Write/Read traps instead of Transfer. */
+    if (tx_len)
     {
-        DEBUG_LOG_WARN("SmartHelmet I2C%u: xfer FAIL addr=0x%02x res=%d tx=%u rx=%u",
-                       (unsigned)bus, addr7, (int)result, tx_len, rx_len);
-        return FALSE;
+        DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialWrite ENTER addr=0x%02x n=%u",
+                       (unsigned)bus, addr7, tx_len);
+        result = BitserialWrite(sh_i2c[bus].handle,
+                                BITSERIAL_NO_MSG,
+                                (uint8 *)tx,
+                                tx_len,
+                                0);
+        DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialWrite EXIT res=%d",
+                       (unsigned)bus, (int)result);
+        if (result != BITSERIAL_RESULT_SUCCESS)
+        {
+            DEBUG_LOG_WARN("SmartHelmet I2C%u: write FAIL addr=0x%02x res=%d n=%u",
+                           (unsigned)bus, addr7, (int)result, tx_len);
+            return FALSE;
+        }
+    }
+
+    if (rx_len)
+    {
+        DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialRead ENTER addr=0x%02x n=%u",
+                       (unsigned)bus, addr7, rx_len);
+        result = BitserialRead(sh_i2c[bus].handle,
+                               BITSERIAL_NO_MSG,
+                               rx,
+                               rx_len,
+                               0);
+        DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialRead EXIT res=%d",
+                       (unsigned)bus, (int)result);
+        if (result != BITSERIAL_RESULT_SUCCESS)
+        {
+            DEBUG_LOG_WARN("SmartHelmet I2C%u: read FAIL addr=0x%02x res=%d n=%u",
+                           (unsigned)bus, addr7, (int)result, rx_len);
+            return FALSE;
+        }
     }
 
     if (rx_len)
