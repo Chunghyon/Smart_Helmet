@@ -3,7 +3,7 @@
 \brief      Board-level pin / bus map for Smart Helmet (QCC3044)
 
 Derived from OrCAD schematic SMART_HELMET_260816_1.DSN net names:
-  I2C0  SCL/SDA   -> CJMCU-8118 (CCS811), LIS3DH, GY-906-BAA (MLX90614), SSD1315(opt)
+  I2C0  SCL/SDA   -> CJMCU-8118 (CCS811+HDC1080), LIS3DH, GY-906-BAA (MLX90614), SSD1315(opt)
   I2C1  SCL1/SDA1 -> SSD1315(opt) alternate bus
   ADC   SENS_IN, CO, NH3, NO2  (MICS-6814 / air quality path)
   UART  TXD/RXD   -> Wi-SUN module
@@ -31,20 +31,33 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #ifndef SMART_HELMET_ENABLE_WISUN_UART
 #define SMART_HELMET_ENABLE_WISUN_UART     (1)
 #endif
-#ifndef SMART_HELMET_ENABLE_SSD1315
-#define SMART_HELMET_ENABLE_SSD1315        (1)  /* optional OLED */
+/* CJMCU-8118 CCS811 (gas) on I2C0 */
+#ifndef SMART_HELMET_ENABLE_CCS811
+#define SMART_HELMET_ENABLE_CCS811         (0)
+#endif
+/* CJMCU-8118 HDC1080 (temp/RH) on I2C0 */
+#ifndef SMART_HELMET_ENABLE_HDC1080
+#define SMART_HELMET_ENABLE_HDC1080        (1)
+#endif
+/* GY-906-BAA = MLX90614 IR thermometer on I2C0 */
+#ifndef SMART_HELMET_ENABLE_MLX90614
+#define SMART_HELMET_ENABLE_MLX90614       (0)
 #endif
 /* LIS3DH on I2C0. Set to 0 while the part is depopulated or holding
  * SCL/SDA low; set back to 1 after the accelerometer is remounted. */
 #ifndef SMART_HELMET_ENABLE_LIS3DH
 #define SMART_HELMET_ENABLE_LIS3DH         (0)
 #endif
+/* Optional OLED. Off during CJMCU-only bring-up. */
+#ifndef SMART_HELMET_ENABLE_SSD1315
+#define SMART_HELMET_ENABLE_SSD1315        (0)
+#endif
 /*! Put SSD1315 on I2C1 when 1, else share I2C0 */
 #ifndef SMART_HELMET_SSD1315_ON_I2C1
 #define SMART_HELMET_SSD1315_ON_I2C1       (1)
 #endif
-/* Re-issue I2C probes every N ms until CCS811 / MLX90614 (and LIS3DH if
- * enabled) return the expected payload. For scope capture on the bus. */
+/* Re-issue I2C probes every N ms until enabled devices return the expected
+ * payload (CCS811 HW_ID, HDC1080 MFG/DEV ID, MLX TA, LIS3DH WHO_AM_I). */
 #ifndef SMART_HELMET_I2C_PROBE_RETRY_MS
 #define SMART_HELMET_I2C_PROBE_RETRY_MS    (1000)
 #endif
@@ -59,7 +72,8 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_I2C0_BITSERIAL_BLOCK  (BITSERIAL_BLOCK_0)
 
 /* Device 7-bit addresses on I2C0 */
-#define SMART_HELMET_ADDR_CCS811           (0x5B)  /* CJMCU-8118 if ADDR is high, 0x5A if low */
+#define SMART_HELMET_ADDR_CCS811           (0x5B)  /* CJMCU-8118 CCS811; 0x5A if ADDR low */
+#define SMART_HELMET_ADDR_HDC1080          (0x40)  /* CJMCU-8118 HDC1080 (fixed) */
 #define SMART_HELMET_ADDR_LIS3DH           (0x18)  /* SA0=GND; 0x19 if high */
 #define SMART_HELMET_ADDR_MLX90614         (0x5A)  /* GY-906-BAA; note: may clash
                                                     * with CCS811 if both 0x5A —

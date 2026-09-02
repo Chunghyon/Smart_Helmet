@@ -19,11 +19,14 @@ enum
 typedef struct
 {
     bool     ccs811_ok;
+    bool     hdc1080_ok;
     bool     lis3dh_ok;
     bool     mlx90614_ok;
     bool     ssd1315_ok;
     uint16   ccs811_eco2;
     uint16   ccs811_tvoc;
+    int16    hdc_temp_x100;     /* 0.01 °C */
+    uint16   hdc_humidity_x100; /* 0.01 %RH */
     int16    lis3dh_x;
     int16    lis3dh_y;
     int16    lis3dh_z;
