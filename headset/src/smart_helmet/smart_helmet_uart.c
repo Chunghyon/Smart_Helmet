@@ -2,6 +2,9 @@
 \file       smart_helmet_uart.c
 \brief      Wi-SUN UART transport (QCC Stream UART)
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
 
 #include "smart_helmet_config.h"
 #include "smart_helmet_uart.h"
@@ -73,7 +76,7 @@ bool SmartHelmet_UartInit(Task client_task)
     MessageStreamTaskFromSink(sh_uart_sink, sh_uart_task);
     MessageStreamTaskFromSource(sh_uart_source, sh_uart_task);
 
-    DEBUG_LOG_INFO("SmartHelmet UART: Wi-SUN TX=PIO%u RX=PIO%u ready",
+	CC_LOGN("SmartHelmet UART: Wi-SUN TX=PIO%u RX=PIO%u ready",
                    SMART_HELMET_WISUN_UART_TX_PIO,
                    SMART_HELMET_WISUN_UART_RX_PIO);
     return TRUE;

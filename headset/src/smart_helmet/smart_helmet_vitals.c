@@ -5,6 +5,9 @@
 Lightweight proxy only. Replace the band-energy path with a proper
 band-pass (0.8–3 Hz) / Goertzel when CPU budget allows.
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
 
 #include "smart_helmet_config.h"
 #include "smart_helmet_vitals.h"
@@ -133,7 +136,7 @@ void SmartHelmet_VitalsInit(void)
     calm_windows = 0;
     sh_vitals.trend = smart_helmet_trend_unknown;
     sh_vitals.motion = smart_helmet_motion_active;
-    DEBUG_LOG_INFO("SmartHelmet Vitals: proxy init (motion_gate/band_energy/trend)");
+	CC_LOGN("SmartHelmet Vitals: proxy init (motion_gate/band_energy/trend)");
 }
 
 void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)

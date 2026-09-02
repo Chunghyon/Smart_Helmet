@@ -8,6 +8,9 @@ Local patch:
   2) Mux CLOCK/DATA IN as well as OUT (open-drain bidirectional)
   3) One combined BitserialTransfer(tx, rx) instead of split NULL-tx read
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
 
 #include "smart_helmet_config.h"
 #include "smart_helmet_i2c.h"
@@ -41,7 +44,7 @@ static bool shI2cSetFunction(uint16 pio, pin_function_id fn, const char *tag)
                         pio, tag);
         return FALSE;
     }
-    DEBUG_LOG_INFO("SmartHelmet I2C: PioSetFunction PIO%u %s ok", pio, tag);
+	CC_LOGN("SmartHelmet I2C: PioSetFunction PIO%u %s ok", pio, tag);
     return TRUE;
 }
 
@@ -61,7 +64,7 @@ static bool shI2cUnmapAppsGpio(uint16 pio)
 
 static bool shI2cConfigurePios(uint16 scl, uint16 sda, bitserial_block_index block)
 {
-    DEBUG_LOG_INFO("SmartHelmet I2C: mux start SCL=PIO%u SDA=PIO%u block=%u",
+	CC_LOGN("SmartHelmet I2C: mux start SCL=PIO%u SDA=PIO%u block=%u",
                    scl, sda, (unsigned)block);
 
     if (!shI2cUnmapAppsGpio(scl) || !shI2cUnmapAppsGpio(sda))
@@ -108,7 +111,7 @@ static bool shI2cConfigurePios(uint16 scl, uint16 sda, bitserial_block_index blo
         }
     }
 
-    DEBUG_LOG_INFO("SmartHelmet I2C: mux done SCL=PIO%u SDA=PIO%u", scl, sda);
+	CC_LOGN("SmartHelmet I2C: mux done SCL=PIO%u SDA=PIO%u", scl, sda);
     return TRUE;
 }
 
@@ -127,7 +130,7 @@ static bool shI2cOpenHandle(sh_i2c_bus_state_t *st, uint8 addr7)
 
     shI2cFillConfig(&config, st->speed_khz, addr7);
 
-    DEBUG_LOG_INFO("SmartHelmet I2C: BitserialOpen block=%u addr=0x%02x speed=%u",
+	CC_LOGN("SmartHelmet I2C: BitserialOpen block=%u addr=0x%02x speed=%u",
                    (unsigned)st->block, addr7, st->speed_khz);
 
     st->handle = BitserialOpen(st->block, &config);
@@ -141,7 +144,7 @@ static bool shI2cOpenHandle(sh_i2c_bus_state_t *st, uint8 addr7)
 
     st->addr7 = addr7;
     st->open = TRUE;
-    DEBUG_LOG_INFO("SmartHelmet I2C: BitserialOpen ok handle=%d addr=0x%02x",
+	CC_LOGN("SmartHelmet I2C: BitserialOpen ok handle=%d addr=0x%02x",
                    (int)st->handle, addr7);
     return TRUE;
 }
@@ -160,19 +163,19 @@ static bool shI2cSetAddr(smart_helmet_i2c_bus_t bus, uint8 addr7)
 
     if (st->addr7 == addr7)
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C%u: addr already 0x%02x",
+		CC_LOGN("SmartHelmet I2C%u: addr already 0x%02x",
                        (unsigned)bus, addr7);
         return TRUE;
     }
 
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: set-addr 0x%02x -> 0x%02x",
+	CC_LOGN("SmartHelmet I2C%u: set-addr 0x%02x -> 0x%02x",
                    (unsigned)bus, st->addr7, addr7);
 
 #if defined(BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS)
     result = BitserialChangeParam(st->handle,
                                   BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS,
                                   addr7);
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: ChangeParam I2C_DEVICE_ADDRESS res=%d",
+	CC_LOGN("SmartHelmet I2C%u: ChangeParam I2C_DEVICE_ADDRESS res=%d",
                    (unsigned)bus, (int)result);
     if (result == BITSERIAL_RESULT_SUCCESS)
     {
@@ -182,7 +185,7 @@ static bool shI2cSetAddr(smart_helmet_i2c_bus_t bus, uint8 addr7)
     DEBUG_LOG_WARN("SmartHelmet I2C%u: ChangeParam failed, reopen", (unsigned)bus);
 #elif defined(BITSERIAL_PARAM_I2C_ADDRESS)
     result = BitserialChangeParam(st->handle, BITSERIAL_PARAM_I2C_ADDRESS, addr7);
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: ChangeParam I2C_ADDRESS res=%d",
+	CC_LOGN("SmartHelmet I2C%u: ChangeParam I2C_ADDRESS res=%d",
                    (unsigned)bus, (int)result);
     if (result == BITSERIAL_RESULT_SUCCESS)
     {
@@ -192,7 +195,7 @@ static bool shI2cSetAddr(smart_helmet_i2c_bus_t bus, uint8 addr7)
     DEBUG_LOG_WARN("SmartHelmet I2C%u: ChangeParam failed, reopen", (unsigned)bus);
 #else
     UNUSED(result);
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: no ChangeParam symbol, reopen", (unsigned)bus);
+	CC_LOGN("SmartHelmet I2C%u: no ChangeParam symbol, reopen", (unsigned)bus);
 #endif
 
     BitserialClose(st->handle);
@@ -238,7 +241,7 @@ bool SmartHelmet_I2cInit(void)
     bool ok = TRUE;
 
 #if SMART_HELMET_ENABLE_I2C0
-    DEBUG_LOG_INFO("SmartHelmet I2C0: init SCL=%u SDA=%u",
+	CC_LOGN("SmartHelmet I2C0: init SCL=%u SDA=%u",
                    SMART_HELMET_I2C0_SCL_PIO, SMART_HELMET_I2C0_SDA_PIO);
     ok = shI2cOpenBus(smart_helmet_i2c_bus_0,
                       SMART_HELMET_I2C0_BITSERIAL_BLOCK,
@@ -248,7 +251,7 @@ bool SmartHelmet_I2cInit(void)
 #endif
 
 #if SMART_HELMET_ENABLE_I2C1
-    DEBUG_LOG_INFO("SmartHelmet I2C1: init SCL=%u SDA=%u",
+	CC_LOGN("SmartHelmet I2C1: init SCL=%u SDA=%u",
                    SMART_HELMET_I2C1_SCL_PIO, SMART_HELMET_I2C1_SDA_PIO);
     ok = shI2cOpenBus(smart_helmet_i2c_bus_1,
                       SMART_HELMET_I2C1_BITSERIAL_BLOCK,
@@ -257,7 +260,7 @@ bool SmartHelmet_I2cInit(void)
                       SMART_HELMET_I2C1_SPEED_KHZ) && ok;
 #endif
 
-    DEBUG_LOG_INFO("SmartHelmet I2C: init %s", ok ? "ok" : "FAILED");
+	CC_LOGN("SmartHelmet I2C: init %s", ok ? "ok" : "FAILED");
     return ok;
 }
 
@@ -268,7 +271,7 @@ void SmartHelmet_I2cClose(void)
     {
         if (sh_i2c[i].open && sh_i2c[i].handle != BITSERIAL_HANDLE_ERROR)
         {
-            DEBUG_LOG_INFO("SmartHelmet I2C%u: close", i);
+			CC_LOGN("SmartHelmet I2C%u: close", i);
             BitserialClose(sh_i2c[i].handle);
             sh_i2c[i].handle = BITSERIAL_HANDLE_ERROR;
             sh_i2c[i].open = FALSE;
@@ -317,7 +320,7 @@ bool SmartHelmet_I2cTransfer(smart_helmet_i2c_bus_t bus,
         tx0 = tx[0];
     }
 
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: xfer BEGIN addr=0x%02x tx=%u rx=%u tx0=0x%02x",
+	CC_LOGN("SmartHelmet I2C%u: xfer BEGIN addr=0x%02x tx=%u rx=%u tx0=0x%02x",
                    (unsigned)bus, addr7, tx_len, rx_len, tx0);
 
     if (!shI2cSetAddr(bus, addr7))
@@ -332,14 +335,14 @@ bool SmartHelmet_I2cTransfer(smart_helmet_i2c_bus_t bus,
      * Use the I2C-facing Write/Read traps instead of Transfer. */
     if (tx_len)
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialWrite ENTER addr=0x%02x n=%u",
+		CC_LOGN("SmartHelmet I2C%u: BitserialWrite ENTER addr=0x%02x n=%u",
                        (unsigned)bus, addr7, tx_len);
         result = BitserialWrite(sh_i2c[bus].handle,
                                 BITSERIAL_NO_MSG,
                                 (uint8 *)tx,
                                 tx_len,
                                 0);
-        DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialWrite EXIT res=%d",
+		CC_LOGN("SmartHelmet I2C%u: BitserialWrite EXIT res=%d",
                        (unsigned)bus, (int)result);
         if (result != BITSERIAL_RESULT_SUCCESS)
         {
@@ -351,14 +354,14 @@ bool SmartHelmet_I2cTransfer(smart_helmet_i2c_bus_t bus,
 
     if (rx_len)
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialRead ENTER addr=0x%02x n=%u",
+		CC_LOGN("SmartHelmet I2C%u: BitserialRead ENTER addr=0x%02x n=%u",
                        (unsigned)bus, addr7, rx_len);
         result = BitserialRead(sh_i2c[bus].handle,
                                BITSERIAL_NO_MSG,
                                rx,
                                rx_len,
                                0);
-        DEBUG_LOG_INFO("SmartHelmet I2C%u: BitserialRead EXIT res=%d",
+		CC_LOGN("SmartHelmet I2C%u: BitserialRead EXIT res=%d",
                        (unsigned)bus, (int)result);
         if (result != BITSERIAL_RESULT_SUCCESS)
         {
@@ -370,12 +373,12 @@ bool SmartHelmet_I2cTransfer(smart_helmet_i2c_bus_t bus,
 
     if (rx_len)
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C%u: xfer OK addr=0x%02x rx0=0x%02x",
+		CC_LOGN("SmartHelmet I2C%u: xfer OK addr=0x%02x rx0=0x%02x",
                        (unsigned)bus, addr7, rx[0]);
     }
     else
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C%u: xfer OK addr=0x%02x write-only",
+		CC_LOGN("SmartHelmet I2C%u: xfer OK addr=0x%02x write-only",
                        (unsigned)bus, addr7);
     }
     return TRUE;
@@ -399,7 +402,7 @@ bool SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_t bus,
                             uint8 addr7, uint8 reg,
                             uint8 *rx, uint16 rx_len)
 {
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: ReadReg addr=0x%02x reg=0x%02x n=%u",
+	CC_LOGN("SmartHelmet I2C%u: ReadReg addr=0x%02x reg=0x%02x n=%u",
                    (unsigned)bus, addr7, reg, rx_len);
     return SmartHelmet_I2cTransfer(bus, addr7, &reg, 1, rx, rx_len);
 }
@@ -420,7 +423,7 @@ bool SmartHelmet_I2cWriteReg(smart_helmet_i2c_bus_t bus,
     {
         memcpy(&buf[1], tx, tx_len);
     }
-    DEBUG_LOG_INFO("SmartHelmet I2C%u: WriteReg addr=0x%02x reg=0x%02x n=%u",
+	CC_LOGN("SmartHelmet I2C%u: WriteReg addr=0x%02x reg=0x%02x n=%u",
                    (unsigned)bus, addr7, reg, tx_len);
     return SmartHelmet_I2cTransfer(bus, addr7, buf, (uint16)(1 + tx_len), NULL, 0);
 }

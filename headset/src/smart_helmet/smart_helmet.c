@@ -2,6 +2,9 @@
 \file       smart_helmet.c
 \brief      Smart Helmet interface orchestration
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
 
 #include "smart_helmet.h"
 #include "smart_helmet_sensors.h"
@@ -62,7 +65,7 @@ bool SmartHelmet_Init(Task client_task)
     SmartHelmet_VitalsInit();
 
     sh_ready = TRUE;
-    DEBUG_LOG_INFO("SmartHelmet: interfaces ready");
+	CC_LOGN("SmartHelmet: interfaces ready");
     return TRUE;
 }
 

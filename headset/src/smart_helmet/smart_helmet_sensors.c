@@ -7,6 +7,9 @@ LIS3DH      = 3-axis accelerometer
 GY-906-BAA  = MLX90614 IR temperature
 SSD1315     = optional OLED (stub only unless SMART_HELMET_ENABLE_SSD1315)
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
 
 #include "smart_helmet_config.h"
 #include "smart_helmet_i2c.h"
@@ -86,13 +89,34 @@ static bool shInitCcs811(void)
 static bool shHdcReadU16(uint8 reg, uint16 *out)
 {
     uint8 buf[2] = {0, 0};
-    if (!SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
-                                SMART_HELMET_ADDR_HDC1080,
-                                reg, buf, 2))
+    uint16 val;
+
+    /* Pointer write, then a standalone read. Bitserial Write+Read as two
+     * STOPs can return 0x0000 on the first read; the register value shows
+     * up on the next read (seen as manuf=0, devid=0x5449). */
+    if (!SmartHelmet_I2cWrite(smart_helmet_i2c_bus_0,
+                              SMART_HELMET_ADDR_HDC1080, &reg, 1))
     {
         return FALSE;
     }
-    *out = ((uint16)buf[0] << 8) | buf[1];
+    if (!SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
+                             SMART_HELMET_ADDR_HDC1080, buf, 2))
+    {
+        return FALSE;
+    }
+    val = ((uint16)buf[0] << 8) | buf[1];
+    if (val == 0u)
+    {
+        if (!SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
+                                 SMART_HELMET_ADDR_HDC1080, buf, 2))
+        {
+            return FALSE;
+        }
+        val = ((uint16)buf[0] << 8) | buf[1];
+        DEBUG_LOG_ALWAYS("SmartHelmet: HDC1080 reg=0x%02x 2nd-read got=0x%04x",
+                         reg, val);
+    }
+    *out = val;
     return TRUE;
 }
 
@@ -126,13 +150,13 @@ static bool shInitHdc1080(void)
 static bool shProbeLis3dh(void)
 {
     uint8 id = 0;
-    bool rd = SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
-                                     SMART_HELMET_ADDR_LIS3DH,
-                                     LIS3DH_REG_WHO_AM_I, &id, 1);
-    bool match = rd && (id == LIS3DH_WHO_AM_I_VALUE);
-    DEBUG_LOG_ALWAYS("SmartHelmet: LIS3DH WHO_AM_I expect=0x%02x got=0x%02x rd=%u",
-                     LIS3DH_WHO_AM_I_VALUE, id, rd ? 1u : 0u);
-    return match;
+    if (!SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                SMART_HELMET_ADDR_LIS3DH,
+                                LIS3DH_REG_WHO_AM_I, &id, 1))
+    {
+        return FALSE;
+    }
+    return id == LIS3DH_WHO_AM_I_VALUE;
 }
 
 static bool shInitLis3dh(void)
@@ -166,7 +190,7 @@ static bool shReadMlx90614(uint8 ram_addr, int16 *out_x100)
     raw = (uint16)buf[0] | ((uint16)buf[1] << 8);
     if (raw == 0u || raw == 0xFFFFu)
     {
-        DEBUG_LOG_INFO("SmartHelmet: MLX90614 raw=0x%04x rejected", raw);
+		CC_LOGN("SmartHelmet: MLX90614 raw=0x%04x rejected", raw);
         return FALSE;
     }
     *out_x100 = shMlxRawToCentiC(raw);
@@ -181,7 +205,7 @@ static bool shProbeSsd1315(void)
         SMART_HELMET_SSD1315_ON_I2C1 ? smart_helmet_i2c_bus_1
                                     : smart_helmet_i2c_bus_0;
     uint8 dummy = 0x00;
-    DEBUG_LOG_INFO("SmartHelmet: SSD1315 probe @0x%02x I2C%u",
+	CC_LOGN("SmartHelmet: SSD1315 probe @0x%02x I2C%u",
                    SMART_HELMET_ADDR_SSD1315, (unsigned)bus);
     return SmartHelmet_I2cWrite(bus, SMART_HELMET_ADDR_SSD1315, &dummy, 1);
 }
@@ -232,7 +256,7 @@ static void shSensorsScheduleRetry(void)
 static void shSensorsVerifyPass(void)
 {
     sh_probe_try++;
-    DEBUG_LOG_INFO("SmartHelmet I2C verify try=%u ccs=%u hdc=%u lis=%u mlx=%u",
+	CC_LOGN("SmartHelmet I2C verify try=%u ccs=%u hdc=%u lis=%u mlx=%u",
                    sh_probe_try,
                    sh_sensors.ccs811_ok,
                    sh_sensors.hdc1080_ok,
@@ -242,12 +266,12 @@ static void shSensorsVerifyPass(void)
 #if SMART_HELMET_ENABLE_CCS811
     if (!sh_sensors.ccs811_ok)
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C verify CCS811 @0x%02x expect HW_ID=0x%02x",
+		CC_LOGN("SmartHelmet I2C verify CCS811 @0x%02x expect HW_ID=0x%02x",
                        SMART_HELMET_ADDR_CCS811, CCS811_HW_ID_VALUE);
         if (shProbeCcs811())
         {
             sh_sensors.ccs811_ok = shInitCcs811();
-            DEBUG_LOG_INFO("SmartHelmet: CCS811 %s",
+			CC_LOGN("SmartHelmet: CCS811 %s",
                            sh_sensors.ccs811_ok ? "ok" : "init fail");
         }
         else
@@ -260,12 +284,12 @@ static void shSensorsVerifyPass(void)
 #if SMART_HELMET_ENABLE_HDC1080
     if (!sh_sensors.hdc1080_ok)
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C verify HDC1080 @0x%02x expect 0x5449/0x1050",
+		CC_LOGN("SmartHelmet I2C verify HDC1080 @0x%02x expect 0x5449/0x1050",
                        SMART_HELMET_ADDR_HDC1080);
         if (shProbeHdc1080())
         {
             sh_sensors.hdc1080_ok = shInitHdc1080();
-            DEBUG_LOG_INFO("SmartHelmet: HDC1080 %s",
+			CC_LOGN("SmartHelmet: HDC1080 %s",
                            sh_sensors.hdc1080_ok ? "ok" : "init fail");
         }
         else
@@ -278,12 +302,12 @@ static void shSensorsVerifyPass(void)
 #if SMART_HELMET_ENABLE_LIS3DH
     if (!sh_sensors.lis3dh_ok)
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C verify LIS3DH @0x%02x expect WHOAMI=0x%02x",
+		CC_LOGN("SmartHelmet I2C verify LIS3DH @0x%02x expect WHOAMI=0x%02x",
                        SMART_HELMET_ADDR_LIS3DH, LIS3DH_WHO_AM_I_VALUE);
         if (shProbeLis3dh())
         {
             sh_sensors.lis3dh_ok = shInitLis3dh();
-            DEBUG_LOG_INFO("SmartHelmet: LIS3DH %s",
+			CC_LOGN("SmartHelmet: LIS3DH %s",
                            sh_sensors.lis3dh_ok ? "ok" : "init fail");
         }
         else
@@ -296,12 +320,12 @@ static void shSensorsVerifyPass(void)
 #if SMART_HELMET_ENABLE_MLX90614
     if (!sh_sensors.mlx90614_ok)
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C verify MLX90614 @0x%02x RAM_TA",
+		CC_LOGN("SmartHelmet I2C verify MLX90614 @0x%02x RAM_TA",
                        SMART_HELMET_ADDR_MLX90614);
         if (shReadMlx90614(MLX90614_RAM_TA, &sh_sensors.ambient_temp_x100))
         {
             sh_sensors.mlx90614_ok = TRUE;
-            DEBUG_LOG_INFO("SmartHelmet: MLX90614 ok TA=%d/100C",
+			CC_LOGN("SmartHelmet: MLX90614 ok TA=%d/100C",
                            sh_sensors.ambient_temp_x100);
         }
         else
@@ -320,7 +344,7 @@ static void shSensorsVerifyPass(void)
 
     if (shSensorsRequiredOk())
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C verify DONE try=%u", sh_probe_try);
+		CC_LOGN("SmartHelmet I2C verify DONE try=%u", sh_probe_try);
         if (sh_probe_task)
         {
             MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
@@ -328,14 +352,14 @@ static void shSensorsVerifyPass(void)
         return;
     }
 
-    DEBUG_LOG_INFO("SmartHelmet I2C verify retry in %u ms",
+	CC_LOGN("SmartHelmet I2C verify retry in %u ms",
                    SMART_HELMET_I2C_PROBE_RETRY_MS);
     shSensorsScheduleRetry();
 }
 
 void SmartHelmet_SensorsInit(void)
 {
-    DEBUG_LOG_INFO("%s: enter", __func__);
+	CC_LOGN("%s: enter", __func__);
     sh_sensors.ccs811_ok = FALSE;
     sh_sensors.hdc1080_ok = FALSE;
     sh_sensors.lis3dh_ok = FALSE;
@@ -344,11 +368,11 @@ void SmartHelmet_SensorsInit(void)
     sh_probe_try = 0;
 
 #if SMART_HELMET_ENABLE_CCS811
-    DEBUG_LOG_INFO("%s: probe CCS811 @0x%02x", __func__, SMART_HELMET_ADDR_CCS811);
+	CC_LOGN("%s: probe CCS811 @0x%02x", __func__, SMART_HELMET_ADDR_CCS811);
     if (shProbeCcs811())
     {
         sh_sensors.ccs811_ok = shInitCcs811();
-        DEBUG_LOG_INFO("SmartHelmet: CCS811 (CJMCU-8118) %s",
+		CC_LOGN("SmartHelmet: CCS811 (CJMCU-8118) %s",
                        sh_sensors.ccs811_ok ? "ok" : "init fail");
     }
     else
@@ -357,15 +381,15 @@ void SmartHelmet_SensorsInit(void)
                        SMART_HELMET_ADDR_CCS811);
     }
 #else
-    DEBUG_LOG_INFO("%s: CCS811 skipped (SMART_HELMET_ENABLE_CCS811=0)", __func__);
+	CC_LOGN("%s: CCS811 skipped (SMART_HELMET_ENABLE_CCS811=0)", __func__);
 #endif
 
 #if SMART_HELMET_ENABLE_HDC1080
-    DEBUG_LOG_INFO("%s: probe HDC1080 @0x%02x", __func__, SMART_HELMET_ADDR_HDC1080);
+	CC_LOGN("%s: probe HDC1080 @0x%02x", __func__, SMART_HELMET_ADDR_HDC1080);
     if (shProbeHdc1080())
     {
         sh_sensors.hdc1080_ok = shInitHdc1080();
-        DEBUG_LOG_INFO("SmartHelmet: HDC1080 (CJMCU-8118) %s",
+		CC_LOGN("SmartHelmet: HDC1080 (CJMCU-8118) %s",
                        sh_sensors.hdc1080_ok ? "ok" : "init fail");
     }
     else
@@ -374,15 +398,15 @@ void SmartHelmet_SensorsInit(void)
                        SMART_HELMET_ADDR_HDC1080);
     }
 #else
-    DEBUG_LOG_INFO("%s: HDC1080 skipped (SMART_HELMET_ENABLE_HDC1080=0)", __func__);
+	CC_LOGN("%s: HDC1080 skipped (SMART_HELMET_ENABLE_HDC1080=0)", __func__);
 #endif
 
 #if SMART_HELMET_ENABLE_LIS3DH
-    DEBUG_LOG_INFO("%s: probe LIS3DH @0x%02x", __func__, SMART_HELMET_ADDR_LIS3DH);
+	CC_LOGN("%s: probe LIS3DH @0x%02x", __func__, SMART_HELMET_ADDR_LIS3DH);
     if (shProbeLis3dh())
     {
         sh_sensors.lis3dh_ok = shInitLis3dh();
-        DEBUG_LOG_INFO("SmartHelmet: LIS3DH %s",
+		CC_LOGN("SmartHelmet: LIS3DH %s",
                        sh_sensors.lis3dh_ok ? "ok" : "init fail");
     }
     else
@@ -391,15 +415,15 @@ void SmartHelmet_SensorsInit(void)
                        SMART_HELMET_ADDR_LIS3DH);
     }
 #else
-    DEBUG_LOG_INFO("%s: LIS3DH skipped (SMART_HELMET_ENABLE_LIS3DH=0)", __func__);
+	CC_LOGN("%s: LIS3DH skipped (SMART_HELMET_ENABLE_LIS3DH=0)", __func__);
 #endif
 
 #if SMART_HELMET_ENABLE_MLX90614
-    DEBUG_LOG_INFO("%s: probe MLX90614 @0x%02x", __func__, SMART_HELMET_ADDR_MLX90614);
+	CC_LOGN("%s: probe MLX90614 @0x%02x", __func__, SMART_HELMET_ADDR_MLX90614);
     if (shReadMlx90614(MLX90614_RAM_TA, &sh_sensors.ambient_temp_x100))
     {
         sh_sensors.mlx90614_ok = TRUE;
-        DEBUG_LOG_INFO("SmartHelmet: MLX90614 (GY-906) ok TA=%d/100C",
+		CC_LOGN("SmartHelmet: MLX90614 (GY-906) ok TA=%d/100C",
                        sh_sensors.ambient_temp_x100);
     }
     else
@@ -408,17 +432,17 @@ void SmartHelmet_SensorsInit(void)
                        SMART_HELMET_ADDR_MLX90614);
     }
 #else
-    DEBUG_LOG_INFO("%s: MLX90614 skipped (SMART_HELMET_ENABLE_MLX90614=0)", __func__);
+	CC_LOGN("%s: MLX90614 skipped (SMART_HELMET_ENABLE_MLX90614=0)", __func__);
 #endif
 
 #if SMART_HELMET_ENABLE_SSD1315
     sh_sensors.ssd1315_ok = shProbeSsd1315();
-    DEBUG_LOG_INFO("SmartHelmet: SSD1315 write %s (no ACK check)",
+	CC_LOGN("SmartHelmet: SSD1315 write %s (no ACK check)",
                    sh_sensors.ssd1315_ok ? "issued" : "fail");
 #else
-    DEBUG_LOG_INFO("%s: SSD1315 skipped (SMART_HELMET_ENABLE_SSD1315=0)", __func__);
+	CC_LOGN("%s: SSD1315 skipped (SMART_HELMET_ENABLE_SSD1315=0)", __func__);
 #endif
-    DEBUG_LOG_INFO("%s: exit ccs=%u hdc=%u lis=%u mlx=%u",
+	CC_LOGN("%s: exit ccs=%u hdc=%u lis=%u mlx=%u",
                    __func__,
                    sh_sensors.ccs811_ok,
                    sh_sensors.hdc1080_ok,
@@ -473,12 +497,12 @@ void SmartHelmet_SensorsStartVerify(Task retry_task)
     sh_probe_task = retry_task;
     if (!shSensorsRequiredOk())
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C verify: start 1s retry");
+		CC_LOGN("SmartHelmet I2C verify: start 1s retry");
         shSensorsScheduleRetry();
     }
     else
     {
-        DEBUG_LOG_INFO("SmartHelmet I2C verify: all required devices ok");
+		CC_LOGN("SmartHelmet I2C verify: all required devices ok");
     }
 }
 

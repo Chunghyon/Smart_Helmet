@@ -2,6 +2,9 @@
 \file       smart_helmet_adc.c
 \brief      Sequential ADC sampling for Smart Helmet air-quality inputs
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
 
 #include "smart_helmet_config.h"
 #include "smart_helmet_adc.h"
@@ -38,7 +41,7 @@ static void shAdcRequestNext(void)
     if (sh_adc_index >= smart_helmet_adc_channel_count)
     {
         sh_adc_busy = FALSE;
-        DEBUG_LOG_INFO("SmartHelmet ADC: scan complete SENS=%umV CO=%umV NH3=%umV NO2=%umV",
+		CC_LOGN("SmartHelmet ADC: scan complete SENS=%umV CO=%umV NH3=%umV NO2=%umV",
                        sh_adc_sample.millivolts[smart_helmet_adc_sens_in],
                        sh_adc_sample.millivolts[smart_helmet_adc_co],
                        sh_adc_sample.millivolts[smart_helmet_adc_nh3],
@@ -58,7 +61,7 @@ void SmartHelmet_AdcInit(Task client_task)
     sh_adc_busy = FALSE;
     sh_adc_vref_mv = 0;
     memset(&sh_adc_sample, 0, sizeof(sh_adc_sample));
-    DEBUG_LOG_INFO("SmartHelmet ADC: init (SENS_IN/CO/NH3/NO2)");
+	CC_LOGN("SmartHelmet ADC: init (SENS_IN/CO/NH3/NO2)");
 }
 
 void SmartHelmet_AdcRequestScan(void)
