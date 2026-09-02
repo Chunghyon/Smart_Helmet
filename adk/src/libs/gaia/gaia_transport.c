@@ -177,7 +177,7 @@ void Gaia_TransportFlushPacket(gaia_transport *t, const uint16 size_payload, con
  */
 void Gaia_TransportRegister(gaia_transport_type type, const gaia_transport_functions_t *functions)
 {
-    DEBUG_LOG_INFO("gaiaTransportRegister, type %u", type);
+	DEBUG_LOG_DEBUG("gaiaTransportRegister, type %u", type);
     PanicFalse(gaia_transport_functions[type] == NULL);
     gaia_transport_functions[type] = functions;
 }
@@ -187,7 +187,7 @@ void Gaia_TransportRegister(gaia_transport_type type, const gaia_transport_funct
  */
 void Gaia_TransportStartService(gaia_transport_type type)
 {
-    DEBUG_LOG_INFO("gaiaTransportStartService, type %u", type);
+	DEBUG_LOG_DEBUG("gaiaTransportStartService, type %u", type);
     PanicFalse(gaia_transport_functions[type]);
     PanicZero(gaia_transport_functions[type]->start_service);
 
@@ -218,7 +218,7 @@ void Gaia_TransportStartService(gaia_transport_type type)
  */
 void Gaia_TransportStartServiceCfm(gaia_transport *t, bool success)
 {
-    DEBUG_LOG_INFO("gaiaTransportStartServiceCfm, type %u, success %u", t->type, success);
+	DEBUG_LOG_DEBUG("gaiaTransportStartServiceCfm, type %u, success %u", t->type, success);
     PanicFalse(t);
 
     gaia_TransportSendGaiaStartServiceCfm(t->type, success ? t : NULL, success);
@@ -238,7 +238,7 @@ void Gaia_TransportStartServiceCfm(gaia_transport *t, bool success)
  */
 void Gaia_TransportStopService(gaia_transport *t)
 {
-    DEBUG_LOG_INFO("gaiaTransportStopService, transport %p", t);
+	DEBUG_LOG_DEBUG("gaiaTransportStopService, transport %p", t);
 
     PanicZero(t->functions->stop_service);
     t->functions->stop_service(t);
@@ -358,7 +358,7 @@ void Gaia_TransportDisconnectCfm(gaia_transport *t, bool success)
     gaia_TransportSendGaiaDisconnectCfm(t, success);
     if (success)
     {
-        DEBUG_LOG_INFO("Gaia_TransportDisconnectInd, zero BDADDR");
+		DEBUG_LOG_DEBUG("Gaia_TransportDisconnectInd, zero BDADDR");
         BdaddrTpSetEmpty(&t->tp_bd_addr);
         t->state = GAIA_TRANSPORT_STARTED;
     }
@@ -375,7 +375,7 @@ void Gaia_TransportDisconnectInd(gaia_transport *t)
     else
         gaia_TransportSendGaiaDisconnectInd(t);
 
-    DEBUG_LOG_INFO("Gaia_TransportDisconnectInd, zero BDADDR");
+	DEBUG_LOG_DEBUG("Gaia_TransportDisconnectInd, zero BDADDR");
     BdaddrTpSetEmpty(&t->tp_bd_addr);
     if (t->tx_pkt_buf)
     {

@@ -12,11 +12,14 @@ SSD1315     = optional OLED (stub only unless SMART_HELMET_ENABLE_SSD1315)
 #include "smart_helmet_i2c.h"
 #include "smart_helmet_sensors.h"
 
+#include <message.h>
 #include <logging.h>
 
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
 static smart_helmet_sensor_data_t sh_sensors;
+static Task sh_probe_task;
+static uint16 sh_probe_try;
 
 /* CCS811 registers */
 #define CCS811_REG_STATUS        0x00
@@ -112,8 +115,143 @@ static bool shReadMlx90614(uint8 ram_addr, int16 *out_x100)
         return FALSE;
     }
     raw = (uint16)buf[0] | ((uint16)buf[1] << 8);
+    /* Bitserial reports success with 0x00 fill when no slave ACKs. */
+    if (raw == 0u || raw == 0xFFFFu)
+    {
+        DEBUG_LOG_INFO("SmartHelmet: MLX90614 raw=0x%04x rejected", raw);
+        return FALSE;
+    }
     *out_x100 = shMlxRawToCentiC(raw);
     return TRUE;
+}
+
+static bool shProbeSsd1315(void)
+{
+#if SMART_HELMET_ENABLE_SSD1315
+    smart_helmet_i2c_bus_t bus =
+        SMART_HELMET_SSD1315_ON_I2C1 ? smart_helmet_i2c_bus_1
+                                    : smart_helmet_i2c_bus_0;
+    uint8 dummy = 0x00;
+    DEBUG_LOG_INFO("SmartHelmet: SSD1315 probe @0x%02x I2C%u",
+                   SMART_HELMET_ADDR_SSD1315, (unsigned)bus);
+    return SmartHelmet_I2cWrite(bus, SMART_HELMET_ADDR_SSD1315, &dummy, 1);
+#else
+    return TRUE;
+#endif
+}
+
+static bool shSensorsRequiredOk(void)
+{
+    if (!sh_sensors.ccs811_ok)
+    {
+        return FALSE;
+    }
+    if (!sh_sensors.mlx90614_ok)
+    {
+        return FALSE;
+    }
+#if SMART_HELMET_ENABLE_LIS3DH
+    if (!sh_sensors.lis3dh_ok)
+    {
+        return FALSE;
+    }
+#endif
+    return TRUE;
+}
+
+static void shSensorsScheduleRetry(void)
+{
+    if (!sh_probe_task)
+    {
+        return;
+    }
+    MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
+    MessageSendLater(sh_probe_task,
+                     SMART_HELMET_I2C_PROBE_RETRY,
+                     NULL,
+                     SMART_HELMET_I2C_PROBE_RETRY_MS);
+}
+
+static void shSensorsVerifyPass(void)
+{
+    sh_probe_try++;
+    DEBUG_LOG_INFO("SmartHelmet I2C verify try=%u ccs=%u lis=%u mlx=%u ssd=%u",
+                   sh_probe_try,
+                   sh_sensors.ccs811_ok,
+                   sh_sensors.lis3dh_ok,
+                   sh_sensors.mlx90614_ok,
+                   sh_sensors.ssd1315_ok);
+
+    if (!sh_sensors.ccs811_ok)
+    {
+        DEBUG_LOG_INFO("SmartHelmet I2C verify CCS811 @0x%02x expect HW_ID=0x%02x",
+                       SMART_HELMET_ADDR_CCS811, CCS811_HW_ID_VALUE);
+        if (shProbeCcs811())
+        {
+            sh_sensors.ccs811_ok = shInitCcs811();
+            DEBUG_LOG_INFO("SmartHelmet: CCS811 %s",
+                           sh_sensors.ccs811_ok ? "ok" : "init fail");
+        }
+        else
+        {
+            DEBUG_LOG_WARN("SmartHelmet: CCS811 no HW_ID 0x81");
+        }
+    }
+
+#if SMART_HELMET_ENABLE_LIS3DH
+    if (!sh_sensors.lis3dh_ok)
+    {
+        DEBUG_LOG_INFO("SmartHelmet I2C verify LIS3DH @0x%02x expect WHOAMI=0x%02x",
+                       SMART_HELMET_ADDR_LIS3DH, LIS3DH_WHO_AM_I_VALUE);
+        if (shProbeLis3dh())
+        {
+            sh_sensors.lis3dh_ok = shInitLis3dh();
+            DEBUG_LOG_INFO("SmartHelmet: LIS3DH %s",
+                           sh_sensors.lis3dh_ok ? "ok" : "init fail");
+        }
+        else
+        {
+            DEBUG_LOG_WARN("SmartHelmet: LIS3DH no WHO_AM_I 0x33");
+        }
+    }
+#endif
+
+    if (!sh_sensors.mlx90614_ok)
+    {
+        DEBUG_LOG_INFO("SmartHelmet I2C verify MLX90614 @0x%02x RAM_TA",
+                       SMART_HELMET_ADDR_MLX90614);
+        if (shReadMlx90614(MLX90614_RAM_TA, &sh_sensors.ambient_temp_x100))
+        {
+            sh_sensors.mlx90614_ok = TRUE;
+            DEBUG_LOG_INFO("SmartHelmet: MLX90614 ok TA=%d/100C",
+                           sh_sensors.ambient_temp_x100);
+        }
+        else
+        {
+            DEBUG_LOG_WARN("SmartHelmet: MLX90614 no valid TA");
+        }
+    }
+
+#if SMART_HELMET_ENABLE_SSD1315
+    if (!shSensorsRequiredOk())
+    {
+        sh_sensors.ssd1315_ok = shProbeSsd1315();
+    }
+#endif
+
+    if (shSensorsRequiredOk())
+    {
+        DEBUG_LOG_INFO("SmartHelmet I2C verify DONE try=%u", sh_probe_try);
+        if (sh_probe_task)
+        {
+            MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
+        }
+        return;
+    }
+
+    DEBUG_LOG_INFO("SmartHelmet I2C verify retry in %u ms",
+                   SMART_HELMET_I2C_PROBE_RETRY_MS);
+    shSensorsScheduleRetry();
 }
 
 void SmartHelmet_SensorsInit(void)
@@ -122,6 +260,8 @@ void SmartHelmet_SensorsInit(void)
     sh_sensors.ccs811_ok = FALSE;
     sh_sensors.lis3dh_ok = FALSE;
     sh_sensors.mlx90614_ok = FALSE;
+    sh_sensors.ssd1315_ok = FALSE;
+    sh_probe_try = 0;
 
     DEBUG_LOG_INFO("%s: probe CCS811 @0x%02x", __func__, SMART_HELMET_ADDR_CCS811);
     if (shProbeCcs811())
@@ -171,22 +311,9 @@ void SmartHelmet_SensorsInit(void)
     }
 
 #if SMART_HELMET_ENABLE_SSD1315
-    {
-        smart_helmet_i2c_bus_t bus =
-            SMART_HELMET_SSD1315_ON_I2C1 ? smart_helmet_i2c_bus_1
-                                        : smart_helmet_i2c_bus_0;
-        uint8 dummy = 0x00;
-        DEBUG_LOG_INFO("%s: probe SSD1315 @0x%02x on I2C%u",
-                       __func__, SMART_HELMET_ADDR_SSD1315, (unsigned)bus);
-        if (SmartHelmet_I2cWrite(bus, SMART_HELMET_ADDR_SSD1315, &dummy, 1))
-        {
-            DEBUG_LOG_INFO("SmartHelmet: SSD1315 probe ok on I2C%u", (unsigned)bus);
-        }
-        else
-        {
-            DEBUG_LOG_WARN("SmartHelmet: SSD1315 not found");
-        }
-    }
+    sh_sensors.ssd1315_ok = shProbeSsd1315();
+    DEBUG_LOG_INFO("SmartHelmet: SSD1315 write %s (no ACK check)",
+                   sh_sensors.ssd1315_ok ? "issued" : "fail");
 #endif
     DEBUG_LOG_INFO("%s: exit ccs=%u lis=%u mlx=%u",
                    __func__,
@@ -231,4 +358,39 @@ void SmartHelmet_SensorsPoll(void)
         shReadMlx90614(MLX90614_RAM_TA, &sh_sensors.ambient_temp_x100);
         shReadMlx90614(MLX90614_RAM_TOBJ1, &sh_sensors.object_temp_x100);
     }
+}
+
+void SmartHelmet_SensorsStartVerify(Task retry_task)
+{
+    sh_probe_task = retry_task;
+    if (!shSensorsRequiredOk())
+    {
+        DEBUG_LOG_INFO("SmartHelmet I2C verify: start 1s retry");
+        shSensorsScheduleRetry();
+    }
+    else
+    {
+        DEBUG_LOG_INFO("SmartHelmet I2C verify: all required devices ok");
+    }
+}
+
+void SmartHelmet_SensorsStopVerify(void)
+{
+    if (sh_probe_task)
+    {
+        MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
+    }
+    sh_probe_task = NULL;
+}
+
+bool SmartHelmet_SensorsHandleMessage(Task task, MessageId id, Message message)
+{
+    UNUSED(task);
+    UNUSED(message);
+    if (id != SMART_HELMET_I2C_PROBE_RETRY)
+    {
+        return FALSE;
+    }
+    shSensorsVerifyPass();
+    return TRUE;
 }

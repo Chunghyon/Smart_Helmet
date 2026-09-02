@@ -18,6 +18,10 @@ static bool sh_ready;
 
 static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
 {
+    if (SmartHelmet_SensorsHandleMessage(task, id, message))
+    {
+        return;
+    }
     if (SmartHelmet_HandleMessage(task, id, message))
     {
         return;
@@ -53,7 +57,8 @@ bool SmartHelmet_Init(Task client_task)
         /* Non-fatal for sensor-only bring-up */
     }
 
-	SmartHelmet_SensorsInit();
+    SmartHelmet_SensorsInit();
+    SmartHelmet_SensorsStartVerify(&sh_task_data);
     SmartHelmet_VitalsInit();
 
     sh_ready = TRUE;
@@ -63,6 +68,7 @@ bool SmartHelmet_Init(Task client_task)
 
 void SmartHelmet_Close(void)
 {
+    SmartHelmet_SensorsStopVerify();
     SmartHelmet_UartClose();
     SmartHelmet_I2cClose();
     sh_ready = FALSE;
@@ -70,6 +76,10 @@ void SmartHelmet_Close(void)
 
 bool SmartHelmet_HandleMessage(Task task, MessageId id, Message message)
 {
+    if (SmartHelmet_SensorsHandleMessage(task, id, message))
+    {
+        return TRUE;
+    }
     if (SmartHelmet_AdcHandleMessage(task, id, message))
     {
         return TRUE;

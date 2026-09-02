@@ -67,17 +67,17 @@ void appPowerInitComplete(void)
 
 void appPowerOn(void)
 {
-	DEBUG_LOG_ALWAYS("appPowerOn");
+	DEBUG_LOG_DEBUG("appPowerOn");
 
     TaskList_MessageSendId(appPowerGetClients(), POWER_ON);
 }
 
 bool appPowerOffRequest(void)
 {
-	DEBUG_LOG_ALWAYS("appPowerOffRequest");
+	DEBUG_LOG_INFO("appPowerOffRequest");
     if (appPowerCanPowerOff())
     {
-		DEBUG_LOG_ALWAYS("appPowerCanPowerOff() true");
+		DEBUG_LOG_INFO("appPowerCanPowerOff() true");
 		switch (PowerGetTaskData()->state)
         {
             case POWER_STATE_INIT:
@@ -98,7 +98,7 @@ bool appPowerOffRequest(void)
         }
     }
 	else {
-		DEBUG_LOG_ALWAYS("appPowerCanPowerOff() false");
+		DEBUG_LOG_INFO("appPowerCanPowerOff() false");
 	}
     return FALSE;
 }
@@ -136,17 +136,17 @@ void appPowerClientRegister(Task task)
                 the chip going to sleep. */
                 break;
         }
-		DEBUG_LOG_ALWAYS("appPowerClientRegister %p registered", task);
+		DEBUG_LOG_DEBUG("appPowerClientRegister %p registered", task);
     }
     else
     {
-		DEBUG_LOG_ALWAYS("appPowerClientRegister %p already registered (ignoring)", task);
+		DEBUG_LOG_DEBUG("appPowerClientRegister %p already registered (ignoring)", task);
     }
 }
 
 void appPowerClientUnregister(Task task)
 {
-	DEBUG_LOG_ALWAYS("appPowerClientUnregister %p", task);
+	DEBUG_LOG_DEBUG("appPowerClientUnregister %p", task);
 
     /* Tidy up any outstanding actions the client may have. */
     appPowerClientAllowSleep(task);
@@ -163,7 +163,7 @@ void appPowerClientUnregister(Task task)
 
 void appPowerClientAllowSleep(Task task)
 {
-	DEBUG_LOG_ALWAYS("appPowerClientAllowSleep %p", task);
+	DEBUG_LOG_DEBUG("appPowerClientAllowSleep %p", task);
 
     appPowerSetFlagInClient(task, APP_POWER_ALLOW_SLEEP);
 
@@ -181,14 +181,14 @@ void appPowerClientAllowSleep(Task task)
 
 void appPowerClientProhibitSleep(Task task)
 {
-	DEBUG_LOG_ALWAYS("appPowerClientProhibitSleep %p", task);
+	DEBUG_LOG_DEBUG("appPowerClientProhibitSleep %p", task);
 
     appPowerClearFlagInClient(task, APP_POWER_ALLOW_SLEEP);
 }
 
 void appPowerShutdownPrepareResponse(Task task)
 {
-	DEBUG_LOG_ALWAYS("appPowerShutdownPrepareResponse 0x%x %p", PowerGetTaskData()->state, task);
+	DEBUG_LOG_DEBUG("appPowerShutdownPrepareResponse 0x%x %p", PowerGetTaskData()->state, task);
 
     if (POWER_STATE_TERMINATING_CLIENTS_NOTIFIED == PowerGetTaskData()->state)
     {
@@ -205,7 +205,7 @@ void appPowerShutdownPrepareResponse(Task task)
 
 void appPowerSleepPrepareResponse(Task task)
 {
-	DEBUG_LOG_ALWAYS("appPowerSleepPrepareResponse 0x%x %p", PowerGetTaskData()->state, task);
+	DEBUG_LOG_DEBUG("appPowerSleepPrepareResponse 0x%x %p", PowerGetTaskData()->state, task);
 
     if (POWER_STATE_SOPORIFIC_CLIENTS_NOTIFIED == PowerGetTaskData()->state)
     {

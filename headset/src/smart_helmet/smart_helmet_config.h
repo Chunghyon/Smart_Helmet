@@ -43,6 +43,11 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #ifndef SMART_HELMET_SSD1315_ON_I2C1
 #define SMART_HELMET_SSD1315_ON_I2C1       (1)
 #endif
+/* Re-issue I2C probes every N ms until CCS811 / MLX90614 (and LIS3DH if
+ * enabled) return the expected payload. For scope capture on the bus. */
+#ifndef SMART_HELMET_I2C_PROBE_RETRY_MS
+#define SMART_HELMET_I2C_PROBE_RETRY_MS    (1000)
+#endif
 
 /* -------------------------------------------------------------------------- */
 /* I2C0 — SCL / SDA (bitserial block 0)                                       */

@@ -389,7 +389,7 @@ static void gaiaTransport_RfcommSdpRegister(gaia_transport_rfcomm_t *tr)
         sr = gaiaTransport_RfcommAllocateServiceRecord(gaia_transport_spp_service_record, size_of_rec, GAIA_SR_CH_IDX, tr->channel);
     }
 
-    DEBUG_LOG_INFO("gaiaTransportRfcommSdpRegister, channel %u", tr->channel);
+	DEBUG_LOG_DEBUG("gaiaTransportRfcommSdpRegister, channel %u", tr->channel);
 
     /* Register the SDP record */
     GAIA_RFCOMM_REGISTER_SERVICE_RECORD(&tr->common.task, size_of_rec, sr);
@@ -420,7 +420,7 @@ static void gaiaTransport_RfcommStartService(gaia_transport *t)
 {
     PanicNull(t);
     gaia_transport_rfcomm_t *tr = (gaia_transport_rfcomm_t *)t;
-    DEBUG_LOG_INFO("gaiaTransportRfcommStartService");
+	DEBUG_LOG_DEBUG("gaiaTransportRfcommStartService");
 
     /* Initialise task */
     t->task.handler = gaiaTransport_RfcommHandleMessage;
@@ -450,7 +450,7 @@ static void gaiaTransport_RfcommStopService(gaia_transport *t)
     /* Only allow stopping service in started state (i.e not connected) */
     if (t->state == GAIA_TRANSPORT_STARTED)
     {
-        DEBUG_LOG_INFO("gaiaTransportRfcommStopService, stopping");
+		DEBUG_LOG_DEBUG("gaiaTransportRfcommStopService, stopping");
         t->state = GAIA_TRANSPORT_STOPPING;
 
         /* Unregister with transport manager */
@@ -468,7 +468,7 @@ static void gaiaTransport_RfcommDisconnectReq(gaia_transport *t)
 {
     gaia_transport_rfcomm_t *tr = (gaia_transport_rfcomm_t *)t;
     PanicNull(tr);
-    DEBUG_LOG_INFO("gaiaTransportRfcommDisconnectReq, sink %04x", tr->u.sink);
+	DEBUG_LOG_DEBUG("gaiaTransportRfcommDisconnectReq, sink %04x", tr->u.sink);
 
     /* Attempt to initiate disconnect, send confirmation with failure if disconnect not initiated */
     if (TransportMgrDisconnect(transport_mgr_type_rfcomm, tr->u.sink) != transport_mgr_status_success)
@@ -593,14 +593,14 @@ static bool gaiaTransport_RfcommHandoverVeto(gaia_transport *t)
     /* Veto if pending messages */
     if (MessagesPendingForTask(&t->task, NULL))
     {
-        DEBUG_LOG_INFO("gaiaTransport_RfcommHandoverVeto, veto as messages pending for task");
+		DEBUG_LOG_DEBUG("gaiaTransport_RfcommHandoverVeto, veto as messages pending for task");
         return TRUE;
     }
 
     /* Veto if received packet being processed */
     if (tr->rx_packets_pending)
     {
-        DEBUG_LOG_INFO("gaiaTransport_RfcommHandoverVeto, veto as connected with %u packets pending", tr->rx_packets_pending);
+		DEBUG_LOG_DEBUG("gaiaTransport_RfcommHandoverVeto, veto as connected with %u packets pending", tr->rx_packets_pending);
         return TRUE;
     }
 
@@ -620,7 +620,7 @@ static bool gaiaTransport_RfcommHandoverVeto(gaia_transport *t)
             break;
 
         default:
-            DEBUG_LOG_INFO("gaiaTransport_RfcommHandoverVeto, veto as state %u", t->state);
+		    DEBUG_LOG_DEBUG("gaiaTransport_RfcommHandoverVeto, veto as state %u", t->state);
             return TRUE;
     }
 
@@ -779,7 +779,7 @@ static void gaiaTransport_RfcommHandoverComplete(gaia_transport *t, bool is_prim
 
 static void gaiaTransport_RfcommHandleTransportMgrRegisterCfm(gaia_transport_rfcomm_t *tr, const TRANSPORT_MGR_REGISTER_CFM_T *cfm)
 {
-    DEBUG_LOG_INFO("gaiaRfcommHandleTransportMgrRegisterCfm, channel %u, status %u",
+	DEBUG_LOG_DEBUG("gaiaRfcommHandleTransportMgrRegisterCfm, channel %u, status %u",
                    cfm->link_cfg.trans_info.non_gatt_trans.trans_link_id, cfm->status);
 
     if (cfm->status)
@@ -794,7 +794,7 @@ static void gaiaTransport_RfcommHandleTransportMgrRegisterCfm(gaia_transport_rfc
 
 static void gaiaTransport_RfcommHandleTransportMgrDeregisterCfm(gaia_transport_rfcomm_t *tr, const TRANSPORT_MGR_DEREGISTER_CFM_T *cfm)
 {
-    DEBUG_LOG_INFO("gaiaRfcommHandleTransportMgrDeregisterCfm, channel %u, status %u",
+	DEBUG_LOG_DEBUG("gaiaRfcommHandleTransportMgrDeregisterCfm, channel %u, status %u",
                    cfm->trans_link_id, cfm->status);
 
     /* Unregister SDP record */
@@ -810,7 +810,7 @@ static void gaiaTransport_RfcommHandleTransportMgrDeregisterCfm(gaia_transport_r
 
 static void gaiaTransport_RfcommHandleTransportMgrLinkCreatedCfm(gaia_transport_rfcomm_t *tr, const TRANSPORT_MGR_LINK_CREATED_CFM_T *cfm)
 {
-    DEBUG_LOG_INFO("gaiaTransportRfcommHandleTransportMgrLinkCreatedCfm, status %u", cfm->status);
+	DEBUG_LOG_DEBUG("gaiaTransportRfcommHandleTransportMgrLinkCreatedCfm, status %u", cfm->status);
 
     if (cfm->status)
     {
@@ -839,7 +839,7 @@ static void gaiaTransport_RfcommHandleTransportMgrLinkCreatedCfm(gaia_transport_
 
 static void gaiaTransport_RfcommHandleTransportMgrLinkDisconnectedCfm(gaia_transport_rfcomm_t *tr, const TRANSPORT_MGR_LINK_DISCONNECTED_CFM_T *cfm)
 {
-    DEBUG_LOG_INFO("gaiaTransportRfcommHandleTransportMgrLinkDisconnectedCfm, status %u", cfm->status);
+	DEBUG_LOG_DEBUG("gaiaTransportRfcommHandleTransportMgrLinkDisconnectedCfm, status %u", cfm->status);
 
     if (cfm->status)
     {
@@ -879,7 +879,7 @@ static void gaiaTransport_RfcommHandleTransportMgrLinkDisconnectedCfm(gaia_trans
 
 static void gaiaTransport_RfcommHandleSdpRegisterCfm(gaia_transport_rfcomm_t *tr, uint16 status, uint32 service_handle)
 {
-    DEBUG_LOG_INFO("gaiaTransport_RfcommHandleSdpRegisterCfm, status %u, state %u", status, tr->common.state);
+	DEBUG_LOG_DEBUG("gaiaTransport_RfcommHandleSdpRegisterCfm, status %u, state %u", status, tr->common.state);
 
     if (IS_SDP_STATUS_SUCCESS(status))
     {
@@ -896,7 +896,7 @@ static void gaiaTransport_RfcommHandleSdpRegisterCfm(gaia_transport_rfcomm_t *tr
 
 static void gaiaTransport_RfcommHandleSdpUnregisterCfm(gaia_transport_rfcomm_t *tr, uint16 status)
 {
-    DEBUG_LOG_INFO("gaiaTransport_RfcommHandleSdpUnregisterCfm, status %u, state %u", status, tr->common.state);
+	DEBUG_LOG_DEBUG("gaiaTransport_RfcommHandleSdpUnregisterCfm, status %u, state %u", status, tr->common.state);
 
     if (tr->common.state == GAIA_TRANSPORT_STOPPING && IS_SDP_STATUS_SUCCESS(status))
     {
