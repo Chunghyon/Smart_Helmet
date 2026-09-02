@@ -58,14 +58,13 @@ const smart_helmet_sensor_data_t *SmartHelmet_SensorsGetData(void)
 static bool shProbeCcs811(void)
 {
     uint8 id = 0;
-    if (!SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
-                                SMART_HELMET_ADDR_CCS811,
-                                CCS811_REG_HW_ID, &id, 1))
-    {
-        return FALSE;
-    }
-    DEBUG_LOG_INFO("SmartHelmet: CCS811 HW_ID=0x%02x", id);
-    return id == CCS811_HW_ID_VALUE;
+    bool rd = SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                     SMART_HELMET_ADDR_CCS811,
+                                     CCS811_REG_HW_ID, &id, 1);
+    bool match = rd && (id == CCS811_HW_ID_VALUE);
+    DEBUG_LOG_ALWAYS("SmartHelmet: CCS811 HW_ID expect=0x%02x got=0x%02x rd=%u",
+                     CCS811_HW_ID_VALUE, id, rd ? 1u : 0u);
+    return match;
 }
 
 static bool shInitCcs811(void)
@@ -101,15 +100,16 @@ static bool shProbeHdc1080(void)
 {
     uint16 manuf = 0;
     uint16 devid = 0;
-    if (!shHdcReadU16(HDC1080_REG_MANUF_ID, &manuf) ||
-        !shHdcReadU16(HDC1080_REG_DEVICE_ID, &devid))
-    {
-        return FALSE;
-    }
-    DEBUG_LOG_INFO("SmartHelmet: HDC1080 manuf=0x%04x devid=0x%04x",
-                   manuf, devid);
-    return (manuf == HDC1080_MANUF_ID_VALUE) &&
-           (devid == HDC1080_DEVICE_ID_VALUE);
+    bool rd_m = shHdcReadU16(HDC1080_REG_MANUF_ID, &manuf);
+    bool rd_d = shHdcReadU16(HDC1080_REG_DEVICE_ID, &devid);
+    bool match = rd_m && rd_d &&
+                 (manuf == HDC1080_MANUF_ID_VALUE) &&
+                 (devid == HDC1080_DEVICE_ID_VALUE);
+    DEBUG_LOG_ALWAYS("SmartHelmet: HDC1080 manuf expect=0x%04x got=0x%04x rd=%u "
+                     "devid expect=0x%04x got=0x%04x rd=%u",
+                     HDC1080_MANUF_ID_VALUE, manuf, rd_m ? 1u : 0u,
+                     HDC1080_DEVICE_ID_VALUE, devid, rd_d ? 1u : 0u);
+    return match;
 }
 
 static bool shInitHdc1080(void)
@@ -126,13 +126,13 @@ static bool shInitHdc1080(void)
 static bool shProbeLis3dh(void)
 {
     uint8 id = 0;
-    if (!SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
-                                SMART_HELMET_ADDR_LIS3DH,
-                                LIS3DH_REG_WHO_AM_I, &id, 1))
-    {
-        return FALSE;
-    }
-    return id == LIS3DH_WHO_AM_I_VALUE;
+    bool rd = SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                     SMART_HELMET_ADDR_LIS3DH,
+                                     LIS3DH_REG_WHO_AM_I, &id, 1);
+    bool match = rd && (id == LIS3DH_WHO_AM_I_VALUE);
+    DEBUG_LOG_ALWAYS("SmartHelmet: LIS3DH WHO_AM_I expect=0x%02x got=0x%02x rd=%u",
+                     LIS3DH_WHO_AM_I_VALUE, id, rd ? 1u : 0u);
+    return match;
 }
 
 static bool shInitLis3dh(void)
@@ -252,7 +252,7 @@ static void shSensorsVerifyPass(void)
         }
         else
         {
-            DEBUG_LOG_WARN("SmartHelmet: CCS811 no HW_ID 0x81");
+            DEBUG_LOG_WARN("SmartHelmet: CCS811 ID mismatch (see expect/got above)");
         }
     }
 #endif
@@ -270,7 +270,7 @@ static void shSensorsVerifyPass(void)
         }
         else
         {
-            DEBUG_LOG_WARN("SmartHelmet: HDC1080 no TI ID");
+            DEBUG_LOG_WARN("SmartHelmet: HDC1080 ID mismatch (see expect/got above)");
         }
     }
 #endif
