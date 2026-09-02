@@ -465,7 +465,6 @@ void SmartHelmet_SensorsPoll(void)
         shReadMlx90614(MLX90614_RAM_TOBJ1, &sh_sensors.object_temp_x100);
     }
 #endif
-
 	UNUSED(buf);
 }
 
