@@ -1,220 +1,220 @@
 /*!
 \copyright  Copyright (c) 2008 - 2022 Qualcomm Technologies International, Ltd.\n
-            All Rights Reserved.\n
-            Qualcomm Technologies International, Ltd. Confidential and Proprietary.
-\version    
+			All Rights Reserved.\n
+			Qualcomm Technologies International, Ltd. Confidential and Proprietary.
+\version
 \brief      Header file for logging macro's
 
-    Two styles of logging are supported.
+	Two styles of logging are supported.
 
-    Both styles can be accessed from the pydbg tool using the
-    log commands. The two forms of logging will be displayed
-    in the order they were logged. Although the two styles of logging
-    can be combined, the recommendation is to use the DEBUG_LOG()
-    functions.
+	Both styles can be accessed from the pydbg tool using the
+	log commands. The two forms of logging will be displayed
+	in the order they were logged. Although the two styles of logging
+	can be combined, the recommendation is to use the DEBUG_LOG()
+	functions.
 
-    It is recommended to use the following macros for logging so that the
-    amount of information displayed can be changed at run-time:
-        DEBUG_LOG_ERROR(...)
-        DEBUG_LOG_WARN(...)
-        DEBUG_LOG_INFO(...)
-        DEBUG_LOG_DEBUG(...)
-        DEBUG_LOG_VERBOSE(...)
-        DEBUG_LOG_V_VERBOSE(...)
-    By default the amount of information logged at run time is controlled by
-    the global variable \c debug_log_level__global. It is initialised at boot
-    to \c DEFAULT_LOG_LEVEL which is normally \c DEBUG_LOG_LEVEL_INFO so any
-    INFO, WARNING and ERROR messages will be displayed. That can be changed
-    within this file.
+	It is recommended to use the following macros for logging so that the
+	amount of information displayed can be changed at run-time:
+		DEBUG_LOG_ERROR(...)
+		DEBUG_LOG_WARN(...)
+		DEBUG_LOG_INFO(...)
+		DEBUG_LOG_DEBUG(...)
+		DEBUG_LOG_VERBOSE(...)
+		DEBUG_LOG_V_VERBOSE(...)
+	By default the amount of information logged at run time is controlled by
+	the global variable \c debug_log_level__global. It is initialised at boot
+	to \c DEFAULT_LOG_LEVEL which is normally \c DEBUG_LOG_LEVEL_INFO so any
+	INFO, WARNING and ERROR messages will be displayed. That can be changed
+	within this file.
 
-    Debug included in this way can be viewed using the pydbg debugging tool,
-    and also from within the Qualcomm Multicore Debug Environment. These tools
-    can help decode some of the values in log messages to show the NAME of a
-    value rather than the ID. This is enabled for enumerated types and, as
-    a special case, message IDs.
+	Debug included in this way can be viewed using the pydbg debugging tool,
+	and also from within the Qualcomm Multicore Debug Environment. These tools
+	can help decode some of the values in log messages to show the NAME of a
+	value rather than the ID. This is enabled for enumerated types and, as
+	a special case, message IDs.
 
-    In case of a Panic it is recommended to use the following macro to display a useful message
-    about it.
-        DEBUG_LOG_PANIC(...)
+	In case of a Panic it is recommended to use the following macro to display a useful message
+	about it.
+		DEBUG_LOG_PANIC(...)
 
-    \par Decoding enumerated types.
-    \parblock
-    Use the name of the enumerated type in the debug in the format
-    enum:<enumeration_name>:%d (or 0x%x)
+	\par Decoding enumerated types.
+	\parblock
+	Use the name of the enumerated type in the debug in the format
+	enum:<enumeration_name>:%d (or 0x%x)
 
-    e.g. Using an enum in debug
+	e.g. Using an enum in debug
 
-        DEBUG_LOG("appLinkPolicyHandleRole peer enum:hci_status:%d enum:hci_role:%d", status, role);
-    \endparblock
-    
-    \par Making types available for debug
-    \parblock
-    The identifiers for the enumerated type will normally be available for decoding.
-    If the type is never used directly as a variable, the information may not be 
-    saved. This can be done using the macros PRESERVE_ENUM_FOR_DEBUGGING() and 
-    PRESERVE_TYPE_FOR_DEBUGGING().
+		DEBUG_LOG("appLinkPolicyHandleRole peer enum:hci_status:%d enum:hci_role:%d", status, role);
+	\endparblock
 
-    \note These macros cannot be used in a header file. This causes the link stage 
-    of the build to report multiple definitions. The recommendation is to add these
-    to the main file of the module the message type is identified with.
+	\par Making types available for debug
+	\parblock
+	The identifiers for the enumerated type will normally be available for decoding.
+	If the type is never used directly as a variable, the information may not be
+	saved. This can be done using the macros PRESERVE_ENUM_FOR_DEBUGGING() and
+	PRESERVE_TYPE_FOR_DEBUGGING().
 
-    e.g. Preserving types
+	\note These macros cannot be used in a header file. This causes the link stage
+	of the build to report multiple definitions. The recommendation is to add these
+	to the main file of the module the message type is identified with.
 
-        PRESERVE_ENUM_FOR_DEBUGGING(message_groups)
-        PRESERVE_TYPE_FOR_DEBUGGING(message_base_t)
-    \endparblock
+	e.g. Preserving types
 
-    \par Using message identifiers in debug
-    \parblock
-    Use the tag MESSAGE. If messages can come from an internal message type,
-    include that also
+		PRESERVE_ENUM_FOR_DEBUGGING(message_groups)
+		PRESERVE_TYPE_FOR_DEBUGGING(message_base_t)
+	\endparblock
 
-    Messages identifiers can only be decoded in this way if the message enumeration
-    has been recorded as a message during compilation. Do this using the two macros
-    LOGGING_PRESERVE_MESSAGE_TYPE and LOGGING_PRESERVE_MESSAGE_ENUM. These macros
-    need to be placed in a C source file rather than a header file. This is because
-    they define a variable to preserve the type information. The linker will remove
-    the variable, but would also report a duplicate symbol if defined in multiple places.
+	\par Using message identifiers in debug
+	\parblock
+	Use the tag MESSAGE. If messages can come from an internal message type,
+	include that also
 
-    e.g. For global messages only
+	Messages identifiers can only be decoded in this way if the message enumeration
+	has been recorded as a message during compilation. Do this using the two macros
+	LOGGING_PRESERVE_MESSAGE_TYPE and LOGGING_PRESERVE_MESSAGE_ENUM. These macros
+	need to be placed in a C source file rather than a header file. This is because
+	they define a variable to preserve the type information. The linker will remove
+	the variable, but would also report a duplicate symbol if defined in multiple places.
 
-        DEBUG_LOG_V_VERBOSE("appHandleClMessage called, MESSAGE:0x%x", id);
+	e.g. For global messages only
 
-    e.g. For a handler with both global and local messages
+		DEBUG_LOG_V_VERBOSE("appHandleClMessage called, MESSAGE:0x%x", id);
 
-        DEBUG_LOG("peer_find_role_handler. Unhandled message MESSAGE:peer_find_role_internal_message_t:0x%x", id);
-    \endparblock
+	e.g. For a handler with both global and local messages
 
-    \par Setting log level for sets of files
-    \parblock
-    If required, the level can
-    be controlled per module by defining the macro as DEBUG_LOG_MODULE_NAME
-    just before the include of <logging.h> and adding a line
-    "DEBUG_LOG_DEFINE_LEVEL_VAR" after completion of all the header files
-    in the C file.
-    \note due to the nature of header file(s) inclusion strict recommendation
-    is to define DEBUG_LOG_MODULE_NAME macro before including any header files.
+		DEBUG_LOG("peer_find_role_handler. Unhandled message MESSAGE:peer_find_role_internal_message_t:0x%x", id);
+	\endparblock
 
-    E.g. for main.c this would look something like:
+	\par Setting log level for sets of files
+	\parblock
+	If required, the level can
+	be controlled per module by defining the macro as DEBUG_LOG_MODULE_NAME
+	just before the include of <logging.h> and adding a line
+	"DEBUG_LOG_DEFINE_LEVEL_VAR" after completion of all the header files
+	in the C file.
+	\note due to the nature of header file(s) inclusion strict recommendation
+	is to define DEBUG_LOG_MODULE_NAME macro before including any header files.
 
-        #define DEBUG_LOG_MODULE_NAME main
-        \#include <boot.h>
-        \#include <os.h>
-        \#include <logging.h>
-        \#include <app/message/system_message.h>
+	E.g. for main.c this would look something like:
 
-        DEBUG_LOG_DEFINE_LEVEL_VAR
+		#define DEBUG_LOG_MODULE_NAME main
+		\#include <boot.h>
+		\#include <os.h>
+		\#include <logging.h>
+		\#include <app/message/system_message.h>
 
-        appTaskData globalApp;
+		DEBUG_LOG_DEFINE_LEVEL_VAR
 
-    That would create a global variable \c debug_log_level_main which can
-    be set at run-time to control the level of messages output by the
-    statements in this file.
+		appTaskData globalApp;
 
-    Some modules may want to include the \c DEBUG_LOG_MODULE_NAME <module_name>
-    via a module's private header.
-    In that case they would have define of the module name in the
-    private header just before the include of \c logging.h and have the
-    \c DEBUG_LOG_DEFINE_LEVEL_VAR statement in one of the C files of the module.
+	That would create a global variable \c debug_log_level_main which can
+	be set at run-time to control the level of messages output by the
+	statements in this file.
 
-    \note as mentioned above due to the nature of header file(s) inclusion
-    strict recommendation is to include module's private header file before
-    including any header file(s).
-    \note Make sure \c DEBUG_LOG_DEFINE_LEVEL_VAR statement won't be included
-    in multiple C files of the module. Compilation will fail otherwise.
-    Like multiple definition of \c debug_log_level_<module_name> .
+	Some modules may want to include the \c DEBUG_LOG_MODULE_NAME <module_name>
+	via a module's private header.
+	In that case they would have define of the module name in the
+	private header just before the include of \c logging.h and have the
+	\c DEBUG_LOG_DEFINE_LEVEL_VAR statement in one of the C files of the module.
 
-    \note To see the example how to use it, please check \c ui_log_level.h
+	\note as mentioned above due to the nature of header file(s) inclusion
+	strict recommendation is to include module's private header file before
+	including any header file(s).
+	\note Make sure \c DEBUG_LOG_DEFINE_LEVEL_VAR statement won't be included
+	in multiple C files of the module. Compilation will fail otherwise.
+	Like multiple definition of \c debug_log_level_<module_name> .
 
-    E.g. for UI module this would look something like:
+	\note To see the example how to use it, please check \c ui_log_level.h
 
-    ui_indicator_log_level.h
-        #define DEBUG_LOG_MODULE_NAME ui
-        \#include <logging.h>
+	E.g. for UI module this would look something like:
 
-    ui.c
-        \#include "ui_indicator_log_level.h"
-        \#include "ui.h"
-        \#include "ui_inputs.h"
-        \#include "ui_indicator_prompts.h"
-        \#include "ui_indicator_tones.h"
-        \#include "ui_indicator_leds.h"
-        \#include "adk_log.h"
+	ui_indicator_log_level.h
+		#define DEBUG_LOG_MODULE_NAME ui
+		\#include <logging.h>
 
-        \#include <stdlib.h>
-        \#include <stdio.h>
-        \#include <logging.h>
-        \#include <panic.h>
-        \#include <task_list.h>
+	ui.c
+		\#include "ui_indicator_log_level.h"
+		\#include "ui.h"
+		\#include "ui_inputs.h"
+		\#include "ui_indicator_prompts.h"
+		\#include "ui_indicator_tones.h"
+		\#include "ui_indicator_leds.h"
+		\#include "adk_log.h"
 
-        DEBUG_LOG_DEFINE_LEVEL_VAR
+		\#include <stdlib.h>
+		\#include <stdio.h>
+		\#include <logging.h>
+		\#include <panic.h>
+		\#include <task_list.h>
 
-    ui_indicator_prompts.c
-        \#include "ui_indicator_log_level.h"
-        ....
+		DEBUG_LOG_DEFINE_LEVEL_VAR
 
-    ui_indicator_tones.c
-        \#include "ui_indicator_log_level.h"
-        ....
+	ui_indicator_prompts.c
+		\#include "ui_indicator_log_level.h"
+		....
 
-    \note The global variable defined \c debug_log_level_<module_name>
-    to hold the log level for respective module(s) may get removed by linker
-    if respective module(s) is not used by application.
-    Trying to access and modify such global variable \c debug_log_level_<module_name>
-    from pydbg will result in error.
+	ui_indicator_tones.c
+		\#include "ui_indicator_log_level.h"
+		....
 
-    \endparblock
+	\note The global variable defined \c debug_log_level_<module_name>
+	to hold the log level for respective module(s) may get removed by linker
+	if respective module(s) is not used by application.
+	Trying to access and modify such global variable \c debug_log_level_<module_name>
+	from pydbg will result in error.
 
-    \par Disabling logging
-    \parblock
-    All of these macros are enabled by default, but logging can be disabled
-    by use of the define DISABLE_LOG. Defining or undefining this
-    at the top of a particular source file would allow logging to be completely
-    disabled at compile-time on a module basis.
+	\endparblock
 
-    The per-module level logging can be disabled by defining
-    \c DISABLE_PER_MODULE_LOG_LEVELS which will save the data memory
-    consumed by the global variables for each module.
+	\par Disabling logging
+	\parblock
+	All of these macros are enabled by default, but logging can be disabled
+	by use of the define DISABLE_LOG. Defining or undefining this
+	at the top of a particular source file would allow logging to be completely
+	disabled at compile-time on a module basis.
 
-    The log levels can be disabled globally by defining
-    \c DISABLE_DEBUG_LOG_LEVELS which will cause all the debug statements
-    of \c DEFAULT_LOG_LEVEL (normally \c DEBUG_LOG_LEVEL_INFO) and more
-    important to always produce output and the less important levels to be
-    ignored at build time. This will save some code size from the
-    comparison with the log level on each debug statement and from removing
-    the less important levels.
-    \endparblock
+	The per-module level logging can be disabled by defining
+	\c DISABLE_PER_MODULE_LOG_LEVELS which will save the data memory
+	consumed by the global variables for each module.
 
-    \par Implementation notes
-    \parblock
-    \note The DEBUG_LOG() macros write condensed information
-    to a logging area and <b>can only be decoded if the original
-    application image file (.elf) is available</b>.
+	The log levels can be disabled globally by defining
+	\c DISABLE_DEBUG_LOG_LEVELS which will cause all the debug statements
+	of \c DEFAULT_LOG_LEVEL (normally \c DEBUG_LOG_LEVEL_INFO) and more
+	important to always produce output and the less important levels to be
+	ignored at build time. This will save some code size from the
+	comparison with the log level on each debug statement and from removing
+	the less important levels.
+	\endparblock
 
-    This macro is quicker since the format string isn't parsed by the
-    firmware and by virtue of being condensed there
-    is less chance of losing information if monitoring information
-    in real time.
+	\par Implementation notes
+	\parblock
+	\note The DEBUG_LOG() macros write condensed information
+	to a logging area and <b>can only be decoded if the original
+	application image file (.elf) is available</b>.
 
-    The DEBUG_PRINT() macros write the complete string to a different
-    logging area, a character buffer, and can be decoded even if the
-    application image file is not available.
+	This macro is quicker since the format string isn't parsed by the
+	firmware and by virtue of being condensed there
+	is less chance of losing information if monitoring information
+	in real time.
 
-    The use of DEBUG_PRINT() is not recommended apart from, for instance,
-    printing the contents of a message or buffer. Due to memory
-    constraints the available printf buffer is relatively small
-    and information can be lost. When paramaters are used the DEBUG_PRINT()
-    functions can also use a lot of memory on the software stack which can cause
-    a Panic() due to a stack overflow.
+	The DEBUG_PRINT() macros write the complete string to a different
+	logging area, a character buffer, and can be decoded even if the
+	application image file is not available.
 
-    Five functions has been defined, by DEBUG_LOG_FUNC_FOR_LEVEL macro, one per log level.
-    Having a function per log level is more efficient in terms of program size
-    than calling single function inside if condition which was done before.
+	The use of DEBUG_PRINT() is not recommended apart from, for instance,
+	printing the contents of a message or buffer. Due to memory
+	constraints the available printf buffer is relatively small
+	and information can be lost. When paramaters are used the DEBUG_PRINT()
+	functions can also use a lot of memory on the software stack which can cause
+	a Panic() due to a stack overflow.
 
-    Note that DEBUG_LOG_WITH_LEVEL has been removed,
-    thus macros with the fixed log levels, like DEBUG_LOG_VERBOSE, must used everywhere.
+	Five functions has been defined, by DEBUG_LOG_FUNC_FOR_LEVEL macro, one per log level.
+	Having a function per log level is more efficient in terms of program size
+	than calling single function inside if condition which was done before.
 
-    \endparblock
+	Note that DEBUG_LOG_WITH_LEVEL has been removed,
+	thus macros with the fixed log levels, like DEBUG_LOG_VERBOSE, must used everywhere.
+
+	\endparblock
 */
 
 #ifndef LOGGING_H
@@ -245,39 +245,39 @@
 
 /*! \cond internals
 
-    This is some cunning macro magic that is able to count the
-    number of arguments supplied to DEBUG_LOG
+	This is some cunning macro magic that is able to count the
+	number of arguments supplied to DEBUG_LOG
 
-    If the arguments were "Hello", 123, 456 then VA_NARGS returns 2
+	If the arguments were "Hello", 123, 456 then VA_NARGS returns 2
 
-                Hello 123 456 16  15  14  13  12  11  10   9   8   7   6   5   4   3  2  1 0 _bonus
-    VA_NARGS_IMPL(_a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, N, ...) N
+				Hello 123 456 16  15  14  13  12  11  10   9   8   7   6   5   4   3  2  1 0 _bonus
+	VA_NARGS_IMPL(_a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, N, ...) N
 
 
  */
 #define VA_NARGS_IMPL(_a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, N, ...) N
 #define VA_NARGS(...) VA_NARGS_IMPL(__VA_ARGS__, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, _bonus_as_no_ellipsis)
 
-    /* Equivalent macro that just indicates if there are SOME arguments
-       after the format string, or NONE
+	/* Equivalent macro that just indicates if there are SOME arguments
+	   after the format string, or NONE
 
-       if the argument is just "hello" then VA_ANY_ARGS_IMPL returns _NONE, which is
-       used to form a macro REST_OF_ARGS_NONE
+	   if the argument is just "hello" then VA_ANY_ARGS_IMPL returns _NONE, which is
+	   used to form a macro REST_OF_ARGS_NONE
 
-                      hello _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _NONE, _bonus
-       VA_ANY_ARGS_IMPL(_a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, SN, ...) SN
+					  hello _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _S, _NONE, _bonus
+	   VA_ANY_ARGS_IMPL(_a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, SN, ...) SN
 
-       */
+	   */
 
 #define VA_ANY_ARGS_IMPL(_a, _b, _c, _d, _e, _f, _g, _h, _i, _j, _k, _l, _m, _n, _o, _p, _q, SN, ...) SN
 #define VA_ANY_ARGS(...) VA_ANY_ARGS_IMPL(__VA_ARGS__, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _SOME, _NONE, _bonus_as_no_ellipsis)
 
-    /* Retrieve just the format string */
+	/* Retrieve just the format string */
 #define FMT(fmt,...) fmt
 
-    /* macros that return additional parameters past the format string
-        The _NONE variant is needed as (fmt, ...) will not match if just passed "hello"
-     */
+	/* macros that return additional parameters past the format string
+		The _NONE variant is needed as (fmt, ...) will not match if just passed "hello"
+	 */
 #define REST_OF_ARGS_NONE(fmt)
 #define REST_OF_ARGS_SOME(fmt,...) ,__VA_ARGS__
 #define _MAKE_REST_OF_ARGS(a,b) a##b
@@ -327,7 +327,11 @@ extern void debugLogData(const uint8 *data, uint16 data_size);
  * the global log level \c debug_log_level__global or a module
  * level variable where it exists (see below).
  */
-#define DEFAULT_LOG_LEVEL           DEBUG_LOG_LEVEL_DEBUG
+#ifdef DEBUG
+#define DEFAULT_LOG_LEVEL           DEBUG_LOG_LEVEL_INFO
+#else
+#define DEFAULT_LOG_LEVEL           DEBUG_LOG_LEVEL_WARN
+#endif
 
 /*! It is used instead of DEFAULT_LOG_LEVEL when DISABLE_DEBUG_LOG_LEVELS
  * is defined. A side-effect of defining DISABLE_DEBUG_LOG_LEVELS is that
@@ -347,6 +351,7 @@ extern void debugLogData(const uint8 *data, uint16 data_size);
 #define UNUSED7(a,b,c,d,e,f,g,h)        (void)(a),UNUSED6(b,c,d,e,f,g,h)
 #define UNUSED8(a,b,c,d,e,f,g,h,i)      (void)(a),UNUSED7(b,c,d,e,f,g,h,i)
 #define UNUSED9(a,b,c,d,e,f,g,h,i,j)    (void)(a),UNUSED8(b,c,d,e,f,g,h,i,j)
+#define UNUSED10(a,b,c,d,e,f,g,h,i,j,k) (void)(a),UNUSED9(b,c,d,e,f,g,h,i,j,k)
 
 #define ALL_UNUSED_IMPL_(nargs) UNUSED ## nargs
 #define ALL_UNUSED_IMPL(nargs) ALL_UNUSED_IMPL_(nargs)
@@ -356,21 +361,21 @@ extern void debugLogData(const uint8 *data, uint16 data_size);
 
 
 /*! \brief Preserve message enums for debug
-    These macros allow preservation of message enumerations for use with the 
-    MESSAGE: form of DEBUG_LOG output.
+	These macros allow preservation of message enumerations for use with the
+	MESSAGE: form of DEBUG_LOG output.
 
-    Named enumerations are preserved using LOGGING_PRESERVE_MESSAGE_ENUM()
-    Anonymous enumerations defined as a typedef are preserved using 
-    LOGGING_PRESERVE_MESSAGE_TYPE()
+	Named enumerations are preserved using LOGGING_PRESERVE_MESSAGE_ENUM()
+	Anonymous enumerations defined as a typedef are preserved using
+	LOGGING_PRESERVE_MESSAGE_TYPE()
 */
 #if defined(PRESERVE_TYPE_IN_SECTION)
 #define LOGGING_PRESERVE_MESSAGE_TYPE(_type) PRESERVE_TYPE_IN_SECTION(_type, MSG_ENUMS)
 #define LOGGING_PRESERVE_MESSAGE_ENUM(_type) PRESERVE_ENUM_IN_SECTION(_type, MSG_ENUMS)
 
 #elif defined(PRESERVE_TYPE_FOR_DEBUGGING)
-    /* Macros to preserve types in a specific section are a late addition.
-       Use if available otherwise save the type using an earlier macro. These
-       will be available to the debug tool, but won't be decoded */
+	/* Macros to preserve types in a specific section are a late addition.
+	   Use if available otherwise save the type using an earlier macro. These
+	   will be available to the debug tool, but won't be decoded */
 #define LOGGING_PRESERVE_MESSAGE_TYPE(_type) PRESERVE_TYPE_FOR_DEBUGGING(_type)
 #define LOGGING_PRESERVE_MESSAGE_ENUM(_type) PRESERVE_ENUM_FOR_DEBUGGING(_type)
 #else
@@ -391,20 +396,20 @@ extern void debugLogData(const uint8 *data, uint16 data_size);
 #define DEBUG_LOG_FOR_LEVEL(_symbol,_level) DEBUG_LOG_FOR_LEVEL_(_symbol,_level)
 
 #define DEBUG_LOG_FUNC_FOR_LEVEL(_SYM,level)\
-    void DEBUG_LOG_FOR_LEVEL(_SYM,level)(const char *fmt,int nargs,...)\
-    {\
-        if(level<=LOG_LEVEL_CURRENT_SYMBOL)\
-        { \
-            va_list vargs;\
-            va_start(vargs,nargs);\
-            hydra_log_firm_va_arg(fmt, nargs, vargs);\
-            va_end(vargs);\
-        }\
-    }
+	void DEBUG_LOG_FOR_LEVEL(_SYM,level)(const char *fmt,int nargs,...)\
+	{\
+		if(level<=LOG_LEVEL_CURRENT_SYMBOL)\
+		{ \
+			va_list vargs;\
+			va_start(vargs,nargs);\
+			hydra_log_firm_va_arg(fmt, nargs, vargs);\
+			va_end(vargs);\
+		}\
+	}
 
 
 #if defined(DEBUG_LOG_MODULE_NAME) && !defined(DISABLE_PER_MODULE_LOG_LEVELS) \
-                                    && !defined(DISABLE_DEBUG_LOG_LEVELS)
+									&& !defined(DISABLE_DEBUG_LOG_LEVELS)
 /*! Macros to declare a variable to hold the log level for this module
  * The define of \c DEBUG_LOG_MODULE_NAME must occur in the header or
  * the source file before including this file for these macros to work.
@@ -417,12 +422,12 @@ extern void debugLogData(const uint8 *data, uint16 data_size);
 
 /*! Macro used in a module to define the variable that holds its log level */
 #define DEBUG_LOG_DEFINE_LEVEL_VAR          debug_log_level_t LOG_LEVEL_CURRENT_SYMBOL = DEFAULT_LOG_LEVEL;\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_ERROR)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_WARN)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_INFO)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_DEBUG)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_VERBOSE)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBOSE)
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_ERROR)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_WARN)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_INFO)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_DEBUG)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_VERBOSE)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBOSE)
 
 #else
 #define LOG_LEVEL_CURRENT_SYMBOL        debug_log_level__global
@@ -437,12 +442,12 @@ extern void debugLogData(const uint8 *data, uint16 data_size);
  * DISABLE_DEBUG_LOG_LEVELS as DEBUG_LOG_DEFINE_GLOBAL_VAR is used in all combinations above.
  */
 #define DEBUG_LOG_DEFINE_GLOBAL_VAR \
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_ERROR)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_WARN)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_INFO)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_DEBUG)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_VERBOSE)\
-                    DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBOSE)
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_ERROR)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_WARN)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_INFO)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_DEBUG)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_VERBOSE)\
+					DEBUG_LOG_FUNC_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBOSE)
 
 /*! Declare a variable for the local log level. This will be either
  * a module defined log level or the global one. */
@@ -462,20 +467,20 @@ extern void DEBUG_LOG_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBO
 /*! \brief  Unconditionally display the supplied string in the condensed log.
   Not intended to be used directly. Instead use the DEBUG_LOG_ERROR,
   DEBUG_LOG_WARN etc. macros.
-    \param fmt  String to display in the log
+	\param fmt  String to display in the log
  */
 #define _DEBUG_LOG_UNCONDITIONAL(...) \
-            do { \
-                HYDRA_LOG_STRING(log_fmt, EXTRA_LOGGING_STRING FMT(__VA_ARGS__,bonus_arg)); \
-                hydra_log_firm_variadic(log_fmt, VA_NARGS(__VA_ARGS__) + EXTRA_LOGGING_NUM_PARAMS EXTRA_LOGGING_PARAMS MAKE_REST_OF_ARGS(VA_ANY_ARGS(__VA_ARGS__))(__VA_ARGS__)); \
-            } while (0)
+			do { \
+				HYDRA_LOG_STRING(log_fmt, EXTRA_LOGGING_STRING FMT(__VA_ARGS__,bonus_arg)); \
+				hydra_log_firm_variadic(log_fmt, VA_NARGS(__VA_ARGS__) + EXTRA_LOGGING_NUM_PARAMS EXTRA_LOGGING_PARAMS MAKE_REST_OF_ARGS(VA_ANY_ARGS(__VA_ARGS__))(__VA_ARGS__)); \
+			} while (0)
 
 /*! \brief  Display the supplied string in the condensed log
   Not intended to be used directly. Instead use the DEBUG_LOG_ERROR,
   DEBUG_LOG_WARN etc. macros.
-    \param level Level from the enum DEBUG_LOG_LEVEL_ENUM to specify the
-        severity of the message
-    \param fmt  String to display in the log
+	\param level Level from the enum DEBUG_LOG_LEVEL_ENUM to specify the
+		severity of the message
+	\param fmt  String to display in the log
  */
 #ifndef DISABLE_DEBUG_LOG_LEVELS
 
@@ -483,38 +488,38 @@ extern void DEBUG_LOG_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBO
  * into a log function itself. That applies only to _DEBUG_LOG_L.
  */
 #define _DEBUG_LOG_L(level, ...) \
-            do { \
-                HYDRA_LOG_STRING(log_fmt, EXTRA_LOGGING_STRING FMT(__VA_ARGS__,bonus_arg)); \
-                DEBUG_LOG_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,level)(log_fmt, VA_NARGS(__VA_ARGS__) + EXTRA_LOGGING_NUM_PARAMS EXTRA_LOGGING_PARAMS MAKE_REST_OF_ARGS(VA_ANY_ARGS(__VA_ARGS__))(__VA_ARGS__)); \
-            } while (0)
+			do { \
+				HYDRA_LOG_STRING(log_fmt, EXTRA_LOGGING_STRING FMT(__VA_ARGS__,bonus_arg)); \
+				DEBUG_LOG_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,level)(log_fmt, VA_NARGS(__VA_ARGS__) + EXTRA_LOGGING_NUM_PARAMS EXTRA_LOGGING_PARAMS MAKE_REST_OF_ARGS(VA_ANY_ARGS(__VA_ARGS__))(__VA_ARGS__)); \
+			} while (0)
 
 
 #define _DEBUG_LOG_DATA_L(level, data, data_size) \
-            do { \
-                if(level<=LOG_LEVEL_CURRENT_SYMBOL) \
-                { \
-                    debugLogData(data, data_size); \
-                } \
-            } while (0)
+			do { \
+				if(level<=LOG_LEVEL_CURRENT_SYMBOL) \
+				{ \
+					debugLogData(data, data_size); \
+				} \
+			} while (0)
 
 #else  /* DISABLE_DEBUG_LOG_LEVELS */
 /*! If log levels are not enabled then assume all messages of DEFAULT_LOG_LEVEL
  * or more important should be shown */
 #define _DEBUG_LOG_L(level, ...) \
-            do { \
-                if(level<=DEFAULT_LOG_FOR_DISABLED_LEVELS) \
-                { \
-                    _DEBUG_LOG_UNCONDITIONAL(__VA_ARGS__); \
-                } \
-            } while (0)
+			do { \
+				if(level<=DEFAULT_LOG_FOR_DISABLED_LEVELS) \
+				{ \
+					_DEBUG_LOG_UNCONDITIONAL(__VA_ARGS__); \
+				} \
+			} while (0)
 
 #define _DEBUG_LOG_DATA_L(level, data, data_size) \
-            do { \
-                if(level<=DEFAULT_LOG_FOR_DISABLED_LEVELS) \
-                { \
-                    debugLogData(data, data_size); \
-                } \
-            } while (0)
+			do { \
+				if(level<=DEFAULT_LOG_FOR_DISABLED_LEVELS) \
+				{ \
+					debugLogData(data, data_size); \
+				} \
+			} while (0)
 
 #endif /* DISABLE_DEBUG_LOG_LEVELS */
 
@@ -524,15 +529,15 @@ extern void DEBUG_LOG_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBO
 
 /* Hydra log on desktop builds just runs using printf */
 #define _DEBUG_LOG_L(level, ...) \
-            do { \
-                if(level<=LOG_LEVEL_CURRENT_SYMBOL) \
-                { \
-                    printf(FMT(__VA_ARGS__,bonus_arg) "\n" MAKE_REST_OF_ARGS(VA_ANY_ARGS(__VA_ARGS__))(__VA_ARGS__)); \
-                } \
-            } while (0)
+			do { \
+				if(level<=LOG_LEVEL_CURRENT_SYMBOL) \
+				{ \
+					printf(FMT(__VA_ARGS__,bonus_arg) "\n" MAKE_REST_OF_ARGS(VA_ANY_ARGS(__VA_ARGS__))(__VA_ARGS__)); \
+				} \
+			} while (0)
 
 #define _DEBUG_LOG_DATA_L(level, data, data_size) \
-            debugLogData(data, data_size)
+			debugLogData(data, data_size)
 
 /* No per-module log levels */
 #define DEBUG_LOG_DEFINE_LEVEL_VAR
@@ -541,15 +546,15 @@ extern void DEBUG_LOG_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBO
 #endif  /* DESKTOP_BUILD */
 
 /*! \brief  Include a string, without parameters in the
-        character debug buffer
+		character debug buffer
 
-    See the description in the file as to why the use of this
-    function is not recommended.
+	See the description in the file as to why the use of this
+	function is not recommended.
 
-    \param fmt  String to display in the log
+	\param fmt  String to display in the log
  */
 #define DEBUG_PRINT(...) \
-        printf(__VA_ARGS__)
+		printf(__VA_ARGS__)
 
 #else   /* DISABLE_LOG */
 
@@ -566,8 +571,19 @@ extern void DEBUG_LOG_FOR_LEVEL(LOG_LEVEL_CURRENT_SYMBOL,DEBUG_LOG_LEVEL_V_VERBO
 
 /*! Macro to print an unsigned long long in a DEBUG_LOG statement.
 
-    Usage: DEBUG_LOG("Print unsigned long long 0x%08lx%08lx", PRINT_ULL(unsigned long long))
+	Usage: DEBUG_LOG("Print unsigned long long 0x%08lx%08lx", PRINT_ULL(unsigned long long))
 */
 #define PRINT_ULL(x)   ((uint32)(((x) >> 32) & 0xFFFFFFFFUL)),((uint32)((x) & 0xFFFFFFFFUL))
+
+#ifdef PP_DEBUG_LOG_ON
+#include "rtime.h"
+#include "system_clock.h"
+extern uint32 timestamp_log;
+#define CC_LOGN(...) do{timestamp_log = SystemClockGetTimerTime(); DEBUG_LOG_ALWAYS(__VA_ARGS__);}while(0)
+#define CC_LOGDATA(data, data_size) do{timestamp_log = SystemClockGetTimerTime(); debugLogData(data, data_size);} while(0)
+#else
+#define CC_LOGN(...) ALL_UNUSED_IMPL(VA_NARGS(__VA_ARGS__)) (__VA_ARGS__ )
+#define CC_LOGDATA(data, data_size) UNUSED(data);
+#endif
 
 #endif /* LOGGING_H */

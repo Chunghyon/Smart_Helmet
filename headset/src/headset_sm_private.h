@@ -21,6 +21,9 @@ enum sm_internal_message_ids
     SM_INTERNAL_POWER_OFF,                          /*!< power OFF headset */
     SM_INTERNAL_TIMEOUT_IDLE,                       /*!< Timeout when idle and no bt connection */
     SM_INTERNAL_TIMEOUT_LIMBO,                      /*!< Timeout when in limbo state and no charger connected*/
+#ifdef INCLUDE_SMART_HELMET
+	SM_INTERNAL_DUMMY_LOG,
+#endif
 };
 
 #endif /* HEADSET_SM_PRIVATE_H_ */

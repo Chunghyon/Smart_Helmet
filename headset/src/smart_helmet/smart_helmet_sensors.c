@@ -69,6 +69,7 @@ static bool shInitCcs811(void)
                                    CCS811_REG_MEAS_MODE, &mode, 1);
 }
 
+#if SMART_HELMET_ENABLE_LIS3DH
 static bool shProbeLis3dh(void)
 {
     uint8 id = 0;
@@ -88,6 +89,7 @@ static bool shInitLis3dh(void)
                                    SMART_HELMET_ADDR_LIS3DH,
                                    LIS3DH_REG_CTRL_REG1, &ctrl1, 1);
 }
+#endif
 
 static int16 shMlxRawToCentiC(uint16 raw)
 {
@@ -135,6 +137,7 @@ void SmartHelmet_SensorsInit(void)
                        SMART_HELMET_ADDR_CCS811);
     }
 
+#if SMART_HELMET_ENABLE_LIS3DH
     DEBUG_LOG_INFO("%s: probe LIS3DH @0x%02x", __func__, SMART_HELMET_ADDR_LIS3DH);
     if (shProbeLis3dh())
     {
@@ -148,6 +151,10 @@ void SmartHelmet_SensorsInit(void)
         DEBUG_LOG_WARN("SmartHelmet: LIS3DH not found @0x%02x",
                        SMART_HELMET_ADDR_LIS3DH);
     }
+#else
+    sh_sensors.lis3dh_ok = FALSE;
+    DEBUG_LOG_INFO("%s: LIS3DH skipped (SMART_HELMET_ENABLE_LIS3DH=0)", __func__);
+#endif
 
     DEBUG_LOG_INFO("%s: probe MLX90614 @0x%02x", __func__, SMART_HELMET_ADDR_MLX90614);
     /* MLX90614 has no WHO_AM_I — try a temperature read */
@@ -203,6 +210,7 @@ void SmartHelmet_SensorsPoll(void)
         }
     }
 
+#if SMART_HELMET_ENABLE_LIS3DH
     if (sh_sensors.lis3dh_ok)
     {
         /* auto-increment: set MSB of sub-address */
@@ -216,6 +224,7 @@ void SmartHelmet_SensorsPoll(void)
             sh_sensors.lis3dh_z = (int16)(((uint16)buf[5] << 8) | buf[4]);
         }
     }
+#endif
 
     if (sh_sensors.mlx90614_ok)
     {

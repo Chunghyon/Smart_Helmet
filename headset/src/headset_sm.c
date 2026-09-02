@@ -9,6 +9,10 @@
 
 */
 
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
+
 /* local includes */
 #include "headset_sm.h"
 #include "headset_sm_private.h"
@@ -57,6 +61,12 @@
 #include <panic.h>
 #include <message.h>
 #include <ps.h>
+
+#ifdef INCLUDE_SMART_HELMET
+#include "logging.h"
+#include "rtime.h"
+#include "system_clock.h"
+#endif
 
 #include <telephony_messages.h>
 /* Make the type used for message IDs available in debug tools */
@@ -1434,7 +1444,20 @@ void headsetSmHandleMessage(Task task, MessageId id, Message message)
             headsetSmLinkDisconnectionTimeout();
             break;
 
-        default:
+#ifdef INCLUDE_SMART_HELMET
+#ifdef DEBUG
+	    case SM_INTERNAL_DUMMY_LOG :
+	    {
+		    MessageSendLater(headsetSmGetTask(), SM_INTERNAL_DUMMY_LOG, NULL, D_SEC(1));
+			rtime_t now = SystemClockGetTimerTime();
+			if( rtime_gt(rtime_sub(now, timestamp_log), 60*1000*1000) ) {
+				CC_LOGN(" ");
+			}
+			break;
+	    }
+#endif
+#endif
+	    default:
             UnexpectedMessage_HandleMessage(id);
             break;
     }
@@ -1560,7 +1583,11 @@ bool headsetSmInit(Task init_task)
 #endif /*#ifndef ALLOW_USB_BT_COEXISTENCE */
 
 
-    /* If DFU support is enabled, then set the QoS as low latency for better
+#if defined(INCLUDE_SMART_HELMET) && defined(DEBUG)
+	MessageSendLater(headsetSmGetTask(), SM_INTERNAL_DUMMY_LOG, NULL, D_SEC(1));
+#endif
+
+	/* If DFU support is enabled, then set the QoS as low latency for better
      * DFU performance over LE Transport.
      * This will come at the cost of high power consumption.
      */

@@ -7,6 +7,10 @@
 \brief      Main application task
 */
 
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ONx
+#endif
+
 #include <hfp.h>
 #include <a2dp.h>
 #include <avrcp.h>
@@ -30,6 +34,7 @@
 #include "av.h"
 #include "system_state.h"
 
+uint32 timestamp_log;
 
 /* Make message enumerations (domain_message.h) available in pydbg.
   Message IDs are made available separately using the two macros
@@ -45,6 +50,12 @@ static void appHandleAppInit(Task task, MessageId id, Message message);
 static const TaskData appInitTask = { .handler = appHandleAppInit};
 
 #define MSG_APP_INIT_START 0xFFF0
+
+// SM = "Smart Helmet"
+#define HJC_MODEL_NAME "SM"
+#define HJC_VERSION_NUMBER	"1.1.20"
+#define README_VERSION_SM	1.1.20
+#define README_HEX_VERSION_SM 5A315F312E312E3230
 
 static void handleMessageAppInitStart(void)
 {

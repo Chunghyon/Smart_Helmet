@@ -15,14 +15,14 @@ if %errorlevel% neq 0 (
 
 set "PYTHON_PATH=C:\qtil\ADK_Toolkit_1.2.16.21_x64\tools\python27"
 set "TOOLKIT_PATH=C:\qtil\ADK_Toolkit_1.2.16.21_x64"
-set "SOURCE_PATH=D:\Projects\Projects_Qualcomm\HECA_11BCBe\headset\src"
-set "APP_PATH=D:\Projects\Projects_Qualcomm\HECA_11BCBe\headset\workspace\QCC3044-AA_DEV-BRD-R2-AA"
+set "SOURCE_PATH=D:\Projects\Projects_Qualcomm\Smart_Helmet\headset\src"
+set "APP_PATH=D:\Projects\Projects_Qualcomm\Smart_Helmet\headset\workspace\QCC3044-AA_DEV-BRD-R2-AA"
 set "BUILD_PATH=%APP_PATH%\depend_%APP_NAME%_%APP_TYPE%_qcc514x_qcc304x"
 
-for /F "tokens=3" %%a in ('findstr README_VERSION_%APP_NAME% %SOURCE_PATH%\0.main.c') do set "APP_VERSION=%%a"
+for /F "tokens=3" %%a in ('findstr README_VERSION_%APP_NAME% %SOURCE_PATH%\main.c') do set "APP_VERSION=%%a"
 for /F "tokens=5" %%a in ('findstr build_id_number %APP_PATH%\build_id_str.c') do set "PRE_EXTRACT=%%a"
 for /F "tokens=1" %%a in ('echo %PRE_EXTRACT:~-13,10%') do set "APP_BUILD_ID=%%a"
-for /f "tokens=3" %%A in ('findstr README_HEX_VERSION_%APP_NAME% %SOURCE_PATH%\0.main.c') do set "HEX_VERSION=%%A"
+for /f "tokens=3" %%A in ('findstr README_HEX_VERSION_%APP_NAME% %SOURCE_PATH%\main.c') do set "HEX_VERSION=%%A"
 
 if /I "%APP_TYPE%"=="debug" (
   set "APP_NEW=%APP_NAME%_%APP_TYPE%_%APP_VERSION%(%APP_BUILD_ID%)"
@@ -30,7 +30,7 @@ if /I "%APP_TYPE%"=="debug" (
   set "APP_NEW=%APP_NAME%_%APP_VERSION%(%APP_BUILD_ID%)"
 )
 
-set "OUT_FOLDER=D:\Projects\Projects_Qualcomm\HECA_11BCBe\0.build\%APP_NEW%"
+set "OUT_FOLDER=D:\Projects\Projects_Qualcomm\Smart_Helmet\0.build\%APP_NEW%"
 set "DFU_TMP_PATH=%APP_PATH%\dfu\tmp"
 set "XUV_TMP_PATH=%APP_PATH%\image\tmp"
 set "REF_FOLDER=%OUT_FOLDER%\ref"
