@@ -105,23 +105,14 @@ static bool shHdcReadU16(uint8 reg, uint16 *out)
         return FALSE;
     }
     val = ((uint16)buf[0] << 8) | buf[1];
-    if (val == 0u)
-    {
-        if (!SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
-                                 SMART_HELMET_ADDR_HDC1080, buf, 2))
-        {
-            return FALSE;
-        }
-        val = ((uint16)buf[0] << 8) | buf[1];
-        DEBUG_LOG_ALWAYS("SmartHelmet: HDC1080 reg=0x%02x 2nd-read got=0x%04x",
-                         reg, val);
-    }
+
     *out = val;
     return TRUE;
 }
 
 static bool shProbeHdc1080(void)
 {
+#if 0
     uint16 manuf = 0;
     uint16 devid = 0;
     bool rd_m = shHdcReadU16(HDC1080_REG_MANUF_ID, &manuf);
@@ -129,10 +120,32 @@ static bool shProbeHdc1080(void)
     bool match = rd_m && rd_d &&
                  (manuf == HDC1080_MANUF_ID_VALUE) &&
                  (devid == HDC1080_DEVICE_ID_VALUE);
-    DEBUG_LOG_ALWAYS("SmartHelmet: HDC1080 manuf expect=0x%04x got=0x%04x rd=%u "
-                     "devid expect=0x%04x got=0x%04x rd=%u",
-                     HDC1080_MANUF_ID_VALUE, manuf, rd_m ? 1u : 0u,
-                     HDC1080_DEVICE_ID_VALUE, devid, rd_d ? 1u : 0u);
+	if(manuf == HDC1080_MANUF_ID_VALUE) {
+		CC_LOGN("SmartHelmet: HDC1080_MANUF_ID ok(0x%04x)", manuf);
+	}
+	else {
+		CC_LOGN("SmartHelmet: HDC1080_MANUF_ID fail. expect=0x%04x got=0x%04x rd=%u",
+						 HDC1080_MANUF_ID_VALUE, manuf, rd_m ? 1u : 0u);
+	}
+	if(devid == HDC1080_DEVICE_ID_VALUE) {
+		CC_LOGN("SmartHelmet: HDC1080_DEVICE_ID ok(0x%04x)", devid);
+	}
+	else {
+		CC_LOGN("SmartHelmet: HDC1080_DEVICE_ID fail. expect=0x%04x got=0x%04x rd=%u",
+						 HDC1080_DEVICE_ID_VALUE, devid, rd_d ? 1u : 0u);
+	}
+#else
+	uint16 manuf = 0;
+	bool rd_m = shHdcReadU16(HDC1080_REG_MANUF_ID, &manuf);
+	bool match = rd_m && (manuf == HDC1080_MANUF_ID_VALUE);
+	if(manuf == HDC1080_MANUF_ID_VALUE) {
+		CC_LOGN("SmartHelmet: HDC1080_MANUF_ID ok(0x%04x)", manuf);
+	}
+	else {
+		CC_LOGN("SmartHelmet: HDC1080_MANUF_ID fail. expect=0x%04x got=0x%04x rd=%u",
+						 HDC1080_MANUF_ID_VALUE, manuf, rd_m ? 1u : 0u);
+	}
+#endif
     return match;
 }
 
@@ -276,7 +289,7 @@ static void shSensorsVerifyPass(void)
         }
         else
         {
-            DEBUG_LOG_WARN("SmartHelmet: CCS811 ID mismatch (see expect/got above)");
+			DEBUG_LOG_WARN("SmartHelmet: CCS811 ID mismatch");
         }
     }
 #endif
@@ -294,7 +307,7 @@ static void shSensorsVerifyPass(void)
         }
         else
         {
-            DEBUG_LOG_WARN("SmartHelmet: HDC1080 ID mismatch (see expect/got above)");
+			DEBUG_LOG_WARN("SmartHelmet: HDC1080 ID mismatch");
         }
     }
 #endif
