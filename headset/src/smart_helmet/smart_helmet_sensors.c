@@ -112,7 +112,7 @@ static bool shHdcReadU16(uint8 reg, uint16 *out)
 
 static bool shProbeHdc1080(void)
 {
-#if 0
+#if 1
     uint16 manuf = 0;
     uint16 devid = 0;
     bool rd_m = shHdcReadU16(HDC1080_REG_MANUF_ID, &manuf);
