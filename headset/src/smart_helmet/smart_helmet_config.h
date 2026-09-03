@@ -50,7 +50,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 /* Optional OLED. Off during CJMCU-only bring-up. */
 #ifndef SMART_HELMET_ENABLE_SSD1315
-#define SMART_HELMET_ENABLE_SSD1315        (0)
+#define SMART_HELMET_ENABLE_SSD1315        (1)
 #endif
 /*! Put SSD1315 on I2C1 when 1, else share I2C0 */
 #ifndef SMART_HELMET_SSD1315_ON_I2C1

@@ -88,14 +88,20 @@ static bool shInitCcs811(void)
 #if SMART_HELMET_ENABLE_HDC1080
 static bool shHdcReadU16(uint8 reg, uint16 *out)
 {
+    uint8 first[2] = {0, 0};
     uint8 buf[2] = {0, 0};
-    uint16 val;
+    uint16 v0, v1;
 
-    /* Pointer write, then a standalone read. Bitserial Write+Read as two
-     * STOPs can return 0x0000 on the first read; the register value shows
-     * up on the next read (seen as manuf=0, devid=0x5449). */
+    /* HDC1080 ID pointer applies one transaction late with
+     * BitserialTransfer (manuf/devid swap). Set pointer with STOP,
+     * discard the first read, use the second. */
     if (!SmartHelmet_I2cWrite(smart_helmet_i2c_bus_0,
                               SMART_HELMET_ADDR_HDC1080, &reg, 1))
+    {
+        return FALSE;
+    }
+    if (!SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
+                             SMART_HELMET_ADDR_HDC1080, first, 2))
     {
         return FALSE;
     }
@@ -104,9 +110,14 @@ static bool shHdcReadU16(uint8 reg, uint16 *out)
     {
         return FALSE;
     }
-    val = ((uint16)buf[0] << 8) | buf[1];
-
-    *out = val;
+    v0 = ((uint16)first[0] << 8) | first[1];
+    v1 = ((uint16)buf[0] << 8) | buf[1];
+    if (v0 != v1)
+    {
+        CC_LOGN("SmartHelmet: HDC1080 reg=0x%02x 1st=0x%04x 2nd=0x%04x (use 2nd)",
+                reg, v0, v1);
+    }
+    *out = v1;
     return TRUE;
 }
 
