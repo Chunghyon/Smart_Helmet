@@ -5,7 +5,7 @@
 CJMCU-8118  = CCS811 gas + HDC1080 temperature/humidity
 LIS3DH      = 3-axis accelerometer
 GY-906-BAA  = MLX90614 IR temperature
-SSD1315     = optional OLED (stub only unless SMART_HELMET_ENABLE_SSD1315)
+SSD1315     = 128x64 OLED on I2C1 (or I2C0) — probe, init, splash
 */
 #ifdef DEBUG
 #define PP_DEBUG_LOG_ON
@@ -223,15 +223,281 @@ static bool shReadMlx90614(uint8 ram_addr, int16 *out_x100)
 #endif
 
 #if SMART_HELMET_ENABLE_SSD1315
+#define SSD1315_CTRL_CMD   (0x00)
+#define SSD1315_CTRL_DATA  (0x40)
+#define SSD1315_WIDTH      (128)
+#define SSD1315_PAGES      (8)
+
+static smart_helmet_i2c_bus_t shSsdBus(void)
+{
+    return SMART_HELMET_SSD1315_ON_I2C1 ? smart_helmet_i2c_bus_1
+                                       : smart_helmet_i2c_bus_0;
+}
+
+static bool shSsdRaw(const uint8 *tx, uint16 n)
+{
+    return SmartHelmet_I2cWrite(shSsdBus(), SMART_HELMET_ADDR_SSD1315, tx, n);
+}
+
+static bool shSsdCmd(uint8 cmd)
+{
+    uint8 buf[2];
+    buf[0] = SSD1315_CTRL_CMD;
+    buf[1] = cmd;
+    return shSsdRaw(buf, 2);
+}
+
+static bool shSsdCmdList(const uint8 *cmds, uint16 n)
+{
+    uint8 buf[17];
+    uint16 i = 0;
+    while (i < n)
+    {
+        uint16 chunk = (uint16)(n - i);
+        uint16 j;
+        if (chunk > 16)
+        {
+            chunk = 16;
+        }
+        buf[0] = SSD1315_CTRL_CMD;
+        for (j = 0; j < chunk; j++)
+        {
+            buf[1 + j] = cmds[i + j];
+        }
+        if (!shSsdRaw(buf, (uint16)(1 + chunk)))
+        {
+            return FALSE;
+        }
+        i = (uint16)(i + chunk);
+    }
+    return TRUE;
+}
+
+static bool shSsdData(const uint8 *data, uint16 n)
+{
+    uint8 buf[17];
+    uint16 i = 0;
+    while (i < n)
+    {
+        uint16 chunk = (uint16)(n - i);
+        uint16 j;
+        if (chunk > 16)
+        {
+            chunk = 16;
+        }
+        buf[0] = SSD1315_CTRL_DATA;
+        for (j = 0; j < chunk; j++)
+        {
+            buf[1 + j] = data[i + j];
+        }
+        if (!shSsdRaw(buf, (uint16)(1 + chunk)))
+        {
+            return FALSE;
+        }
+        i = (uint16)(i + chunk);
+    }
+    return TRUE;
+}
+
+/* 5x7 glyphs, LSB = top pixel. Index 0 = space. */
+static const uint8 sh_font5x7[][5] =
+{
+    {0x00,0x00,0x00,0x00,0x00}, /* space */
+    {0x00,0x00,0x5F,0x00,0x00}, /* ! */
+    {0x00,0x07,0x00,0x07,0x00}, /* " */
+    {0x14,0x7F,0x14,0x7F,0x14}, /* # */
+    {0x24,0x2A,0x7F,0x2A,0x12}, /* $ */
+    {0x23,0x13,0x08,0x64,0x62}, /* % */
+    {0x36,0x49,0x55,0x22,0x50}, /* & */
+    {0x00,0x05,0x03,0x00,0x00}, /* ' */
+    {0x00,0x1C,0x22,0x41,0x00}, /* ( */
+    {0x00,0x41,0x22,0x1C,0x00}, /* ) */
+    {0x14,0x08,0x3E,0x08,0x14}, /* * */
+    {0x08,0x08,0x3E,0x08,0x08}, /* + */
+    {0x00,0x50,0x30,0x00,0x00}, /* , */
+    {0x08,0x08,0x08,0x08,0x08}, /* - */
+    {0x00,0x60,0x60,0x00,0x00}, /* . */
+    {0x20,0x10,0x08,0x04,0x02}, /* / */
+    {0x3E,0x51,0x49,0x45,0x3E}, /* 0 */
+    {0x00,0x42,0x7F,0x40,0x00}, /* 1 */
+    {0x42,0x61,0x51,0x49,0x46}, /* 2 */
+    {0x21,0x41,0x45,0x4B,0x31}, /* 3 */
+    {0x18,0x14,0x12,0x7F,0x10}, /* 4 */
+    {0x27,0x45,0x45,0x45,0x39}, /* 5 */
+    {0x3C,0x4A,0x49,0x49,0x30}, /* 6 */
+    {0x01,0x71,0x09,0x05,0x03}, /* 7 */
+    {0x36,0x49,0x49,0x49,0x36}, /* 8 */
+    {0x06,0x49,0x49,0x29,0x1E}, /* 9 */
+    {0x00,0x36,0x36,0x00,0x00}, /* : */
+    {0x00,0x56,0x36,0x00,0x00}, /* ; */
+    {0x08,0x14,0x22,0x41,0x00}, /* < */
+    {0x14,0x14,0x14,0x14,0x14}, /* = */
+    {0x00,0x41,0x22,0x14,0x08}, /* > */
+    {0x02,0x01,0x51,0x09,0x06}, /* ? */
+    {0x32,0x49,0x79,0x41,0x3E}, /* @ */
+    {0x7E,0x11,0x11,0x11,0x7E}, /* A */
+    {0x7F,0x49,0x49,0x49,0x36}, /* B */
+    {0x3E,0x41,0x41,0x41,0x22}, /* C */
+    {0x7F,0x41,0x41,0x22,0x1C}, /* D */
+    {0x7F,0x49,0x49,0x49,0x41}, /* E */
+    {0x7F,0x09,0x09,0x09,0x01}, /* F */
+    {0x3E,0x41,0x49,0x49,0x7A}, /* G */
+    {0x7F,0x08,0x08,0x08,0x7F}, /* H */
+    {0x00,0x41,0x7F,0x41,0x00}, /* I */
+    {0x20,0x40,0x41,0x3F,0x01}, /* J */
+    {0x7F,0x08,0x14,0x22,0x41}, /* K */
+    {0x7F,0x40,0x40,0x40,0x40}, /* L */
+    {0x7F,0x02,0x0C,0x02,0x7F}, /* M */
+    {0x7F,0x04,0x08,0x10,0x7F}, /* N */
+    {0x3E,0x41,0x41,0x41,0x3E}, /* O */
+    {0x7F,0x09,0x09,0x09,0x06}, /* P */
+    {0x3E,0x41,0x51,0x21,0x5E}, /* Q */
+    {0x7F,0x09,0x19,0x29,0x46}, /* R */
+    {0x46,0x49,0x49,0x49,0x31}, /* S */
+    {0x01,0x01,0x7F,0x01,0x01}, /* T */
+    {0x3F,0x40,0x40,0x40,0x3F}, /* U */
+    {0x1F,0x20,0x40,0x20,0x1F}, /* V */
+    {0x3F,0x40,0x38,0x40,0x3F}, /* W */
+    {0x63,0x14,0x08,0x14,0x63}, /* X */
+    {0x07,0x08,0x70,0x08,0x07}, /* Y */
+    {0x61,0x51,0x49,0x45,0x43}, /* Z */
+};
+
+static bool shSsdSetPageCol(uint8 page, uint8 col)
+{
+    uint8 cmds[3];
+    cmds[0] = (uint8)(0xB0 | (page & 0x07));
+    cmds[1] = (uint8)(0x00 | (col & 0x0F));
+    cmds[2] = (uint8)(0x10 | ((col >> 4) & 0x0F));
+    return shSsdCmdList(cmds, 3);
+}
+
+static bool shSsdClear(void)
+{
+    uint8 zeros[16];
+    uint8 page;
+    uint8 i;
+    for (i = 0; i < 16; i++)
+    {
+        zeros[i] = 0;
+    }
+    for (page = 0; page < SSD1315_PAGES; page++)
+    {
+        uint8 col = 0;
+        if (!shSsdSetPageCol(page, 0))
+        {
+            return FALSE;
+        }
+        while (col < SSD1315_WIDTH)
+        {
+            uint8 n = (uint8)(SSD1315_WIDTH - col);
+            if (n > 16)
+            {
+                n = 16;
+            }
+            if (!shSsdData(zeros, n))
+            {
+                return FALSE;
+            }
+            col = (uint8)(col + n);
+        }
+    }
+    return TRUE;
+}
+
+static bool shSsdDrawText(uint8 page, uint8 col, const char *s)
+{
+    if (!shSsdSetPageCol(page, col))
+    {
+        return FALSE;
+    }
+    while (s && *s)
+    {
+        uint8 ch = (uint8)*s++;
+        uint8 gap = 0;
+        const uint8 *g;
+        if (ch < 0x20 || ch > 0x5A)
+        {
+            ch = (uint8)' ';
+        }
+        g = sh_font5x7[ch - 0x20];
+        if (!shSsdData(g, 5) || !shSsdData(&gap, 1))
+        {
+            return FALSE;
+        }
+    }
+    return TRUE;
+}
+
+static bool shSsdInitPanel(void)
+{
+    static const uint8 init_cmds[] =
+    {
+        0xAE,             /* display off */
+        0xD5, 0x80,       /* clock */
+        0xA8, 0x3F,       /* mux 1/64 */
+        0xD3, 0x00,       /* offset */
+        0x40,             /* start line 0 */
+        0x8D, 0x14,       /* charge pump on */
+        0x20, 0x02,       /* page addressing */
+        0xA1,             /* segment remap */
+        0xC8,             /* COM scan remap */
+        0xDA, 0x12,       /* COM pins */
+        0x81, 0xCF,       /* contrast */
+        0xD9, 0xF1,       /* precharge */
+        0xDB, 0x40,       /* VCOM */
+        0xA4,             /* resume RAM */
+        0xA6,             /* normal (not inverse) */
+        0x2E,             /* deactivate scroll */
+        0xAF              /* display on */
+    };
+    return shSsdCmdList(init_cmds, (uint16)sizeof(init_cmds));
+}
+
+static bool shSsdShowSplash(void)
+{
+    if (!shSsdClear())
+    {
+        return FALSE;
+    }
+    /* 5x7 + pad = 6 px/char. 128-wide centering. */
+    if (!shSsdDrawText(2, 28, "SMART HELMET"))
+    {
+        return FALSE;
+    }
+    if (!shSsdDrawText(4, 40, "QCC3044"))
+    {
+        return FALSE;
+    }
+    if (!shSsdDrawText(6, 46, "READY"))
+    {
+        return FALSE;
+    }
+    return TRUE;
+}
+
 static bool shProbeSsd1315(void)
 {
-    smart_helmet_i2c_bus_t bus =
-        SMART_HELMET_SSD1315_ON_I2C1 ? smart_helmet_i2c_bus_1
-                                    : smart_helmet_i2c_bus_0;
-    uint8 dummy = 0x00;
-	CC_LOGN("SmartHelmet: SSD1315 probe @0x%02x I2C%u",
-                   SMART_HELMET_ADDR_SSD1315, (unsigned)bus);
-    return SmartHelmet_I2cWrite(bus, SMART_HELMET_ADDR_SSD1315, &dummy, 1);
+    CC_LOGN("SmartHelmet: SSD1315 probe @0x%02x I2C%u",
+            SMART_HELMET_ADDR_SSD1315, (unsigned)shSsdBus());
+    /* Display-off is a harmless command and requires an ACK. */
+    return shSsdCmd(0xAE);
+}
+
+static bool shInitSsd1315(void)
+{
+    if (!shSsdInitPanel())
+    {
+        DEBUG_LOG_WARN("SmartHelmet: SSD1315 init cmds failed");
+        return FALSE;
+    }
+    if (!shSsdShowSplash())
+    {
+        DEBUG_LOG_WARN("SmartHelmet: SSD1315 splash failed");
+        return FALSE;
+    }
+    CC_LOGN("SmartHelmet: SSD1315 splash ok (SMART HELMET / QCC3044 / READY)");
+    return TRUE;
 }
 #endif
 
@@ -280,12 +546,13 @@ static void shSensorsScheduleRetry(void)
 static void shSensorsVerifyPass(void)
 {
     sh_probe_try++;
-	CC_LOGN("SmartHelmet I2C verify try=%u ccs=%u hdc=%u lis=%u mlx=%u",
+	CC_LOGN("SmartHelmet I2C verify try=%u ccs=%u hdc=%u lis=%u mlx=%u oled=%u",
                    sh_probe_try,
                    sh_sensors.ccs811_ok,
                    sh_sensors.hdc1080_ok,
                    sh_sensors.lis3dh_ok,
-                   sh_sensors.mlx90614_ok);
+                   sh_sensors.mlx90614_ok,
+                   sh_sensors.ssd1315_ok);
 
 #if SMART_HELMET_ENABLE_CCS811
     if (!sh_sensors.ccs811_ok)
@@ -360,9 +627,19 @@ static void shSensorsVerifyPass(void)
 #endif
 
 #if SMART_HELMET_ENABLE_SSD1315
-    if (!shSensorsRequiredOk())
+    if (!sh_sensors.ssd1315_ok)
     {
-        sh_sensors.ssd1315_ok = shProbeSsd1315();
+        CC_LOGN("SmartHelmet I2C verify SSD1315 @0x%02x",
+                SMART_HELMET_ADDR_SSD1315);
+        if (shProbeSsd1315() && shInitSsd1315())
+        {
+            sh_sensors.ssd1315_ok = TRUE;
+            CC_LOGN("SmartHelmet: SSD1315 ok");
+        }
+        else
+        {
+            DEBUG_LOG_WARN("SmartHelmet: SSD1315 not ready");
+        }
     }
 #endif
 
@@ -460,18 +737,29 @@ void SmartHelmet_SensorsInit(void)
 #endif
 
 #if SMART_HELMET_ENABLE_SSD1315
-    sh_sensors.ssd1315_ok = shProbeSsd1315();
-	CC_LOGN("SmartHelmet: SSD1315 write %s (no ACK check)",
-                   sh_sensors.ssd1315_ok ? "issued" : "fail");
+	CC_LOGN("%s: probe SSD1315 @0x%02x I2C%u",
+                   __func__, SMART_HELMET_ADDR_SSD1315, (unsigned)shSsdBus());
+    if (shProbeSsd1315() && shInitSsd1315())
+    {
+        sh_sensors.ssd1315_ok = TRUE;
+        CC_LOGN("SmartHelmet: SSD1315 (OLED) ok");
+    }
+    else
+    {
+        sh_sensors.ssd1315_ok = FALSE;
+        DEBUG_LOG_WARN("SmartHelmet: SSD1315 not found @0x%02x",
+                       SMART_HELMET_ADDR_SSD1315);
+    }
 #else
 	CC_LOGN("%s: SSD1315 skipped (SMART_HELMET_ENABLE_SSD1315=0)", __func__);
 #endif
-	CC_LOGN("%s: exit ccs=%u hdc=%u lis=%u mlx=%u",
+	CC_LOGN("%s: exit ccs=%u hdc=%u lis=%u mlx=%u oled=%u",
                    __func__,
                    sh_sensors.ccs811_ok,
                    sh_sensors.hdc1080_ok,
                    sh_sensors.lis3dh_ok,
-                   sh_sensors.mlx90614_ok);
+                   sh_sensors.mlx90614_ok,
+                   sh_sensors.ssd1315_ok);
 }
 
 void SmartHelmet_SensorsPoll(void)
