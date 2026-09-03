@@ -8,6 +8,10 @@
 
 */
 
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ONx
+#endif
+
 #include "kymera_music_processing.h"
 #include "kymera.h"
 #include "kymera_ucid.h"
@@ -446,10 +450,10 @@ static void convertParams(dsp_eq_params_t *dsp_params, kymera_eq_paramter_set_t 
     uint32 gain = convertFromQFormatTo32bitNumber(18, (uint32)((int32)dsp_params->gain * 0.9375));
     uint32 q = convertFromQFormatTo32bitNumber(20, dsp_params->q);
 
-    DEBUG_LOG_ALWAYS("kymera_GetEqParams stage type %d", dsp_params->type);
-    DEBUG_LOG_ALWAYS("kymera_GetEqParams freq %d %d", freq, freq/3);
-    DEBUG_LOG_ALWAYS("kymera_GetEqParams gain %d %d", gain, gain/60);
-    DEBUG_LOG_ALWAYS("kymera_GetEqParams q %d", q);
+	CC_LOGN("kymera_GetEqParams stage type %d", dsp_params->type);
+	CC_LOGN("kymera_GetEqParams freq %d %d", freq, freq/3);
+	CC_LOGN("kymera_GetEqParams gain %d %d", gain, gain/60);
+	CC_LOGN("kymera_GetEqParams q %d", q);
 
     if(param_set)
     {
@@ -511,7 +515,7 @@ static uint32 kymera_GetUint32FromPskey(uint32 key, uint16 offset)
     result = PsReadAudioKey(key, audio_key_buffer, 2, offset, &new_key_len);
 
     value = audio_key_buffer[0] << 16 | audio_key_buffer[1];
-    DEBUG_LOG_ALWAYS("kymera_GetUint32FromPskey key %d, offset %d, new_key_len %d, result %d, value 0x%x", key, offset, new_key_len, result, value);
+	DEBUG_LOG_DEBUG("kymera_GetUint32FromPskey key %d, offset %d, new_key_len %d, result %d, value 0x%x", key, offset, new_key_len, result, value);
 
     return value;
 }

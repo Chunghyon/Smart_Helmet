@@ -929,7 +929,7 @@ static void headsetSetState(headsetState new_state)
     }
 
     Ui_InformContextChange(ui_provider_app_sm, headsetSm_GetApplicationCurrentContext());
-	DEBUG_LOG_ALWAYS("headsetSetState, new state 0x%02x", sm->state);
+	CC_LOGN("headsetSetState, new state enum:headsetState:0x%02x", sm->state);
 }
 
 static headsetState headsetGetState(void)
@@ -1091,7 +1091,7 @@ static void headsetSmHandleSystemSartedUpToLimbo(void)
 
 static void headsetSmHandleSystemStateChange(SYSTEM_STATE_STATE_CHANGE_T *msg)
 {
-	DEBUG_LOG_ALWAYS("headsetSmHandleSystemStateChange old state 0x%x, new state 0x%x", msg->old_state, msg->new_state);
+	CC_LOGN("headsetSmHandleSystemStateChange, enum:system_state_state_t:0x%x -> enum:system_state_state_t:0x%x", msg->old_state, msg->new_state);
 
     if(msg->old_state == system_state_starting_up && msg->new_state == system_state_limbo)
     {

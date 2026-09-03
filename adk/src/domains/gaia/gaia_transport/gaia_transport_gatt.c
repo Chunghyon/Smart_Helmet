@@ -1,6 +1,10 @@
 /*****************************************************************
 Copyright (c) 2011 - 2022 Qualcomm Technologies International, Ltd.
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ONx
+#endif
+
 #define DEBUG_LOG_MODULE_NAME gaia_transport
 #include <logging.h>
 
@@ -569,7 +573,7 @@ static void gaiaTransport_GattStartService(gaia_transport *t)
 {
     gaia_transport_gatt_t *tg = (gaia_transport_gatt_t *)t;
     PanicNull(tg);
-    DEBUG_LOG_INFO("gaiaTransport_GattStartService, transport %p", tg);
+	CC_LOGN("gaiaTransport_GattStartService, transport %p", tg);
 
     /* Initialise task */
     t->task.handler = gaiaTransport_GattHandleMessage;
@@ -586,7 +590,7 @@ static void gaiaTransport_GattStartService(gaia_transport *t)
     registration_params.start_handle = HANDLE_GAIA_SERVICE;
     registration_params.end_handle = HANDLE_GAIA_SERVICE_END;
     gatt_manager_status_t status = GattManagerRegisterServer(&registration_params);
-    DEBUG_LOG_INFO("gaiaTransport_GattStartService, GattManagerRegisterServer status %u", status);
+	CC_LOGN("gaiaTransport_GattStartService, GattManagerRegisterServer status %u", status);
 
     /* Enable RWCP */
     RwcpServerInit(0);      /*!< @todo the side passed does not matter. The parameter can be removed */

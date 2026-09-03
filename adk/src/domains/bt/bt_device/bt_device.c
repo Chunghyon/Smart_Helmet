@@ -7,6 +7,10 @@
 \brief      Device Management.
 */
 
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ONx
+#endif
+
 #include "bt_device_marshal_typedef.h"
 #include "bt_device_marshal_table.h"
 #include "bt_device_typedef.h"
@@ -316,7 +320,7 @@ device_t BtDevice_GetDeviceCreateIfNewWithTpAddr(const tp_bdaddr *tpaddr, device
         size_t size = 0;
 
         PanicFalse(Device_GetProperty(device, device_property_type, (void *)&existing_type, &size));
-        DEBUG_LOG_ERROR("- existing type %u", *existing_type);
+		CC_LOGN("- existing type %u", *existing_type);
         PanicFalse(*existing_type == type);
     }
 
