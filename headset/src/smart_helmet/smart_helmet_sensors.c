@@ -499,6 +499,55 @@ static bool shInitSsd1315(void)
     CC_LOGN("SmartHelmet: SSD1315 splash ok (SMART HELMET / QCC3044 / READY)");
     return TRUE;
 }
+
+static void shFmtAdcLine(char *line, const char *tag, uint16 mv)
+{
+    uint16 i;
+    for (i = 0; i < 5; i++)
+    {
+        line[i] = tag[i] ? tag[i] : ' ';
+    }
+    line[5] = (char)('0' + ((mv / 1000u) % 10u));
+    line[6] = (char)('0' + ((mv / 100u) % 10u));
+    line[7] = (char)('0' + ((mv / 10u) % 10u));
+    line[8] = (char)('0' + (mv % 10u));
+    line[9] = 'M';
+    line[10] = 'V';
+    line[11] = '\0';
+}
+
+void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
+                                 uint16 nh3_mv, uint16 no2_mv)
+{
+    char line[12];
+    if (!sh_sensors.ssd1315_ok)
+    {
+        return;
+    }
+    if (!shSsdClear())
+    {
+        return;
+    }
+    shFmtAdcLine(line, "CO   ", co_mv);
+    (void)shSsdDrawText(0, 4, line);
+    shFmtAdcLine(line, "NH3  ", nh3_mv);
+    (void)shSsdDrawText(2, 4, line);
+    shFmtAdcLine(line, "NO2  ", no2_mv);
+    (void)shSsdDrawText(4, 4, line);
+    shFmtAdcLine(line, "SENS ", sens_mv);
+    (void)shSsdDrawText(6, 4, line);
+}
+#endif
+
+#if !SMART_HELMET_ENABLE_SSD1315
+void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
+                                 uint16 nh3_mv, uint16 no2_mv)
+{
+    UNUSED(sens_mv);
+    UNUSED(co_mv);
+    UNUSED(nh3_mv);
+    UNUSED(no2_mv);
+}
 #endif
 
 static bool shSensorsRequiredOk(void)

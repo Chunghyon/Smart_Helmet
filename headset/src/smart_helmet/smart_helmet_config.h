@@ -26,7 +26,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_ENABLE_I2C1           (1)
 #endif
 #ifndef SMART_HELMET_ENABLE_ADC
-#define SMART_HELMET_ENABLE_ADC            (0)
+#define SMART_HELMET_ENABLE_ADC            (1)
 #endif
 #ifndef SMART_HELMET_ENABLE_WISUN_UART
 #define SMART_HELMET_ENABLE_WISUN_UART     (1)
@@ -37,11 +37,11 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 /* CJMCU-8118 HDC1080 (temp/RH) on I2C0 */
 #ifndef SMART_HELMET_ENABLE_HDC1080
-#define SMART_HELMET_ENABLE_HDC1080        (1)
+#define SMART_HELMET_ENABLE_HDC1080        (0)
 #endif
 /* GY-906-BAA = MLX90614 IR thermometer on I2C0 */
 #ifndef SMART_HELMET_ENABLE_MLX90614
-#define SMART_HELMET_ENABLE_MLX90614       (1)
+#define SMART_HELMET_ENABLE_MLX90614       (0)
 #endif
 /* LIS3DH on I2C0. Set to 0 while the part is depopulated or holding
  * SCL/SDA low; set back to 1 after the accelerometer is remounted. */
@@ -50,7 +50,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 /* SSD1315 128x64 OLED. 1 = probe + splash on I2C1 (default). */
 #ifndef SMART_HELMET_ENABLE_SSD1315
-#define SMART_HELMET_ENABLE_SSD1315        (1)
+#define SMART_HELMET_ENABLE_SSD1315        (0)
 #endif
 /*! Put SSD1315 on I2C1 when 1, else share I2C0 */
 #ifndef SMART_HELMET_SSD1315_ON_I2C1

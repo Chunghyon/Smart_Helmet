@@ -8,6 +8,7 @@
 
 #include "smart_helmet_config.h"
 #include "smart_helmet_adc.h"
+#include "smart_helmet_sensors.h"
 
 #include <adc.h>
 #include <message.h>
@@ -41,11 +42,16 @@ static void shAdcRequestNext(void)
     if (sh_adc_index >= smart_helmet_adc_channel_count)
     {
         sh_adc_busy = FALSE;
-		CC_LOGN("SmartHelmet ADC: scan complete SENS=%umV CO=%umV NH3=%umV NO2=%umV",
+		CC_LOGN("SmartHelmet ADC: SENS=%umV CO=%umV NH3=%umV NO2=%umV",
                        sh_adc_sample.millivolts[smart_helmet_adc_sens_in],
                        sh_adc_sample.millivolts[smart_helmet_adc_co],
                        sh_adc_sample.millivolts[smart_helmet_adc_nh3],
                        sh_adc_sample.millivolts[smart_helmet_adc_no2]);
+        SmartHelmet_SensorsShowAdcMv(
+            sh_adc_sample.millivolts[smart_helmet_adc_sens_in],
+            sh_adc_sample.millivolts[smart_helmet_adc_co],
+            sh_adc_sample.millivolts[smart_helmet_adc_nh3],
+            sh_adc_sample.millivolts[smart_helmet_adc_no2]);
         return;
     }
 
@@ -61,7 +67,25 @@ void SmartHelmet_AdcInit(Task client_task)
     sh_adc_busy = FALSE;
     sh_adc_vref_mv = 0;
     memset(&sh_adc_sample, 0, sizeof(sh_adc_sample));
-	CC_LOGN("SmartHelmet ADC: init (SENS_IN/CO/NH3/NO2)");
+	CC_LOGN("SmartHelmet ADC: init (SENS_IN/CO/NH3/NO2) period=%ums",
+            SMART_HELMET_ADC_PERIOD_MS);
+    if (sh_adc_task)
+    {
+        MessageCancelAll(sh_adc_task, SMART_HELMET_ADC_INTERNAL_TRIGGER);
+        MessageSendLater(sh_adc_task,
+                         SMART_HELMET_ADC_INTERNAL_TRIGGER,
+                         NULL,
+                         SMART_HELMET_ADC_PERIOD_MS);
+    }
+}
+
+void SmartHelmet_AdcStop(void)
+{
+    if (sh_adc_task)
+    {
+        MessageCancelAll(sh_adc_task, SMART_HELMET_ADC_INTERNAL_TRIGGER);
+    }
+    sh_adc_busy = FALSE;
 }
 
 void SmartHelmet_AdcRequestScan(void)
@@ -123,6 +147,13 @@ bool SmartHelmet_AdcHandleMessage(Task task, MessageId id, Message message)
     if (id == SMART_HELMET_ADC_INTERNAL_TRIGGER)
     {
         SmartHelmet_AdcRequestScan();
+        if (sh_adc_task)
+        {
+            MessageSendLater(sh_adc_task,
+                             SMART_HELMET_ADC_INTERNAL_TRIGGER,
+                             NULL,
+                             SMART_HELMET_ADC_PERIOD_MS);
+        }
         return TRUE;
     }
 

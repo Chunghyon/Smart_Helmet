@@ -25,8 +25,11 @@ typedef struct
     bool   valid[smart_helmet_adc_channel_count];
 } smart_helmet_adc_sample_t;
 
-/*! \brief Initialise ADC client task state. */
+/*! \brief Initialise ADC client task state and start the 5 s scan timer. */
 void SmartHelmet_AdcInit(Task client_task);
+
+/*! \brief Cancel the periodic scan timer. */
+void SmartHelmet_AdcStop(void);
 
 /*! \brief Request a full scan of all gas / sensor ADC channels. */
 void SmartHelmet_AdcRequestScan(void);

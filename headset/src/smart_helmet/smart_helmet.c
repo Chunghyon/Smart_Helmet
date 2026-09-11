@@ -52,7 +52,8 @@ bool SmartHelmet_Init(Task client_task)
         return FALSE;
     }
 
-    SmartHelmet_AdcInit(self);
+    /* ADC results + 5 s timer on the module task (not headset SM). */
+    SmartHelmet_AdcInit(&sh_task_data);
 
     if (!SmartHelmet_UartInit(self))
     {
@@ -63,6 +64,7 @@ bool SmartHelmet_Init(Task client_task)
     SmartHelmet_SensorsInit();
     SmartHelmet_SensorsStartVerify(&sh_task_data);
     SmartHelmet_VitalsInit();
+    SmartHelmet_AdcRequestScan();
 
     sh_ready = TRUE;
 	CC_LOGN("SmartHelmet: interfaces ready");
@@ -72,6 +74,7 @@ bool SmartHelmet_Init(Task client_task)
 void SmartHelmet_Close(void)
 {
     SmartHelmet_SensorsStopVerify();
+    SmartHelmet_AdcStop();
     SmartHelmet_UartClose();
     SmartHelmet_I2cClose();
     sh_ready = FALSE;

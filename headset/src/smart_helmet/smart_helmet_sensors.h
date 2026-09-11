@@ -47,4 +47,8 @@ void SmartHelmet_SensorsStopVerify(void);
 /*! \brief Handle SMART_HELMET_I2C_PROBE_RETRY. Returns TRUE if consumed. */
 bool SmartHelmet_SensorsHandleMessage(Task task, MessageId id, Message message);
 
+/*! rief Draw CO/NH3/NO2/SENS_IN millivolts on the SSD1315. No-op if OLED off. */
+void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
+                                 uint16 nh3_mv, uint16 no2_mv);
+
 #endif /* SMART_HELMET_SENSORS_H */
