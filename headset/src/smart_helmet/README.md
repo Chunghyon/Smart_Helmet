@@ -24,7 +24,13 @@ Cadence:
 - Gas full scan: `SMART_HELMET_ADC_PERIOD_MS` (default 1000 ms)
 - SENS_IN-only: `SMART_HELMET_ADC_SENS_PERIOD_MS` (default 40 ms → 25 Hz)
 
-Status: `SmartHelmet_VitalsGetStatus()`.
+Status: `SmartHelmet_VitalsGetStatus()` — includes `hr_bpm_peak`, `hr_bpm_fft`, fused `hr_bpm` (proxy only).
+
+While calm, SENS residual also runs:
+- **Peak detect** — local maxima / IBI → `hr_bpm_peak`
+- **64-pt fixed-point FFT** — dominant bin in ~40–180 BPM → `hr_bpm_fft`
+
+FFT helps when beats are irregular or buried in noise (frequency peak vs missed time peaks). Not medical-grade.
 
 ## Integration
 

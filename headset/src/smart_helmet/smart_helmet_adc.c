@@ -66,11 +66,13 @@ static void shAdcRequestNextFull(void)
     if (sh_adc_index >= smart_helmet_adc_channel_count)
     {
         sh_adc_mode = sh_adc_mode_idle;
+#if 0
         CC_LOGN("SmartHelmet ADC: SENS=%umV CO=%umV NH3=%umV NO2=%umV",
                        sh_adc_sample.millivolts[smart_helmet_adc_sens_in],
                        sh_adc_sample.millivolts[smart_helmet_adc_co],
                        sh_adc_sample.millivolts[smart_helmet_adc_nh3],
                        sh_adc_sample.millivolts[smart_helmet_adc_no2]);
+#endif
         SmartHelmet_SensorsShowAdcMv(
             sh_adc_sample.millivolts[smart_helmet_adc_sens_in],
             sh_adc_sample.millivolts[smart_helmet_adc_co],

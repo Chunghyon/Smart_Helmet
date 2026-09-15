@@ -164,4 +164,31 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  */
 #define SMART_HELMET_SENS_EDGE_ABS_MV      (40)
 
+/* --- HR peak + FFT proxy (not clinical) ---------------------------------- */
+#ifndef SMART_HELMET_ENABLE_HR_PEAK
+#define SMART_HELMET_ENABLE_HR_PEAK        (1)
+#endif
+#ifndef SMART_HELMET_ENABLE_HR_FFT
+#define SMART_HELMET_ENABLE_HR_FFT         (1)
+#endif
+
+/*! BPM search band */
+#define SMART_HELMET_HR_BPM_MIN            (40)
+#define SMART_HELMET_HR_BPM_MAX            (180)
+
+/*! Min samples between peaks (~0.33 s at 25 Hz) */
+#define SMART_HELMET_HR_MIN_PEAK_DIST      (8)
+
+/*! Peak must exceed mean|hp| * this / 256 */
+#define SMART_HELMET_HR_PEAK_THR_Q8        (384)  /* 1.5x */
+
+/*! Power-of-two FFT length on latest SENS HP samples ( <= BAND_WIN ) */
+#define SMART_HELMET_HR_FFT_N              (64)
+
+/*! Min FFT bin power vs mean band power (Q8 ratio) for hr_fft accept */
+#define SMART_HELMET_HR_FFT_SNR_Q8         (320)  /* ~1.25x mean */
+
+/*! Peak vs FFT agreement window (percent of fused value) */
+#define SMART_HELMET_HR_AGREE_PCT          (20)
+
 #endif /* SMART_HELMET_CONFIG_H */
