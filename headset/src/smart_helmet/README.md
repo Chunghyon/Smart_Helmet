@@ -29,7 +29,7 @@ Status: `SmartHelmet_VitalsGetStatus()` — includes `hr_bpm_peak`, `hr_bpm_fft`
 While calm, SENS residual also runs:
 - **Peak detect** — local maxima / IBI → `hr_bpm_peak`
 - **64-pt fixed-point FFT** — dominant bin in ~40–180 BPM → `hr_bpm_fft` (bin EMA smoothed)
-- **Guards** — `HR_MIN_ENERGY` / `HR_MIN_SENS_ABS` clear HR when SNR is low; fuse weights peak (`HR_FUSE_PEAK_W_Q8`); FFT-alone is never `hr_valid`
+- **Guards** — energy/sa band (`HR_MIN/MAX_ENERGY`, `HR_MIN/MAX_SENS_ABS`); SENS DC spike; post-ACTIVE/`tr=0` holdoff (`HR_DISTURB_HOLDOFF_WIN`); `hr_valid` needs peak↔FFT agree + max ΔBPM step
 
 Not medical-grade.
 
