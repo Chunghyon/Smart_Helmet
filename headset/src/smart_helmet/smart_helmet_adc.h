@@ -1,6 +1,10 @@
 /*!
 \file       smart_helmet_adc.h
 \brief      ADC interface for SENS_IN, CO, NH3, NO2
+
+Two cadences (same pads, no HW change):
+  - Full scan (gas + SENS_IN) at SMART_HELMET_ADC_PERIOD_MS
+  - SENS_IN-only at SMART_HELMET_ADC_SENS_PERIOD_MS for vitals proxy
 */
 
 #ifndef SMART_HELMET_ADC_H
@@ -25,22 +29,25 @@ typedef struct
     bool   valid[smart_helmet_adc_channel_count];
 } smart_helmet_adc_sample_t;
 
-/*! \brief Initialise ADC client task state and start the 5 s scan timer. */
+/*! \brief Initialise ADC client task state and start gas + SENS timers. */
 void SmartHelmet_AdcInit(Task client_task);
 
-/*! \brief Cancel the periodic scan timer. */
+/*! \brief Cancel periodic scan timers. */
 void SmartHelmet_AdcStop(void);
 
 /*! \brief Request a full scan of all gas / sensor ADC channels. */
 void SmartHelmet_AdcRequestScan(void);
 
+/*! \brief Request a single SENS_IN conversion (vitals path). */
+void SmartHelmet_AdcRequestSensIn(void);
+
 /*!
- * \brief Handle MESSAGE_ADC_RESULT (and optional internal timers).
+ * \brief Handle MESSAGE_ADC_RESULT (and internal timers).
  * \return TRUE if the message was consumed.
  */
 bool SmartHelmet_AdcHandleMessage(Task task, MessageId id, Message message);
 
-/*! \brief Latest completed sample set. */
+/*! \brief Latest completed sample set (full scan and/or last SENS_IN). */
 const smart_helmet_adc_sample_t *SmartHelmet_AdcGetLastSample(void);
 
 #endif /* SMART_HELMET_ADC_H */

@@ -100,7 +100,14 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 
 /*! Extra settling time after enabling sensor bias (ms), if any */
 #define SMART_HELMET_ADC_SETTLE_MS         (5)
+/*! Full gas scan period (SENS_IN + CO/NH3/NO2). Slow OK for air quality. */
 #define SMART_HELMET_ADC_PERIOD_MS         (1000)
+/*!
+ * SENS_IN-only sample period for vitals proxy.
+ * 40 ms => 25 Hz, matches SMART_HELMET_VITALS_FS_HZ. No HW change: same ADC pad.
+ * PIR_OUT PIO interrupt is NOT required — SENS_IN is the analog parent signal.
+ */
+#define SMART_HELMET_ADC_SENS_PERIOD_MS    (40)
 
 /* -------------------------------------------------------------------------- */
 /* Wi-SUN UART — TXD / RXD                                                    */
@@ -114,20 +121,26 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_RX_BUF_SIZE     (256)
 #define SMART_HELMET_WISUN_TX_BUF_MIN      (64)
 
-#endif /* SMART_HELMET_CONFIG_H */
-
 /* -------------------------------------------------------------------------- */
 /* Vitals proxy (LIS3DH + PD-V12 / SENS_IN) — trend only, not clinical HR    */
+/* Primary path: SENS_IN ADC @ VITALS_FS_HZ. LIS3DH optional motion gate.     */
+/* PIR_OUT optional; SW edge on SENS_IN residual approximates it (no PIO).   */
 /* -------------------------------------------------------------------------- */
 #ifndef SMART_HELMET_ENABLE_VITALS_PROXY
 #define SMART_HELMET_ENABLE_VITALS_PROXY   (1)
 #endif
 
-/*! LIS3DH sample rate assumed by the proxy (Hz). Match SensorsPoll cadence. */
+/*! Sample rate assumed by the proxy (Hz). Match SENS_IN ADC cadence. */
 #define SMART_HELMET_VITALS_FS_HZ          (25)
 
 /*! Motion gate: accel magnitude RMS above this (mg) => ACTIVITY */
 #define SMART_HELMET_MOTION_RMS_MG         (80)
+
+/*!
+ * When LIS3DH is absent: SENS residual energy (mean |hp|) above this
+ * (mV-ish units after HP) => treat as ACTIVITY (helmet/head motion).
+ */
+#define SMART_HELMET_SENS_MOTION_ABS_MV    (80)
 
 /*! Samples in short motion window (~1 s at 25 Hz) */
 #define SMART_HELMET_MOTION_WIN            (25)
@@ -144,3 +157,11 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 
 /*! Consecutive calm windows required before trend is trusted */
 #define SMART_HELMET_CALM_WINDOWS_MIN      (3)
+
+/*!
+ * Software threshold on |SENS HP| (mV residual) to emulate PIR_OUT edges.
+ * 0 disables. No extra pin / HW change.
+ */
+#define SMART_HELMET_SENS_EDGE_ABS_MV      (40)
+
+#endif /* SMART_HELMET_CONFIG_H */
