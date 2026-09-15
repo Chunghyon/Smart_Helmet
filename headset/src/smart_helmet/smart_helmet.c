@@ -52,7 +52,7 @@ bool SmartHelmet_Init(Task client_task)
         return FALSE;
     }
 
-    /* ADC results + 5 s timer on the module task (not headset SM). */
+    /* ADC gas + SENS_IN vitals timers on the module task (not headset SM). */
     SmartHelmet_AdcInit(&sh_task_data);
 
     if (!SmartHelmet_UartInit(self))
@@ -67,7 +67,8 @@ bool SmartHelmet_Init(Task client_task)
     SmartHelmet_AdcRequestScan();
 
     sh_ready = TRUE;
-	CC_LOGN("SmartHelmet: interfaces ready");
+    CC_LOGN("SmartHelmet: interfaces ready (vitals=SENS_IN@%uHz, no PIR PIO)",
+            (unsigned)SMART_HELMET_VITALS_FS_HZ);
     return TRUE;
 }
 
@@ -103,26 +104,19 @@ void SmartHelmet_PollSensors(void)
     {
         return;
     }
+    /* Gas scan is timer-driven; optional extra kick is fine. */
     SmartHelmet_AdcRequestScan();
     SmartHelmet_SensorsPoll();
 
-    /* Feed LIS3DH into vitals proxy (raw LSB ~ mg scale depends on FS;
-     * treat as relative units until full-scale config is applied). */
+    /* Optional LIS3DH motion gate when the part is populated/enabled. */
     {
         const smart_helmet_sensor_data_t *s = SmartHelmet_SensorsGetData();
         if (s && s->lis3dh_ok)
         {
             SmartHelmet_VitalsPushAccel(s->lis3dh_x, s->lis3dh_y, s->lis3dh_z);
         }
-        {
-            const smart_helmet_adc_sample_t *adc = SmartHelmet_AdcGetLastSample();
-            if (adc && adc->valid[smart_helmet_adc_sens_in])
-            {
-                SmartHelmet_VitalsPushSensInMv(adc->millivolts[smart_helmet_adc_sens_in]);
-            }
-        }
-        SmartHelmet_VitalsProcess();
     }
+    /* SENS_IN sampling + VitalsProcess run from ADC SENS timer path. */
 }
 
 void SmartHelmet_VitalsTick(void)
