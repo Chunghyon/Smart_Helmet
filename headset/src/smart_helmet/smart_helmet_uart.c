@@ -28,19 +28,22 @@ static void *sh_uart_rx_ctx;
 
 static bool shUartMapPio(uint16 pio, pin_function_id fn)
 {
+#if SMART_HELMET_ENABLE_WISUN_UART
     uint16 bank = PioCommonPioBank(pio);
     uint32 mask = PioCommonPioMask(pio);
     if (PioSetMapPins32Bank(bank, mask, 0))
     {
         return FALSE;
     }
+#endif
     return PioSetFunction(pio, fn);
 }
 
 bool SmartHelmet_UartInit(Task client_task)
 {
 #if !SMART_HELMET_ENABLE_WISUN_UART
-    UNUSED(client_task);
+	UNUSED(shUartMapPio);
+	sh_uart_task = client_task;
     return TRUE;
 #else
     sh_uart_task = client_task;

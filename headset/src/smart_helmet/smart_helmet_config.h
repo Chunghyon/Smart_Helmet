@@ -29,11 +29,11 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_ENABLE_ADC            (1)
 #endif
 #ifndef SMART_HELMET_ENABLE_WISUN_UART
-#define SMART_HELMET_ENABLE_WISUN_UART     (1)
+#define SMART_HELMET_ENABLE_WISUN_UART     (0)
 #endif
 /* CJMCU-8118 CCS811 (gas) on I2C0 */
 #ifndef SMART_HELMET_ENABLE_CCS811
-#define SMART_HELMET_ENABLE_CCS811         (1)
+#define SMART_HELMET_ENABLE_CCS811         (0)
 #endif
 /* CJMCU-8118 HDC1080 (temp/RH) on I2C0 */
 #ifndef SMART_HELMET_ENABLE_HDC1080
