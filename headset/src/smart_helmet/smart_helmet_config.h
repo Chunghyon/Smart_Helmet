@@ -191,4 +191,31 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /*! Peak vs FFT agreement window (percent of fused value) */
 #define SMART_HELMET_HR_AGREE_PCT          (20)
 
+/*!
+ * Min band_energy for any HR estimate. Below this, hr_* cleared (SNR too low).
+ * Field logs: usable ~700+, noisy hops ~100–250.
+ */
+#define SMART_HELMET_HR_MIN_ENERGY         (400)
+
+/*! Optional min mean|SENS HP|; 0 disables. */
+#define SMART_HELMET_HR_MIN_SENS_ABS       (12)
+
+/*!
+ * FFT bin EMA: new_bin weight = ALPHA/256, hold = (256-ALPHA)/256.
+ * Lower ALPHA = stronger temporal smoothing (less bin hop).
+ */
+#define SMART_HELMET_HR_FFT_SMOOTH_ALPHA_Q8 (48)
+
+/*! Max |Δbin| accepted in one window before treating as hop (then heavier smooth). */
+#define SMART_HELMET_HR_FFT_MAX_BIN_JUMP   (2)
+
+/*!
+ * Fuse weights when both peak and FFT present: peak * W + fft * (256-W).
+ * 192 => 75% peak / 25% FFT.
+ */
+#define SMART_HELMET_HR_FUSE_PEAK_W_Q8     (192)
+
+/*! Min peaks in window to accept peak-led fuse as hr_valid */
+#define SMART_HELMET_HR_MIN_PEAKS_VALID    (3)
+
 #endif /* SMART_HELMET_CONFIG_H */
