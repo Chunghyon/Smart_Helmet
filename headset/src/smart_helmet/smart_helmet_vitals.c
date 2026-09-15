@@ -1,9 +1,9 @@
 /*!
 \file       smart_helmet_vitals.c
-\brief      motion_gate + band_energy + trend_flag (SENS_IN primary)
+\brief      motion_gate + band_energy + peak BPM + fixed-point FFT BPM
 
-No PIR_OUT PIO required. SENS_IN residual energy + optional SW threshold
-edges stand in for the radar comparator. LIS3DH remains optional gate.
+SENS_IN primary. Peak detect gives beat intervals; FFT finds dominant
+frequency in ~0.8–3 Hz. Both are proxies, not clinical HR.
 */
 #ifdef DEBUG
 #define PP_DEBUG_LOG_ON
@@ -22,22 +22,21 @@ DEBUG_LOG_DEFINE_LEVEL_VAR
 
 #define MOTION_WIN   SMART_HELMET_MOTION_WIN
 #define BAND_WIN     SMART_HELMET_BAND_WIN
+#define FFT_N        SMART_HELMET_HR_FFT_N
+#define FS_HZ        SMART_HELMET_VITALS_FS_HZ
 
 static smart_helmet_vitals_status_t sh_vitals;
 
-/* --- motion window (accel magnitude) ------------------------------------- */
 static uint16 motion_mag[MOTION_WIN];
 static uint8  motion_idx;
 static uint8  motion_count;
 
-/* --- band window: high-pass residual on |a| (optional accel energy) ------ */
 static int16  band_hp[BAND_WIN];
 static uint8  band_idx;
 static uint8  band_count;
 static int32  hp_prev_x;
 static int32  hp_prev_y;
 
-/* SENS_IN residual (primary) */
 static int16  sens_hp[BAND_WIN];
 static uint8  sens_idx;
 static uint8  sens_count;
@@ -47,6 +46,15 @@ static uint16 pir_events;
 static bool   sens_edge_armed;
 static uint8  sens_since_process;
 static uint8  calm_windows;
+
+/* Chronological scratch for peak/FFT (max BAND_WIN) */
+static int16  sh_ordered[BAND_WIN];
+
+#if SMART_HELMET_ENABLE_HR_FFT
+/* In-place FFT buffers */
+static int32  fft_re[FFT_N];
+static int32  fft_im[FFT_N];
+#endif
 
 static uint16 shSqrtU32(uint32 v)
 {
@@ -124,7 +132,6 @@ static uint16 shMeanAbsI16(const int16 *buf, uint8 n)
     return (uint16)(sum / n);
 }
 
-/*! y[n] = x[n] - x[n-1] + a*y[n-1], a≈0.95 (Q8 243/256) */
 static int16 shHighPass(int32 x, int32 *prev_x, int32 *prev_y)
 {
     int32 y = x - *prev_x + ((*prev_y * 243) / 256);
@@ -139,6 +146,369 @@ static int16 shHighPass(int32 x, int32 *prev_x, int32 *prev_y)
         y = -32768;
     }
     return (int16)y;
+}
+
+/*! Copy last n SENS HP samples oldest->newest into sh_ordered. */
+static uint8 shCopySensOrdered(uint8 n)
+{
+    uint8 i;
+    uint8 start;
+    if (n > sens_count)
+    {
+        n = sens_count;
+    }
+    if (n > BAND_WIN)
+    {
+        n = BAND_WIN;
+    }
+    if (!n)
+    {
+        return 0;
+    }
+    start = (uint8)((sens_idx + BAND_WIN - n) % BAND_WIN);
+    for (i = 0; i < n; i++)
+    {
+        sh_ordered[i] = sens_hp[(start + i) % BAND_WIN];
+    }
+    return n;
+}
+
+#if SMART_HELMET_ENABLE_HR_PEAK
+/*!
+ * Local-maxima peak detect on ordered residual.
+ * Returns peak count; writes BPM estimate via mean IBI when >=2 peaks.
+ */
+static uint16 shPeakBpm(const int16 *x, uint8 n, uint8 *peak_count_out)
+{
+    uint8 i;
+    uint8 peaks = 0;
+    uint8 last_peak = 0xff;
+    uint16 mean_abs;
+    int32 thr;
+    uint32 ibi_sum = 0;
+    uint8 ibi_n = 0;
+    uint16 bpm;
+    uint16 min_dist = SMART_HELMET_HR_MIN_PEAK_DIST;
+    uint16 max_ibi = (uint16)((FS_HZ * 60u) / SMART_HELMET_HR_BPM_MIN);
+    uint16 min_ibi = (uint16)((FS_HZ * 60u) / SMART_HELMET_HR_BPM_MAX);
+
+    if (peak_count_out)
+    {
+        *peak_count_out = 0;
+    }
+    if (n < (min_dist * 2u + 3u))
+    {
+        return 0;
+    }
+
+    mean_abs = shMeanAbsI16(x, n);
+    thr = ((int32)mean_abs * SMART_HELMET_HR_PEAK_THR_Q8) / 256;
+    if (thr < 5)
+    {
+        thr = 5;
+    }
+
+    for (i = 1; i + 1 < n; i++)
+    {
+        int32 yi = x[i];
+        if (yi <= x[i - 1] || yi < x[i + 1])
+        {
+            continue;
+        }
+        if (yi < thr)
+        {
+            continue;
+        }
+        if (last_peak != 0xff)
+        {
+            uint16 ibi = (uint16)(i - last_peak);
+            if (ibi < min_dist)
+            {
+                /* keep stronger peak */
+                if (yi > x[last_peak])
+                {
+                    last_peak = i;
+                }
+                continue;
+            }
+            if (ibi >= min_ibi && ibi <= max_ibi)
+            {
+                ibi_sum += ibi;
+                ibi_n++;
+            }
+        }
+        last_peak = i;
+        peaks++;
+    }
+
+    if (peak_count_out)
+    {
+        *peak_count_out = peaks;
+    }
+    if (ibi_n == 0)
+    {
+        return 0;
+    }
+    /* BPM = 60 * fs / mean_ibi */
+    bpm = (uint16)((60u * (uint32)FS_HZ * (uint32)ibi_n) / ibi_sum);
+    if (bpm < SMART_HELMET_HR_BPM_MIN || bpm > SMART_HELMET_HR_BPM_MAX)
+    {
+        return 0;
+    }
+    return bpm;
+}
+#endif /* PEAK */
+
+#if SMART_HELMET_ENABLE_HR_FFT
+#if SMART_HELMET_HR_FFT_N != 64
+#error "smart_helmet_vitals: FFT LUT requires SMART_HELMET_HR_FFT_N == 64"
+#endif
+/* cos/sin(2*pi*k/64) Q15, k=0..32 — LUT assumes FFT_N==64 */
+static const int16 sh_fft_cos64_q15[33] =
+{
+     32767,  32609,  32137,  31356,  30273,  28898,  27245,  25329,
+     23170,  20787,  18204,  15446,  12539,   9512,   6393,   3212,
+         0,  -3212,  -6393,  -9512, -12539, -15446, -18204, -20787,
+    -23170, -25329, -27245, -28898, -30273, -31356, -32137, -32609,
+    -32767
+};
+static const int16 sh_fft_sin64_q15[33] =
+{
+         0,   3212,   6393,   9512,  12539,  15446,  18204,  20787,
+     23170,  25329,  27245,  28898,  30273,  31356,  32137,  32609,
+     32767,  32609,  32137,  31356,  30273,  28898,  27245,  25329,
+     23170,  20787,  18204,  15446,  12539,   9512,   6393,   3212,
+         0
+};
+
+/*! W = exp(-j*2*pi*k/N) as (cw, sw) with sw = -sin */
+static void shFftTwiddle(uint16 k, int16 *c, int16 *s)
+{
+    uint16 kk = (uint16)(k % FFT_N);
+    int16 cosv;
+    int16 sinv;
+    if (kk <= 32)
+    {
+        cosv = sh_fft_cos64_q15[kk];
+        sinv = sh_fft_sin64_q15[kk];
+    }
+    else
+    {
+        uint16 t = (uint16)(FFT_N - kk);
+        cosv = sh_fft_cos64_q15[t];
+        sinv = (int16)(-sh_fft_sin64_q15[t]);
+    }
+    *c = cosv;
+    *s = (int16)(-sinv);
+}
+
+static void shFftRadix2(int32 *re, int32 *im)
+{
+    uint16 n = FFT_N;
+    uint16 i, j, k, m;
+    uint16 len, half;
+    int32 tr, ti;
+
+    /* Bit reverse */
+    j = 0;
+    for (i = 0; i < n - 1; i++)
+    {
+        if (i < j)
+        {
+            tr = re[i]; re[i] = re[j]; re[j] = tr;
+            ti = im[i]; im[i] = im[j]; im[j] = ti;
+        }
+        k = n >> 1;
+        while (k <= j)
+        {
+            j = (uint16)(j - k);
+            k >>= 1;
+        }
+        j = (uint16)(j + k);
+    }
+
+    for (len = 2; len <= n; len <<= 1)
+    {
+        half = len >> 1;
+        for (i = 0; i < n; i += len)
+        {
+            for (m = 0; m < half; m++)
+            {
+                int16 cw, sw;
+                int32 ur, ui;
+                uint16 p = (uint16)(i + m);
+                uint16 q = (uint16)(p + half);
+                uint16 tw = (uint16)((m * n) / len);
+                shFftTwiddle(tw, &cw, &sw);
+                /* t = W * a[q] */
+                /* Q15 mul; >>1 per stage keeps headroom on int32 */
+                tr = ((re[q] / 2) * (int32)cw - (im[q] / 2) * (int32)sw) / 16384;
+                ti = ((re[q] / 2) * (int32)sw + (im[q] / 2) * (int32)cw) / 16384;
+                ur = re[p] / 2;
+                ui = im[p] / 2;
+                re[p] = ur + tr;
+                im[p] = ui + ti;
+                re[q] = ur - tr;
+                im[q] = ui - ti;
+            }
+        }
+    }
+}
+
+static uint16 shFftBpm(const int16 *x, uint8 n, uint16 *mag_out)
+{
+    uint16 i;
+    uint16 k;
+    uint16 k_lo;
+    uint16 k_hi;
+    uint16 best_k = 0;
+    uint32 best_p = 0;
+    uint32 sum_p = 0;
+    uint16 band_bins = 0;
+    uint16 bpm;
+    int32 mean = 0;
+
+    if (mag_out)
+    {
+        *mag_out = 0;
+    }
+    if (n < (FFT_N / 2))
+    {
+        return 0;
+    }
+
+    /* Use last FFT_N samples (or pad) */
+    for (i = 0; i < FFT_N; i++)
+    {
+        int16 s = 0;
+        if (n >= FFT_N)
+        {
+            s = x[n - FFT_N + i];
+        }
+        else if (i < n)
+        {
+            s = x[i];
+        }
+        mean += s;
+    }
+    mean /= (int32)FFT_N;
+
+    for (i = 0; i < FFT_N; i++)
+    {
+        int16 s = 0;
+        if (n >= FFT_N)
+        {
+            s = x[n - FFT_N + i];
+        }
+        else if (i < n)
+        {
+            s = x[i];
+        }
+        fft_re[i] = (int32)s - mean;
+        fft_im[i] = 0;
+    }
+
+    shFftRadix2(fft_re, fft_im);
+
+    /* HR band: f = k * fs / N; BPM = f*60 = k * fs * 60 / N */
+    k_lo = (uint16)(((uint32)SMART_HELMET_HR_BPM_MIN * FFT_N + (60u * FS_HZ / 2)) /
+                    (60u * FS_HZ));
+    k_hi = (uint16)(((uint32)SMART_HELMET_HR_BPM_MAX * FFT_N) / (60u * FS_HZ));
+    if (k_lo < 1)
+    {
+        k_lo = 1;
+    }
+    if (k_hi >= (FFT_N / 2))
+    {
+        k_hi = (uint16)(FFT_N / 2 - 1);
+    }
+    if (k_hi < k_lo)
+    {
+        return 0;
+    }
+
+    for (k = k_lo; k <= k_hi; k++)
+    {
+        int32 pr = fft_re[k] / 8;
+        int32 pi = fft_im[k] / 8;
+        uint32 p = (uint32)(pr * pr + pi * pi);
+        sum_p += p;
+        band_bins++;
+        if (p > best_p)
+        {
+            best_p = p;
+            best_k = k;
+        }
+    }
+
+    if (!band_bins || best_k == 0)
+    {
+        return 0;
+    }
+    /* Require peak above mean band power */
+    {
+        uint32 mean_p = sum_p / band_bins;
+        if (best_p < (mean_p * SMART_HELMET_HR_FFT_SNR_Q8) / 256u)
+        {
+            return 0;
+        }
+    }
+
+    if (mag_out)
+    {
+        *mag_out = (best_p > 0xffffu) ? 0xffffu : (uint16)best_p;
+    }
+
+    bpm = (uint16)(((uint32)best_k * 60u * (uint32)FS_HZ) / (uint32)FFT_N);
+    if (bpm < SMART_HELMET_HR_BPM_MIN || bpm > SMART_HELMET_HR_BPM_MAX)
+    {
+        return 0;
+    }
+    return bpm;
+}
+#endif /* FFT */
+
+static void shFuseHr(uint16 bpm_peak, uint16 bpm_fft, uint8 peaks, uint16 fft_mag)
+{
+    uint16 fused = 0;
+    bool ok = FALSE;
+
+    sh_vitals.hr_bpm_peak = bpm_peak;
+    sh_vitals.hr_bpm_fft = bpm_fft;
+    sh_vitals.hr_peak_count = peaks;
+    sh_vitals.hr_fft_mag = fft_mag;
+
+    if (bpm_peak && bpm_fft)
+    {
+        int32 a = (int32)bpm_peak;
+        int32 b = (int32)bpm_fft;
+        int32 diff = (a > b) ? (a - b) : (b - a);
+        int32 avg = (a + b) / 2;
+        if (avg > 0 && (diff * 100) <= (avg * (int32)SMART_HELMET_HR_AGREE_PCT))
+        {
+            fused = (uint16)avg;
+            ok = TRUE;
+        }
+        else
+        {
+            /* Prefer FFT when spectral peak is present but peaks disagree */
+            fused = bpm_fft;
+            ok = FALSE;
+        }
+    }
+    else if (bpm_fft)
+    {
+        fused = bpm_fft;
+        ok = (fft_mag > 0) ? TRUE : FALSE;
+    }
+    else if (bpm_peak && peaks >= 3)
+    {
+        fused = bpm_peak;
+        ok = TRUE;
+    }
+
+    sh_vitals.hr_bpm = fused;
+    sh_vitals.hr_valid = ok;
 }
 
 void SmartHelmet_VitalsInit(void)
@@ -158,7 +528,9 @@ void SmartHelmet_VitalsInit(void)
     calm_windows = 0;
     sh_vitals.trend = smart_helmet_trend_unknown;
     sh_vitals.motion = smart_helmet_motion_active;
-    CC_LOGN("SmartHelmet Vitals: SENS_IN primary (no PIR PIO), optional LIS3DH gate");
+    CC_LOGN("SmartHelmet Vitals: SENS peak=%u FFT=%u (proxy BPM)",
+            (unsigned)SMART_HELMET_ENABLE_HR_PEAK,
+            (unsigned)SMART_HELMET_ENABLE_HR_FFT);
 }
 
 void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
@@ -200,7 +572,6 @@ void SmartHelmet_VitalsPushSensInMv(uint16 mv)
         sens_count++;
     }
 
-    /* SW edge ≈ PIR_OUT: |residual| crosses threshold with hysteresis re-arm */
     a = hp;
     if (a < 0)
     {
@@ -254,6 +625,11 @@ void SmartHelmet_VitalsProcess(void)
     bool   have_accel;
     bool   active;
     smart_helmet_trend_flag_t trend;
+    uint8  n_ord;
+    uint16 bpm_peak = 0;
+    uint16 bpm_fft = 0;
+    uint8  peak_n = 0;
+    uint16 fft_mag = 0;
 
     have_accel = (motion_count >= (MOTION_WIN / 2));
     rms = have_accel ? shRmsU16(motion_mag, motion_count) : 0;
@@ -269,7 +645,6 @@ void SmartHelmet_VitalsProcess(void)
     {
         active = TRUE;
     }
-    /* No LIS3DH: large SENS residual => head/helmet macro motion on radar */
     if (!have_accel && sens_count > (BAND_WIN / 4) &&
         sens_abs >= SMART_HELMET_SENS_MOTION_ABS_MV)
     {
@@ -281,6 +656,8 @@ void SmartHelmet_VitalsProcess(void)
         sh_vitals.motion = smart_helmet_motion_active;
         sh_vitals.trend = smart_helmet_trend_unknown;
         sh_vitals.valid = FALSE;
+        sh_vitals.hr_valid = FALSE;
+        sh_vitals.hr_bpm = 0;
         calm_windows = 0;
         pir_events = 0;
         DEBUG_LOG_VERBOSE("Vitals: ACTIVE rms=%u sens_abs=%u", rms, sens_abs);
@@ -289,12 +666,6 @@ void SmartHelmet_VitalsProcess(void)
 
     sh_vitals.motion = smart_helmet_motion_calm;
 
-    /*
-     * Energy blend:
-     *  - SENS_IN is primary (radar IF after ~60 dB amp)
-     *  - accel micro-motion is optional secondary when present
-     *  - SW/HW edge count is a small boost (same physical chain as SENS)
-     */
     if (sens_count > (BAND_WIN / 4))
     {
         energy = e_sens;
@@ -312,7 +683,6 @@ void SmartHelmet_VitalsProcess(void)
         energy = 0;
     }
     energy = (uint16)(energy + pir_events * 8u);
-
     sh_vitals.band_energy = energy;
 
     baseline = sh_vitals.baseline_energy;
@@ -337,6 +707,7 @@ void SmartHelmet_VitalsProcess(void)
     {
         trend = smart_helmet_trend_unknown;
         sh_vitals.valid = FALSE;
+        shFuseHr(0, 0, 0, 0);
     }
     else
     {
@@ -354,14 +725,29 @@ void SmartHelmet_VitalsProcess(void)
             trend = smart_helmet_trend_stable;
         }
         sh_vitals.valid = TRUE;
+
+#if (SMART_HELMET_ENABLE_HR_PEAK || SMART_HELMET_ENABLE_HR_FFT)
+        n_ord = shCopySensOrdered(sens_count);
+#if SMART_HELMET_ENABLE_HR_PEAK
+        bpm_peak = shPeakBpm(sh_ordered, n_ord, &peak_n);
+#endif
+#if SMART_HELMET_ENABLE_HR_FFT
+        bpm_fft = shFftBpm(sh_ordered, n_ord, &fft_mag);
+#endif
+        shFuseHr(bpm_peak, bpm_fft, peak_n, fft_mag);
+#else
+        UNUSED(n_ord);
+        shFuseHr(0, 0, 0, 0);
+#endif
     }
 
     sh_vitals.trend = trend;
     pir_events = 0;
 
-    CC_LOGN("Vitals: calm e=%u base=%u trend=%u valid=%u sens=%umV edges=%u",
-            energy, baseline, (unsigned)trend, sh_vitals.valid ? 1u : 0u,
-            sh_vitals.sens_mv, sh_vitals.pir_events_win);
+    CC_LOGN("Vitals: calm e=%u base=%u tr=%u hr=%u pk=%u fft=%u hv=%u sens=%umV",
+            energy, baseline, (unsigned)trend,
+            sh_vitals.hr_bpm, sh_vitals.hr_bpm_peak, sh_vitals.hr_bpm_fft,
+            sh_vitals.hr_valid ? 1u : 0u, sh_vitals.sens_mv);
 }
 
 const smart_helmet_vitals_status_t *SmartHelmet_VitalsGetStatus(void)
