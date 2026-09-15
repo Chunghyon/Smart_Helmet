@@ -218,4 +218,29 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /*! Min peaks in window to accept peak-led fuse as hr_valid */
 #define SMART_HELMET_HR_MIN_PEAKS_VALID    (3)
 
+/*!
+ * Upper bounds: above these = motion/contact residual, not pulse band.
+ * Field: good e~700–3000 sa~18–35; spikes e>6k sa>50.
+ */
+#define SMART_HELMET_HR_MAX_ENERGY         (3500)
+#define SMART_HELMET_HR_MAX_SENS_ABS       (45)
+
+/*! |Δsens_mv| vs previous process window => disturbance (DC jump) */
+#define SMART_HELMET_HR_SENS_DC_SPIKE_MV   (120)
+
+/*!
+ * After ACTIVE / high-e / sens spike / tr unknown exit: skip hr_valid
+ * for this many calm process windows (~1 s each).
+ */
+#define SMART_HELMET_HR_DISTURB_HOLDOFF_WIN (5)
+
+/*!
+ * 1 = hr_valid only when peak and FFT agree within HR_AGREE_PCT.
+ * Peak-only / disagree may still fill hr_bpm for debug but hv=0.
+ */
+#define SMART_HELMET_HR_VALID_REQUIRE_AGREE (1)
+
+/*! Max |ΔBPM| from last hr_valid sample; larger step => hv=0 this window */
+#define SMART_HELMET_HR_MAX_DELTA_BPM      (25)
+
 #endif /* SMART_HELMET_CONFIG_H */
