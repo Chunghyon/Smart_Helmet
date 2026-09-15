@@ -42,7 +42,6 @@ FlashLayout.josn
 *.map
 *.objs
 *_infodb.csv
-*.xlsx
 *.bak
 *.zip
 *.txt
