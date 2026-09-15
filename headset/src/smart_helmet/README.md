@@ -31,6 +31,27 @@ While calm, SENS residual also runs:
 - **64-pt fixed-point FFT** — dominant bin in ~40–180 BPM → `hr_bpm_fft` (bin EMA smoothed)
 - **Guards** — energy/sa band (`HR_MIN/MAX_ENERGY`, `HR_MIN/MAX_SENS_ABS`); SENS DC spike; post-ACTIVE/`tr=0` holdoff (`HR_DISTURB_HOLDOFF_WIN`); `hr_valid` needs peak↔FFT agree + max ΔBPM step
 
+Calm log: `ok=` (1=meaningful pulse proxy) `why=` reason code + second line text.
+
+| why | meaning |
+|-----|---------|
+| 0 OK | peak+FFT agree, guards passed |
+| 1 warm | calm buffer / windows not ready |
+| 2 E_low | energy below min SNR |
+| 3 E_high | energy above max (motion-like) |
+| 4 sa_low | SENS residual too weak |
+| 5 sa_high | SENS residual motion-like |
+| 6 dc_spk | SENS DC jump |
+| 7 hold | post-disturbance holdoff |
+| 8 no_pk | no peaks |
+| 9 no_fft | no FFT bin |
+| 10 disagr | peak vs FFT disagree |
+| 11 pk_only | peak without FFT agree |
+| 12 fft_only | FFT without peaks |
+| 13 dBPM | jump vs last valid BPM |
+| 14 none | no estimate |
+| 15 off | HR compile-disabled |
+
 Not medical-grade.
 
 ## Integration
