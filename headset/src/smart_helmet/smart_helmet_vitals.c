@@ -840,7 +840,7 @@ void SmartHelmet_VitalsProcess(void)
         pir_events = 0;
         shHrDisturb(SMART_HELMET_HR_DISTURB_HOLDOFF_WIN);
         prev_sens_mv_valid = 0;
-        DEBUG_LOG_VERBOSE("Vitals: ACTIVE rms=%u sens_abs=%u", rms, sens_abs);
+		CC_LOGN("Vitals: ACTIVE rms=%u sens_abs=%u", rms, sens_abs);
         return;
     }
 
