@@ -35,22 +35,22 @@ typedef enum
  */
 typedef enum
 {
-    smart_helmet_hr_ok = 0,          /*!< peak+FFT agree, guards passed */
-    smart_helmet_hr_warm,            /*!< calm_windows / buffer not ready */
-    smart_helmet_hr_e_low,           /*!< band_energy < HR_MIN_ENERGY */
-    smart_helmet_hr_e_high,          /*!< band_energy > HR_MAX_ENERGY */
-    smart_helmet_hr_sa_low,          /*!< mean|SENS HP| too small */
-    smart_helmet_hr_sa_high,         /*!< mean|SENS HP| motion-like */
-    smart_helmet_hr_dc_spike,        /*!< |Δsens_mv| too large */
-    smart_helmet_hr_holdoff,         /*!< post-disturbance holdoff */
-    smart_helmet_hr_no_peak,         /*!< peak detector empty */
-    smart_helmet_hr_no_fft,          /*!< FFT empty / SNR fail */
-    smart_helmet_hr_disagree,        /*!< peak vs FFT outside agree % */
-    smart_helmet_hr_peak_only,       /*!< peak only (need FFT if REQUIRE_AGREE) */
-    smart_helmet_hr_fft_only,        /*!< FFT only — never hr_valid */
-    smart_helmet_hr_delta,           /*!< |ΔBPM| vs last valid too large */
-    smart_helmet_hr_none,            /*!< no estimate this window */
-    smart_helmet_hr_disabled         /*!< HR peak/FFT compile-off */
+	hr_ok = 0,          /*!< peak+FFT agree, guards passed */
+	hr_warm,            /*!< calm_windows / buffer not ready */
+	hr_e_low,           /*!< band_energy < HR_MIN_ENERGY */
+	hr_e_high,          /*!< band_energy > HR_MAX_ENERGY */
+	hr_sa_low,          /*!< mean|SENS HP| too small */
+	hr_sa_high,         /*!< mean|SENS HP| motion-like */
+	hr_dc_spike,        /*!< |Δsens_mv| too large */
+	hr_holdoff,         /*!< post-disturbance holdoff */
+	hr_no_peak,         /*!< peak detector empty */
+	hr_no_fft,          /*!< FFT empty / SNR fail */
+	hr_disagree,        /*!< peak vs FFT outside agree % */
+	hr_peak_only,       /*!< peak only (need FFT if REQUIRE_AGREE) */
+	hr_fft_only,        /*!< FFT only — never hr_valid */
+	hr_delta,           /*!< |ΔBPM| vs last valid too large */
+	hr_none,            /*!< no estimate this window */
+	hr_disabled         /*!< HR peak/FFT compile-off */
 } smart_helmet_hr_reason_t;
 
 typedef struct
@@ -75,7 +75,7 @@ typedef struct
     bool                       hr_valid;        /*!< hr_bpm usable this window */
     /*! Primary reason pulse proxy is meaningful or not (see enum). */
     smart_helmet_hr_reason_t   hr_reason;
-    uint8                      hr_holdoff;      /*!< windows left before hv allowed */
+	uint8                      hr_win_left;      /*!< windows left before hv allowed */
 } smart_helmet_vitals_status_t;
 
 void SmartHelmet_VitalsInit(void);

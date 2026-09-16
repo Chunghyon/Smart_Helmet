@@ -140,8 +140,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  * When LIS3DH is absent: SENS residual energy (mean |hp|) above this
  * (mV-ish units after HP) => treat as ACTIVITY (helmet/head motion).
  */
-//#define SMART_HELMET_SENS_MOTION_ABS_MV    (80)
-#define SMART_HELMET_SENS_MOTION_ABS_MV    (150)
+#define SMART_HELMET_SENS_MOTION_ABS_MV    (80)
 
 /*! Samples in short motion window (~1 s at 25 Hz) */
 #define SMART_HELMET_MOTION_WIN            (25)

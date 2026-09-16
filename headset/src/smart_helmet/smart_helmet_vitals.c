@@ -46,7 +46,7 @@ static uint16 pir_events;
 static bool   sens_edge_armed;
 static uint8  sens_since_process;
 static uint8  calm_windows;
-static uint8  hr_holdoff;          /* windows left before hr_valid allowed */
+static uint8  hr_win_left;          /* windows left before hr_valid allowed */
 static uint16 prev_sens_mv;        /* last process-window SENS DC */
 static uint8  prev_sens_mv_valid;
 static uint16 last_hr_valid_bpm;   /* last fused BPM with hr_valid */
@@ -521,9 +521,9 @@ static void shFftSmoothReset(void)
 
 static void shHrDisturb(uint8 holdoff_win)
 {
-    if (holdoff_win > hr_holdoff)
+	if (holdoff_win > hr_win_left)
     {
-        hr_holdoff = holdoff_win;
+		hr_win_left = holdoff_win;
     }
     last_hr_valid_have = 0;
     last_hr_valid_bpm = 0;
@@ -538,56 +538,52 @@ static void shHrLogWhy(smart_helmet_hr_reason_t r, uint16 energy, uint16 sa,
 {
     switch (r)
     {
-        case smart_helmet_hr_ok:
-            CC_LOGN("Vitals: pulse MEANINGFUL hr=%u pk=%u fft=%u e=%u sa=%u",
-                    hr, pk, fft, energy, sa);
+		case hr_ok:
+			CC_LOGN("Vitals: pulse MEANINGFUL hr=%u pk=%u fft=%u e=%u sa=%u", hr, pk, fft, energy, sa);
             break;
-        case smart_helmet_hr_warm:
-            CC_LOGN("Vitals: pulse N/A warm-up (need more calm windows) ho=%u",
-                    (unsigned)ho);
+		case hr_warm:
+			CC_LOGN("Vitals: pulse N/A warm-up (need more calm windows) ho=%u", (unsigned)ho);
             break;
-        case smart_helmet_hr_e_low:
+		case hr_e_low:
             CC_LOGN("Vitals: pulse N/A E_low e=%u < min (SNR too weak)", energy);
             break;
-        case smart_helmet_hr_e_high:
+		case hr_e_high:
             CC_LOGN("Vitals: pulse N/A E_high e=%u > max (motion-like energy)", energy);
             break;
-        case smart_helmet_hr_sa_low:
+		case hr_sa_low:
             CC_LOGN("Vitals: pulse N/A sa_low sa=%u (residual too weak)", sa);
             break;
-        case smart_helmet_hr_sa_high:
+		case hr_sa_high:
             CC_LOGN("Vitals: pulse N/A sa_high sa=%u (motion-like residual)", sa);
             break;
-        case smart_helmet_hr_dc_spike:
-            CC_LOGN("Vitals: pulse N/A dc_spike sens jump (contact/motion) ho=%u",
-                    (unsigned)ho);
+		case hr_dc_spike:
+			CC_LOGN("Vitals: pulse N/A dc_spike sens jump (contact/motion) ho=%u", (unsigned)ho);
             break;
-        case smart_helmet_hr_holdoff:
-            CC_LOGN("Vitals: pulse N/A holdoff ho=%u after disturb (pk=%u fft=%u)",
-                    (unsigned)ho, pk, fft);
+		case hr_holdoff:
+			CC_LOGN("Vitals: pulse N/A holdoff ho=%u after disturb (pk=%u fft=%u)", (unsigned)ho, pk, fft);
             break;
-        case smart_helmet_hr_no_peak:
+		case hr_no_peak:
             CC_LOGN("Vitals: pulse N/A no_peak (fft=%u)", fft);
             break;
-        case smart_helmet_hr_no_fft:
+		case hr_no_fft:
             CC_LOGN("Vitals: pulse N/A no_fft (pk=%u)", pk);
             break;
-        case smart_helmet_hr_disagree:
+		case hr_disagree:
             CC_LOGN("Vitals: pulse N/A disagree pk=%u vs fft=%u", pk, fft);
             break;
-        case smart_helmet_hr_peak_only:
+		case hr_peak_only:
             CC_LOGN("Vitals: pulse N/A peak_only pk=%u (need FFT agree)", pk);
             break;
-        case smart_helmet_hr_fft_only:
+		case hr_fft_only:
             CC_LOGN("Vitals: pulse N/A fft_only fft=%u (need peaks)", fft);
             break;
-        case smart_helmet_hr_delta:
+		case hr_delta:
             CC_LOGN("Vitals: pulse N/A dBPM jump hr=%u vs last valid", hr);
             break;
-        case smart_helmet_hr_none:
+		case hr_none:
             CC_LOGN("Vitals: pulse N/A none (no peak/FFT estimate)");
             break;
-        case smart_helmet_hr_disabled:
+		case hr_disabled:
             CC_LOGN("Vitals: pulse N/A HR compile-disabled");
             break;
         default:
@@ -601,27 +597,27 @@ static smart_helmet_hr_reason_t shHrSignalReason(uint16 energy, uint16 sens_abs)
 {
     if (energy < SMART_HELMET_HR_MIN_ENERGY)
     {
-        return smart_helmet_hr_e_low;
+		return hr_e_low;
     }
     if (energy > SMART_HELMET_HR_MAX_ENERGY)
     {
-        return smart_helmet_hr_e_high;
+		return hr_e_high;
     }
 #if SMART_HELMET_HR_MIN_SENS_ABS > 0
     if (sens_abs < SMART_HELMET_HR_MIN_SENS_ABS)
     {
-        return smart_helmet_hr_sa_low;
+		return hr_sa_low;
     }
 #endif
 #if SMART_HELMET_HR_MAX_SENS_ABS > 0
     if (sens_abs > SMART_HELMET_HR_MAX_SENS_ABS)
     {
-        return smart_helmet_hr_sa_high;
+		return hr_sa_high;
     }
 #else
     UNUSED(sens_abs);
 #endif
-    return smart_helmet_hr_ok;
+	return hr_ok;
 }
 
 /*! Disturbance class for holdoff arming; ok means no disturb. */
@@ -632,12 +628,12 @@ static smart_helmet_hr_reason_t shHrDisturbReason(uint16 energy, uint16 sens_abs
 
     if (energy > SMART_HELMET_HR_MAX_ENERGY)
     {
-        return smart_helmet_hr_e_high;
+		return hr_e_high;
     }
 #if SMART_HELMET_HR_MAX_SENS_ABS > 0
     if (sens_abs > SMART_HELMET_HR_MAX_SENS_ABS)
     {
-        return smart_helmet_hr_sa_high;
+		return hr_sa_high;
     }
 #else
     UNUSED(sens_abs);
@@ -651,10 +647,10 @@ static smart_helmet_hr_reason_t shHrDisturbReason(uint16 energy, uint16 sens_abs
         }
         if (ddc >= (int32)SMART_HELMET_HR_SENS_DC_SPIKE_MV)
         {
-            return smart_helmet_hr_dc_spike;
+			return hr_dc_spike;
         }
     }
-    return smart_helmet_hr_ok;
+	return hr_ok;
 }
 
 /*!
@@ -692,9 +688,9 @@ static void shFuseHr(uint16 bpm_peak, uint16 bpm_fft, uint8 peaks, uint16 fft_ma
         {
             fused = (uint16)avg;
             ok = TRUE;
-            if (why == smart_helmet_hr_ok)
+			if (why == hr_ok)
             {
-                why = smart_helmet_hr_ok;
+				why = hr_ok;
             }
         }
         else
@@ -707,14 +703,14 @@ static void shFuseHr(uint16 bpm_peak, uint16 bpm_fft, uint8 peaks, uint16 fft_ma
             }
             else
             {
-                why = (why == smart_helmet_hr_ok) ? smart_helmet_hr_disagree : why;
+				why = (why == hr_ok) ? hr_disagree : why;
             }
 #else
             UNUSED(min_peaks);
             ok = FALSE;
-            if (why == smart_helmet_hr_ok)
+			if (why == hr_ok)
             {
-                why = smart_helmet_hr_disagree;
+				why = hr_disagree;
             }
 #endif
         }
@@ -724,9 +720,9 @@ static void shFuseHr(uint16 bpm_peak, uint16 bpm_fft, uint8 peaks, uint16 fft_ma
         fused = bpm_peak;
 #if SMART_HELMET_HR_VALID_REQUIRE_AGREE
         ok = FALSE;
-        if (why == smart_helmet_hr_ok)
+		if (why == hr_ok)
         {
-            why = smart_helmet_hr_peak_only;
+			why = hr_peak_only;
         }
 #else
         ok = TRUE;
@@ -736,38 +732,38 @@ static void shFuseHr(uint16 bpm_peak, uint16 bpm_fft, uint8 peaks, uint16 fft_ma
     {
         fused = bpm_fft;
         ok = FALSE;
-        if (why == smart_helmet_hr_ok)
+		if (why == hr_ok)
         {
-            why = smart_helmet_hr_fft_only;
+			why = hr_fft_only;
         }
     }
     else if (bpm_peak)
     {
         fused = bpm_peak;
         ok = FALSE;
-        if (why == smart_helmet_hr_ok)
+		if (why == hr_ok)
         {
-            why = smart_helmet_hr_no_fft; /* weak peaks */
+			why = hr_no_fft; /* weak peaks */
         }
     }
     else
     {
-        if (why == smart_helmet_hr_ok)
+		if (why == hr_ok)
         {
-            why = smart_helmet_hr_none;
+			why = hr_none;
         }
     }
 
     if (!allow_valid)
     {
         ok = FALSE;
-        if (pre_reason != smart_helmet_hr_ok)
+		if (pre_reason != hr_ok)
         {
             why = pre_reason;
         }
-        else if (hr_holdoff > 0 || pre_reason == smart_helmet_hr_holdoff)
+		else if (hr_win_left > 0 || pre_reason == hr_holdoff)
         {
-            why = smart_helmet_hr_holdoff;
+			why = hr_holdoff;
         }
     }
 
@@ -782,13 +778,13 @@ static void shFuseHr(uint16 bpm_peak, uint16 bpm_fft, uint8 peaks, uint16 fft_ma
         if (d > (int32)SMART_HELMET_HR_MAX_DELTA_BPM)
         {
             ok = FALSE;
-            why = smart_helmet_hr_delta;
+			why = hr_delta;
         }
     }
 
     if (ok)
     {
-        why = smart_helmet_hr_ok;
+		why = hr_ok;
         last_hr_valid_bpm = fused;
         last_hr_valid_have = 1;
     }
@@ -813,7 +809,7 @@ void SmartHelmet_VitalsInit(void)
     sens_edge_armed = TRUE;
     sens_since_process = 0;
     calm_windows = 0;
-    hr_holdoff = SMART_HELMET_HR_DISTURB_HOLDOFF_WIN;
+	hr_win_left = SMART_HELMET_HR_DISTURB_HOLDOFF_WIN;
     prev_sens_mv = 0;
     prev_sens_mv_valid = 0;
     last_hr_valid_bpm = 0;
@@ -955,19 +951,19 @@ void SmartHelmet_VitalsProcess(void)
         sh_vitals.hr_bpm = 0;
         sh_vitals.hr_bpm_peak = 0;
         sh_vitals.hr_bpm_fft = 0;
-        sh_vitals.hr_reason = smart_helmet_hr_sa_high; /* or accel motion */
+		sh_vitals.hr_reason = hr_sa_high; /* or accel motion */
         if (have_accel && rms >= SMART_HELMET_MOTION_RMS_MG)
         {
             /* tag still sa_high-ish; log distinguishes via rms */
-            sh_vitals.hr_reason = smart_helmet_hr_sa_high;
+			sh_vitals.hr_reason = hr_sa_high;
         }
         calm_windows = 0;
         pir_events = 0;
         shHrDisturb(SMART_HELMET_HR_DISTURB_HOLDOFF_WIN);
-        sh_vitals.hr_holdoff = hr_holdoff;
+		sh_vitals.hr_win_left = hr_win_left;
         prev_sens_mv_valid = 0;
         CC_LOGN("Vitals: ACTIVE ok=0 why=motion rms=%u sa=%u ho=%u sens=%umV (pulse N/A)",
-                rms, sens_abs, (unsigned)hr_holdoff, sh_vitals.sens_mv);
+				rms, sens_abs, (unsigned)hr_win_left, sh_vitals.sens_mv);
         return;
     }
 
@@ -1013,7 +1009,7 @@ void SmartHelmet_VitalsProcess(void)
         smart_helmet_hr_reason_t dwhy =
             shHrDisturbReason(energy, sens_abs, sh_vitals.sens_mv);
         /* Motion-like residual while gate still calm, or SENS DC spike */
-        if (dwhy != smart_helmet_hr_ok)
+		if (dwhy != hr_ok)
         {
             shHrDisturb(SMART_HELMET_HR_DISTURB_HOLDOFF_WIN);
         }
@@ -1025,12 +1021,12 @@ void SmartHelmet_VitalsProcess(void)
         trend = smart_helmet_trend_unknown;
         sh_vitals.valid = FALSE;
         shHrDisturb(SMART_HELMET_HR_DISTURB_HOLDOFF_WIN);
-        shFuseHr(0, 0, 0, 0, FALSE, smart_helmet_hr_warm);
+		shFuseHr(0, 0, 0, 0, FALSE, hr_warm);
     }
     else
     {
         bool allow_hr_valid;
-        smart_helmet_hr_reason_t pre = smart_helmet_hr_ok;
+		smart_helmet_hr_reason_t pre = hr_ok;
         smart_helmet_hr_reason_t sig;
 
         delta_pct = (((int32)energy - (int32)baseline) * 100) / (int32)baseline;
@@ -1048,16 +1044,16 @@ void SmartHelmet_VitalsProcess(void)
         }
         sh_vitals.valid = TRUE;
 
-        allow_hr_valid = (hr_holdoff == 0) ? TRUE : FALSE;
-        if (hr_holdoff > 0)
+		allow_hr_valid = (hr_win_left == 0) ? TRUE : FALSE;
+		if (hr_win_left > 0)
         {
-            pre = smart_helmet_hr_holdoff;
-            hr_holdoff--;
+			pre = hr_holdoff;
+			hr_win_left--;
         }
 
 #if (SMART_HELMET_ENABLE_HR_PEAK || SMART_HELMET_ENABLE_HR_FFT)
         sig = shHrSignalReason(energy, sens_abs);
-        if (sig != smart_helmet_hr_ok)
+		if (sig != hr_ok)
         {
             /* Prefer concrete signal reason over generic holdoff */
             shFuseHr(0, 0, 0, 0, FALSE, sig);
@@ -1074,13 +1070,13 @@ void SmartHelmet_VitalsProcess(void)
             /* Refine empty detectors */
             if (!bpm_peak && !bpm_fft)
             {
-                pre = (pre == smart_helmet_hr_holdoff) ? pre : smart_helmet_hr_none;
+				pre = (pre == hr_holdoff) ? pre : hr_none;
             }
-            else if (!bpm_peak && bpm_fft && pre == smart_helmet_hr_ok)
+			else if (!bpm_peak && bpm_fft && pre == hr_ok)
             {
                 /* fuse will mark fft_only */
             }
-            else if (bpm_peak && !bpm_fft && pre == smart_helmet_hr_ok)
+			else if (bpm_peak && !bpm_fft && pre == hr_ok)
             {
                 /* fuse will mark peak_only / no_fft */
             }
@@ -1088,7 +1084,7 @@ void SmartHelmet_VitalsProcess(void)
         }
 #else
         UNUSED(n_ord);
-        shFuseHr(0, 0, 0, 0, FALSE, smart_helmet_hr_disabled);
+		shFuseHr(0, 0, 0, 0, FALSE, hr_disabled);
 #endif
     }
 
@@ -1096,7 +1092,7 @@ void SmartHelmet_VitalsProcess(void)
     prev_sens_mv_valid = 1;
 
     sh_vitals.trend = trend;
-    sh_vitals.hr_holdoff = hr_holdoff;
+	sh_vitals.hr_win_left = hr_win_left;
     pir_events = 0;
 
     /*
@@ -1106,16 +1102,16 @@ void SmartHelmet_VitalsProcess(void)
      *  6 dc_spk  7 hold  8 no_pk  9 no_fft  10 disagr
      *  11 pk_only  12 fft_only  13 dBPM  14 none  15 off
      */
-    CC_LOGN("Vitals: calm ok=%u why=%u e=%u base=%u tr=%u hr=%u pk=%u fft=%u pkn=%u ho=%u sa=%u sens=%umV",
+	CC_LOGN("Vitals: calm ok=%u why=enum:smart_helmet_hr_reason_t:%u e=%u base=%u tr=%u hr=%u pk=%u fft=%u pkn=%u ho=%u sa=%u sens=%umV",
             sh_vitals.hr_valid ? 1u : 0u,
             (unsigned)sh_vitals.hr_reason,
             energy, baseline, (unsigned)trend,
             sh_vitals.hr_bpm, sh_vitals.hr_bpm_peak, sh_vitals.hr_bpm_fft,
             (unsigned)sh_vitals.hr_peak_count,
-            (unsigned)hr_holdoff,
+			(unsigned)hr_win_left,
             sens_abs, sh_vitals.sens_mv);
-    shHrLogWhy(sh_vitals.hr_reason, energy, sens_abs, hr_holdoff,
-               sh_vitals.hr_bpm_peak, sh_vitals.hr_bpm_fft, sh_vitals.hr_bpm);
+	UNUSED(shHrLogWhy);
+	shHrLogWhy(sh_vitals.hr_reason, energy, sens_abs, hr_win_left, sh_vitals.hr_bpm_peak, sh_vitals.hr_bpm_fft, sh_vitals.hr_bpm);
 }
 
 const smart_helmet_vitals_status_t *SmartHelmet_VitalsGetStatus(void)
