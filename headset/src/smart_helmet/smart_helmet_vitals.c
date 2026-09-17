@@ -104,9 +104,15 @@ static void shAccSat(uint32 *sum, uint32 term)
     *sum = s;
 }
 
-static uint16 shRmsU16(const uint16 *buf, uint8 n)
+/*!
+ * RMS of the accelerometer magnitude around its own mean.
+ * The mean carries the ~1000 mg gravity vector, so it must be removed or the
+ * gate would always report ACTIVE once the LIS3DH is populated.
+ */
+static uint16 shRmsDevU16(const uint16 *buf, uint8 n)
 {
     uint32 sum = 0;
+    uint32 mean;
     uint8 i;
     if (!n)
     {
@@ -114,7 +120,14 @@ static uint16 shRmsU16(const uint16 *buf, uint8 n)
     }
     for (i = 0; i < n; i++)
     {
-        shAccSat(&sum, (uint32)buf[i] * buf[i]);
+        sum += buf[i];
+    }
+    mean = sum / n;
+    sum = 0;
+    for (i = 0; i < n; i++)
+    {
+        int32 d = (int32)buf[i] - (int32)mean;
+        shAccSat(&sum, (uint32)(d * d));
     }
     return shSqrtU32(sum / n);
 }
@@ -1437,7 +1450,7 @@ void SmartHelmet_VitalsProcess(void)
 #endif
 
     have_accel = (motion_count >= (MOTION_WIN / 2));
-    rms = have_accel ? shRmsU16(motion_mag, motion_count) : 0;
+    rms = have_accel ? shRmsDevU16(motion_mag, motion_count) : 0;
     sh_vitals.motion_rms_mg = rms;
     sh_vitals.pir_events_win = pir_events;
 
@@ -1624,7 +1637,7 @@ void SmartHelmet_VitalsProcess(void)
      * why= smart_helmet_hr_reason_t:
      *  0 OK  1 warm  2 E_low  3 E_high  4 sa_low  5 sa_high
      *  6 dc_spk  7 hold  8 no_pk  9 no_fft  10 disagr
-     *  11 pk_only  12 fft_only  13 dBPM  14 none  15 off
+     *  11 pk_only  12 fft_only  13 dBPM  14 none  15 off  16 motion
      */
 	CC_LOGN("Vitals: calm ok=%u why=enum:smart_helmet_hr_reason_t:%u e=%u base=%u tr=%u hr=%u pk=%u fft=%u ac=%u pkn=%u ho=%u sa=%u sens=%umV",
             sh_vitals.hr_valid ? 1u : 0u,

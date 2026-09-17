@@ -141,7 +141,10 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /*! Sample rate assumed by the proxy (Hz). Match SENS_IN ADC cadence. */
 #define SMART_HELMET_VITALS_FS_HZ          (25)
 
-/*! Motion gate: accel magnitude RMS above this (mg) => ACTIVITY */
+/*!
+ * Motion gate: RMS of the accel magnitude around its own mean (i.e. with the
+ * ~1000 mg gravity component removed) above this (mg) => ACTIVITY.
+ */
 #define SMART_HELMET_MOTION_RMS_MG         (80)
 
 /*!

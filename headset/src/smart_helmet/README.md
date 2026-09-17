@@ -27,9 +27,29 @@ Cadence:
 Status: `SmartHelmet_VitalsGetStatus()` — includes `hr_bpm_peak`, `hr_bpm_fft`, fused `hr_bpm` (proxy only).
 
 While calm, SENS residual also runs:
-- **Peak detect** — local maxima / IBI → `hr_bpm_peak`
-- **64-pt fixed-point FFT** — dominant bin in ~40–180 BPM → `hr_bpm_fft` (bin EMA smoothed)
-- **Guards** — energy/sa band (`HR_MIN/MAX_ENERGY`, `HR_MIN/MAX_SENS_ABS`); SENS DC spike; post-ACTIVE/`tr=0` holdoff (`HR_DISTURB_HOLDOFF_WIN`); `hr_valid` needs peak↔FFT agree + max ΔBPM step
+- **Peak detect** — local maxima / IBI → `hr_bpm_peak` (median IBI + regularity check)
+- **64-pt fixed-point FFT** — dominant bin in ~40–180 BPM → `hr_bpm_fft` (Hann window, parabolic bin interpolation, fractional-bin EMA)
+- **Autocorrelation** (optional) — strongest periodicity in the HR band → `hr_bpm_ac`, with `hr_ac_q8` as rhythm quality
+- **Guards** — energy/sa band (`HR_MIN/MAX_ENERGY`, `HR_MIN/MAX_SENS_ABS`); SENS DC spike; post-ACTIVE/`tr=0` holdoff (`HR_DISTURB_HOLDOFF_WIN`); `hr_valid` needs estimator agreement + max ΔBPM step (re-syncs after `HR_DELTA_RESYNC_WIN` rejections so a genuine fast change is not locked out)
+
+### Selectable options (`smart_helmet_config.h`)
+
+Each one is an independent `#ifndef` switch, so a build can fall back to the
+previous behaviour or trade CPU for robustness.
+
+| Option | Default | Effect |
+|--------|---------|--------|
+| `SMART_HELMET_ENABLE_HR_BANDPASS` | 1 | Adds a 1-pole LP (`HR_LP_ALPHA_Q8`) after the HP so only the pulse band feeds the estimators. `band_energy` / `sa` stay on the HP signal, so existing thresholds are unchanged |
+| `SMART_HELMET_HR_FFT_WINDOW_HANN` | 1 | Hann window before the FFT (less leakage) |
+| `SMART_HELMET_HR_FFT_PRESCALE` | 1 | Scales the frame up before the FFT; without it a residual of a few tens of mV is truncated to zero by the per-stage ÷2 |
+| `SMART_HELMET_HR_FFT_INTERP` | 1 | Parabolic peak interpolation + fractional-bin BPM. The raw bin grid is 23.4 BPM at 25 Hz / N=64, which is why the old estimate hopped between 47/70/94 BPM |
+| `SMART_HELMET_ENABLE_HR_AUTOCORR` | 0 | Third estimator based on periodicity (`HR_AC_MIN_Q8` threshold). Most accurate of the three on synthetic tests, at the cost of ~3 k MACs per window |
+| `SMART_HELMET_HR_PEAK_IBI_MEDIAN` | 1 | Median instead of mean IBI; `HR_IBI_SPREAD_PCT` drops irregular peak trains |
+| `SMART_HELMET_HR_FUSE_MODE` | 0 | 0 = legacy pairwise peak/FFT agreement, 1 = consensus across every enabled estimator (`HR_FUSE_MIN_AGREE` must sit within `HR_AGREE_PCT` of the median) |
+| `SMART_HELMET_LIS3DH_FS_G` / `_ODR_SEL` | 2 g / 100 Hz | LIS3DH full scale and ODR. Samples are converted to **mg** and BDU is set, so `MOTION_RMS_MG` is meaningful |
+
+Recommended for best change-detection: `ENABLE_HR_AUTOCORR=1` with
+`HR_FUSE_MODE=1` (two of three estimators must agree).
 
 Calm log: `ok=` (1=meaningful pulse proxy) `why=` reason code + second line text.
 
@@ -51,6 +71,7 @@ Calm log: `ok=` (1=meaningful pulse proxy) `why=` reason code + second line text
 | 13 dBPM | jump vs last valid BPM |
 | 14 none | no estimate |
 | 15 off | HR compile-disabled |
+| 16 motion | motion gate active (accel RMS / SENS residual) |
 
 Not medical-grade.
 
@@ -70,3 +91,4 @@ SmartHelmet_PollSensors();
 
 4. CCS811 and MLX90614 both commonly use address `0x5A` — confirm PCB addressing if both are on I2C0.
 5. `SMART_HELMET_ENABLE_LIS3DH` stays 0 while the accelerometer is depopulated; vitals still run on SENS_IN alone.
+6. The motion gate uses the RMS of the accel magnitude **around its own mean**, so the 1 g gravity component does not force a permanent ACTIVE state.
