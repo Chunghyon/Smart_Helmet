@@ -45,6 +45,7 @@ static uint16 sh_probe_try;
 #define LIS3DH_REG_WHO_AM_I      0x0F
 #define LIS3DH_WHO_AM_I_VALUE    0x33
 #define LIS3DH_REG_CTRL_REG1     0x20
+#define LIS3DH_REG_CTRL_REG4     0x23
 #define LIS3DH_REG_OUT_X_L       0x28
 
 /* MLX90614 RAM */
@@ -171,6 +172,29 @@ static bool shInitHdc1080(void)
 #endif
 
 #if SMART_HELMET_ENABLE_LIS3DH
+#if SMART_HELMET_LIS3DH_FS_G == 2
+#define LIS3DH_FS_BITS      0x00
+#define LIS3DH_MG_PER_LSB   4      /* normal mode, 10-bit */
+#elif SMART_HELMET_LIS3DH_FS_G == 4
+#define LIS3DH_FS_BITS      0x10
+#define LIS3DH_MG_PER_LSB   8
+#elif SMART_HELMET_LIS3DH_FS_G == 8
+#define LIS3DH_FS_BITS      0x20
+#define LIS3DH_MG_PER_LSB   16
+#elif SMART_HELMET_LIS3DH_FS_G == 16
+#define LIS3DH_FS_BITS      0x30
+#define LIS3DH_MG_PER_LSB   48
+#else
+#error "SMART_HELMET_LIS3DH_FS_G must be 2, 4, 8 or 16"
+#endif
+
+/*! Raw left-justified sample -> mg (normal mode = 10 significant bits). */
+static int16 shLis3dhRawToMg(uint8 lo, uint8 hi)
+{
+    int16 raw = (int16)(((uint16)hi << 8) | lo);
+    return (int16)((raw / 64) * LIS3DH_MG_PER_LSB);
+}
+
 static bool shProbeLis3dh(void)
 {
     uint8 id = 0;
@@ -185,7 +209,17 @@ static bool shProbeLis3dh(void)
 
 static bool shInitLis3dh(void)
 {
-    uint8 ctrl1 = 0x57; /* 100 Hz, XYZ enable */
+    /* ODR from config, normal mode (LPen=0), XYZ enabled */
+    uint8 ctrl1 = (uint8)((SMART_HELMET_LIS3DH_ODR_SEL << 4) | 0x07);
+    /* BDU so the low/high bytes of a multi-byte read belong to one sample */
+    uint8 ctrl4 = (uint8)(0x80 | LIS3DH_FS_BITS);
+
+    if (!SmartHelmet_I2cWriteReg(smart_helmet_i2c_bus_0,
+                                 SMART_HELMET_ADDR_LIS3DH,
+                                 LIS3DH_REG_CTRL_REG4, &ctrl4, 1))
+    {
+        return FALSE;
+    }
     return SmartHelmet_I2cWriteReg(smart_helmet_i2c_bus_0,
                                    SMART_HELMET_ADDR_LIS3DH,
                                    LIS3DH_REG_CTRL_REG1, &ctrl1, 1);
@@ -836,9 +870,10 @@ void SmartHelmet_SensorsPoll(void)
                                    (uint8)(LIS3DH_REG_OUT_X_L | 0x80),
                                    buf, 6))
         {
-            sh_sensors.lis3dh_x = (int16)(((uint16)buf[1] << 8) | buf[0]);
-            sh_sensors.lis3dh_y = (int16)(((uint16)buf[3] << 8) | buf[2]);
-            sh_sensors.lis3dh_z = (int16)(((uint16)buf[5] << 8) | buf[4]);
+            /* Convert to mg so SMART_HELMET_MOTION_RMS_MG is meaningful. */
+            sh_sensors.lis3dh_x = shLis3dhRawToMg(buf[0], buf[1]);
+            sh_sensors.lis3dh_y = shLis3dhRawToMg(buf[2], buf[3]);
+            sh_sensors.lis3dh_z = shLis3dhRawToMg(buf[4], buf[5]);
         }
     }
 #endif

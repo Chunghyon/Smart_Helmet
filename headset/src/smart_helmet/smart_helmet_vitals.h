@@ -50,7 +50,8 @@ typedef enum
 	hr_fft_only,        /*!< FFT only — never hr_valid */
 	hr_delta,           /*!< |ΔBPM| vs last valid too large */
 	hr_none,            /*!< no estimate this window */
-	hr_disabled         /*!< HR peak/FFT compile-off */
+	hr_disabled,        /*!< HR peak/FFT compile-off */
+	hr_motion           /*!< motion gate active (accel RMS / SENS residual) */
 } smart_helmet_hr_reason_t;
 
 typedef struct
@@ -68,6 +69,10 @@ typedef struct
     uint16                     hr_bpm_peak;
     /*! FFT dominant-bin estimate (BPM). 0 if unavailable. */
     uint16                     hr_bpm_fft;
+    /*! Autocorrelation estimate (BPM). 0 if unavailable / compiled out. */
+    uint16                     hr_bpm_ac;
+    /*! Autocorrelation peak / r(0), Q8 (rhythm quality). */
+    uint16                     hr_ac_q8;
     /*! Fused BPM when peak/FFT agree or one is strong; else 0. */
     uint16                     hr_bpm;
     uint8                      hr_peak_count;   /*!< peaks in last analysis window */

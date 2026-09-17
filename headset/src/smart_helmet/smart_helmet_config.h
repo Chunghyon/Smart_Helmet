@@ -48,6 +48,14 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #ifndef SMART_HELMET_ENABLE_LIS3DH
 #define SMART_HELMET_ENABLE_LIS3DH         (0)
 #endif
+/*! LIS3DH output data rate selector (CTRL_REG1 ODR field, 0x5 = 100 Hz). */
+#ifndef SMART_HELMET_LIS3DH_ODR_SEL
+#define SMART_HELMET_LIS3DH_ODR_SEL        (0x5)
+#endif
+/*! LIS3DH full scale in g: 2, 4, 8 or 16. Sets CTRL_REG4 FS and mg/LSB. */
+#ifndef SMART_HELMET_LIS3DH_FS_G
+#define SMART_HELMET_LIS3DH_FS_G           (2)
+#endif
 /* SSD1315 128x64 OLED. 1 = probe + splash on I2C1 (default). */
 #ifndef SMART_HELMET_ENABLE_SSD1315
 #define SMART_HELMET_ENABLE_SSD1315        (0)
@@ -242,5 +250,110 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 
 /*! Max |ΔBPM| from last hr_valid sample; larger step => hv=0 this window */
 #define SMART_HELMET_HR_MAX_DELTA_BPM      (25)
+
+/*!
+ * Consecutive windows rejected by the ΔBPM guard before the reference is
+ * dropped and the estimator re-syncs. Without it a genuine fast change
+ * (e.g. 65 -> 105 BPM) would be rejected forever. 0 disables the re-sync.
+ */
+#ifndef SMART_HELMET_HR_DELTA_RESYNC_WIN
+#define SMART_HELMET_HR_DELTA_RESYNC_WIN   (3)
+#endif
+
+/* --- Optional DSP improvements (each independently selectable) ----------- */
+
+/*!
+ * Band-pass the SENS residual instead of high-pass only.
+ * 1 = HP (0.2 Hz) + 1-pole LP so respiration harmonics / wideband noise
+ * outside the pulse band do not feed the peak / FFT / autocorrelation stages.
+ * 0 = legacy high-pass only.
+ */
+#ifndef SMART_HELMET_ENABLE_HR_BANDPASS
+#define SMART_HELMET_ENABLE_HR_BANDPASS    (1)
+#endif
+
+/*!
+ * LP smoothing factor (Q8): y += (x - y) * ALPHA / 256.
+ * 96/256 ≈ 0.375 => fc ≈ 1.9 Hz at 25 Hz (keeps 40–180 BPM, cuts >3 Hz).
+ */
+#ifndef SMART_HELMET_HR_LP_ALPHA_Q8
+#define SMART_HELMET_HR_LP_ALPHA_Q8        (96)
+#endif
+
+/*!
+ * Hann window before the FFT. Reduces spectral leakage from the
+ * non-integer number of beats inside the 64-sample frame.
+ * 0 = rectangular (legacy).
+ */
+#ifndef SMART_HELMET_HR_FFT_WINDOW_HANN
+#define SMART_HELMET_HR_FFT_WINDOW_HANN    (1)
+#endif
+
+/*!
+ * Normalise the FFT input to use the full int32 headroom.
+ * The radix-2 butterfly scales by 1/2 per stage, so small residuals
+ * (tens of mV) would otherwise be truncated to zero after 6 stages.
+ * 0 = legacy (no pre-scaling).
+ */
+#ifndef SMART_HELMET_HR_FFT_PRESCALE
+#define SMART_HELMET_HR_FFT_PRESCALE       (1)
+#endif
+
+/*!
+ * Parabolic interpolation of the dominant FFT bin plus fractional-bin BPM.
+ * Without it the BPM grid is fs*60/N = 23.4 BPM at 25 Hz / N=64, which is
+ * why the estimate hops between 47/70/94 BPM.
+ * 0 = legacy integer-bin BPM.
+ */
+#ifndef SMART_HELMET_HR_FFT_INTERP
+#define SMART_HELMET_HR_FFT_INTERP         (1)
+#endif
+
+/*!
+ * Autocorrelation estimator on the residual. Periodicity based, so it is
+ * robust for "is the pulse changing?" even when individual peaks are weak.
+ * Adds a third opinion to the fusion stage.
+ */
+#ifndef SMART_HELMET_ENABLE_HR_AUTOCORR
+#define SMART_HELMET_ENABLE_HR_AUTOCORR    (0)
+#endif
+
+/*! Min autocorrelation peak vs r(0) (Q8) before the AC BPM is accepted. */
+#ifndef SMART_HELMET_HR_AC_MIN_Q8
+#define SMART_HELMET_HR_AC_MIN_Q8          (77)   /* ~0.30 */
+#endif
+
+/*!
+ * Peak-detector inter-beat interval statistic.
+ * 1 = median IBI (robust to one missed / doubled beat)
+ * 0 = mean IBI (legacy)
+ */
+#ifndef SMART_HELMET_HR_PEAK_IBI_MEDIAN
+#define SMART_HELMET_HR_PEAK_IBI_MEDIAN    (1)
+#endif
+
+/*!
+ * Max IBI dispersion (percent of the chosen IBI) still considered a regular
+ * rhythm. Above it the peak estimate is dropped. 0 disables the check.
+ */
+#ifndef SMART_HELMET_HR_IBI_SPREAD_PCT
+#define SMART_HELMET_HR_IBI_SPREAD_PCT     (35)
+#endif
+
+/*!
+ * Fusion strategy:
+ *  0 = legacy pairwise peak/FFT agreement
+ *  1 = consensus across every enabled estimator (peak / FFT / autocorrelation):
+ *      take the median candidate and require HR_FUSE_MIN_AGREE of them to sit
+ *      within HR_AGREE_PCT of it.
+ */
+#ifndef SMART_HELMET_HR_FUSE_MODE
+#define SMART_HELMET_HR_FUSE_MODE          (0)
+#endif
+
+/*! Estimators that must agree in consensus mode (HR_FUSE_MODE == 1). */
+#ifndef SMART_HELMET_HR_FUSE_MIN_AGREE
+#define SMART_HELMET_HR_FUSE_MIN_AGREE     (2)
+#endif
 
 #endif /* SMART_HELMET_CONFIG_H */

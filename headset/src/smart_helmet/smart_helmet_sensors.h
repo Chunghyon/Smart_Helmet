@@ -27,9 +27,9 @@ typedef struct
     uint16   ccs811_tvoc;
     int16    hdc_temp_x100;     /* 0.01 °C */
     uint16   hdc_humidity_x100; /* 0.01 %RH */
-    int16    lis3dh_x;
-    int16    lis3dh_y;
-    int16    lis3dh_z;
+    int16    lis3dh_x;          /* mg */
+    int16    lis3dh_y;          /* mg */
+    int16    lis3dh_z;          /* mg */
     int16    object_temp_x100; /* 0.01 °C */
     int16    ambient_temp_x100;
 } smart_helmet_sensor_data_t;
