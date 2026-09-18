@@ -113,7 +113,24 @@ void SmartHelmet_PollSensors(void)
         const smart_helmet_sensor_data_t *s = SmartHelmet_SensorsGetData();
         if (s && s->lis3dh_ok)
         {
-            SmartHelmet_VitalsPushAccel(s->lis3dh_x, s->lis3dh_y, s->lis3dh_z);
+            uint8 burst = SmartHelmet_SensorsAccelBurstCount();
+
+            if (burst)
+            {
+                /* FIFO mode: forward the whole evenly-spaced burst. */
+                const smart_helmet_accel_sample_t *a =
+                    SmartHelmet_SensorsAccelBurst();
+                uint8 i;
+
+                for (i = 0; a && i < burst; i++)
+                {
+                    SmartHelmet_VitalsPushAccel(a[i].x_mg, a[i].y_mg, a[i].z_mg);
+                }
+            }
+            else
+            {
+                SmartHelmet_VitalsPushAccel(s->lis3dh_x, s->lis3dh_y, s->lis3dh_z);
+            }
         }
     }
     /* SENS_IN sampling + VitalsProcess run from ADC SENS timer path. */

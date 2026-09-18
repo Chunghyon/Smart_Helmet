@@ -46,7 +46,13 @@ static uint16 sh_probe_try;
 #define LIS3DH_WHO_AM_I_VALUE    0x33
 #define LIS3DH_REG_CTRL_REG1     0x20
 #define LIS3DH_REG_CTRL_REG4     0x23
+#define LIS3DH_REG_CTRL_REG5     0x24
 #define LIS3DH_REG_OUT_X_L       0x28
+#define LIS3DH_REG_FIFO_CTRL     0x2E
+#define LIS3DH_REG_FIFO_SRC      0x2F
+#define LIS3DH_CTRL5_FIFO_EN     0x40
+#define LIS3DH_FIFO_MODE_STREAM  0x80
+#define LIS3DH_FIFO_SRC_FSS_MASK 0x1F
 
 /* MLX90614 RAM */
 #define MLX90614_CMD_RAM         0x00
@@ -195,6 +201,11 @@ static int16 shLis3dhRawToMg(uint8 lo, uint8 hi)
     return (int16)((raw / 64) * LIS3DH_MG_PER_LSB);
 }
 
+#if SMART_HELMET_LIS3DH_USE_FIFO
+static smart_helmet_accel_sample_t sh_accel_fifo[SMART_HELMET_LIS3DH_FIFO_BURST];
+static uint8 sh_accel_fifo_n;
+#endif
+
 static bool shProbeLis3dh(void)
 {
     uint8 id = 0;
@@ -220,6 +231,29 @@ static bool shInitLis3dh(void)
     {
         return FALSE;
     }
+#if SMART_HELMET_LIS3DH_USE_FIFO
+    {
+        /*
+         * Stream mode: the part buffers at its own ODR, so the samples we
+         * drain are evenly spaced even though the poll itself is not.
+         */
+        uint8 fifo_ctrl = LIS3DH_FIFO_MODE_STREAM;
+        uint8 ctrl5 = LIS3DH_CTRL5_FIFO_EN;
+
+        if (!SmartHelmet_I2cWriteReg(smart_helmet_i2c_bus_0,
+                                     SMART_HELMET_ADDR_LIS3DH,
+                                     LIS3DH_REG_FIFO_CTRL, &fifo_ctrl, 1))
+        {
+            return FALSE;
+        }
+        if (!SmartHelmet_I2cWriteReg(smart_helmet_i2c_bus_0,
+                                     SMART_HELMET_ADDR_LIS3DH,
+                                     LIS3DH_REG_CTRL_REG5, &ctrl5, 1))
+        {
+            return FALSE;
+        }
+    }
+#endif
     return SmartHelmet_I2cWriteReg(smart_helmet_i2c_bus_0,
                                    SMART_HELMET_ADDR_LIS3DH,
                                    LIS3DH_REG_CTRL_REG1, &ctrl1, 1);
@@ -865,6 +899,43 @@ void SmartHelmet_SensorsPoll(void)
 #if SMART_HELMET_ENABLE_LIS3DH
     if (sh_sensors.lis3dh_ok)
     {
+#if SMART_HELMET_LIS3DH_USE_FIFO
+        uint8 fifo_src = 0;
+        uint8 available = 0;
+
+        sh_accel_fifo_n = 0;
+        if (SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                   SMART_HELMET_ADDR_LIS3DH,
+                                   LIS3DH_REG_FIFO_SRC, &fifo_src, 1))
+        {
+            available = (uint8)(fifo_src & LIS3DH_FIFO_SRC_FSS_MASK);
+        }
+        if (available > SMART_HELMET_LIS3DH_FIFO_BURST)
+        {
+            available = SMART_HELMET_LIS3DH_FIFO_BURST;
+        }
+        while (sh_accel_fifo_n < available)
+        {
+            if (!SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                        SMART_HELMET_ADDR_LIS3DH,
+                                        (uint8)(LIS3DH_REG_OUT_X_L | 0x80),
+                                        buf, 6))
+            {
+                break;
+            }
+            sh_accel_fifo[sh_accel_fifo_n].x_mg = shLis3dhRawToMg(buf[0], buf[1]);
+            sh_accel_fifo[sh_accel_fifo_n].y_mg = shLis3dhRawToMg(buf[2], buf[3]);
+            sh_accel_fifo[sh_accel_fifo_n].z_mg = shLis3dhRawToMg(buf[4], buf[5]);
+            sh_accel_fifo_n++;
+        }
+        if (sh_accel_fifo_n)
+        {
+            /* Keep the latest for the display / status path. */
+            sh_sensors.lis3dh_x = sh_accel_fifo[sh_accel_fifo_n - 1u].x_mg;
+            sh_sensors.lis3dh_y = sh_accel_fifo[sh_accel_fifo_n - 1u].y_mg;
+            sh_sensors.lis3dh_z = sh_accel_fifo[sh_accel_fifo_n - 1u].z_mg;
+        }
+#else
         if (SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
                                    SMART_HELMET_ADDR_LIS3DH,
                                    (uint8)(LIS3DH_REG_OUT_X_L | 0x80),
@@ -875,6 +946,7 @@ void SmartHelmet_SensorsPoll(void)
             sh_sensors.lis3dh_y = shLis3dhRawToMg(buf[2], buf[3]);
             sh_sensors.lis3dh_z = shLis3dhRawToMg(buf[4], buf[5]);
         }
+#endif
     }
 #endif
 
@@ -921,4 +993,22 @@ bool SmartHelmet_SensorsHandleMessage(Task task, MessageId id, Message message)
     }
     shSensorsVerifyPass();
     return TRUE;
+}
+
+uint8 SmartHelmet_SensorsAccelBurstCount(void)
+{
+#if (SMART_HELMET_ENABLE_LIS3DH && SMART_HELMET_LIS3DH_USE_FIFO)
+    return sh_accel_fifo_n;
+#else
+    return 0;
+#endif
+}
+
+const smart_helmet_accel_sample_t *SmartHelmet_SensorsAccelBurst(void)
+{
+#if (SMART_HELMET_ENABLE_LIS3DH && SMART_HELMET_LIS3DH_USE_FIFO)
+    return sh_accel_fifo;
+#else
+    return NULL;
+#endif
 }
