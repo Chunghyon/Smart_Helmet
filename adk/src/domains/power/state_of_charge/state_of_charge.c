@@ -6,6 +6,9 @@
 \file       state_of_charge.c
 \brief      
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ONx
+#endif
 
 #ifndef HAVE_NO_BATTERY
 
@@ -119,7 +122,7 @@ static unsigned appSocCurrentContext(void)
         context = context + context_charging_battery_low;
     }
 
-    DEBUG_LOG_INFO("SoC: battery = %d%%, current context = %d", soc_data->state_of_charge, context);
+	CC_LOGN("SoC: battery = %d%%, current context = %d", soc_data->state_of_charge, context);
     
     return (unsigned) context;
 }
@@ -241,17 +244,17 @@ static void soc_HandleMessage(Task task, MessageId id, Message message)
             /* Checking of the hash causes PSKEY activities to block */
             if (UpgradeIsInitialised() && UpgradeSmStateIsDataHashChecking())
             {
-                DEBUG_LOG_WARN("soc_StateOfChargeUpdate, PS Store blocked due to DFU");
+				CC_LOGN("soc_StateOfChargeUpdate, PS Store blocked due to DFU");
             }
             else
 #endif
             {
                 soc_data->state_of_charge = soc_ctx.soc_config_table[soc_data->config_index].percentage;
-                DEBUG_LOG_INFO("soc_StateOfChargeUpdate, charging %u%%", soc_data->state_of_charge);
+				CC_LOGN("soc_StateOfChargeUpdate, charging %u%%", soc_data->state_of_charge);
 
                 if (!PsStore(BATTERY_STATE_OF_CHARGE_KEY, &soc_data->state_of_charge, 1))
                 {
-                    DEBUG_LOG_WARN("soc_StateOfChargeUpdate, PS Store update for Battery SoC key failed.");
+					CC_LOGN("soc_StateOfChargeUpdate, PS Store update for Battery SoC key failed.");
                 }
                 soc_ServiceClients(soc_data);
             }
@@ -266,24 +269,24 @@ static void soc_HandleMessage(Task task, MessageId id, Message message)
             /* Checking of the hash causes PSKEY activities to block */
             if (UpgradeIsInitialised() && UpgradeSmStateIsDataHashChecking())
             {
-                DEBUG_LOG_WARN("soc_StateOfChargeUpdate, PS Store blocked due to DFU");
+				CC_LOGN("soc_StateOfChargeUpdate, PS Store blocked due to DFU");
             }
             else
 #endif
             {
                 soc_data->state_of_charge = soc_ctx.soc_config_table[soc_data->config_index].percentage;
-                DEBUG_LOG_INFO("soc_StateOfChargeUpdate, discharging %u%%", soc_data->state_of_charge);
+				CC_LOGN("soc_StateOfChargeUpdate, discharging %u%%", soc_data->state_of_charge);
                 /* in disconnected state this value seems ok as reduction or being same expected */            
                 if (!PsStore(BATTERY_STATE_OF_CHARGE_KEY, &soc_data->state_of_charge, 1))
                 {
-                    DEBUG_LOG_WARN("soc_StateOfChargeUpdate, PS Store update for Battery SoC key failed.");
+					CC_LOGN("soc_StateOfChargeUpdate, PS Store update for Battery SoC key failed.");
                 }
                 soc_ServiceClients(soc_data);
             }
         }
         else
         {
-            DEBUG_LOG_INFO("soc_StateOfChargeUpdate, In charger disconnect state "
+			CC_LOGN("soc_StateOfChargeUpdate, In charger disconnect state "
                     "battery charge going up.");
         }
     }
