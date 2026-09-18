@@ -129,6 +129,24 @@ void SmartHelmet_VitalsPushSensInMvAt(uint16 mv, uint32 time_us);
 
 /*! \brief Record SENS samples that could not be taken (cadence conflict). */
 void SmartHelmet_VitalsNoteSensDropped(void);
+
+/*!
+ * \brief Telemetry sink for CSV records and raw sample dumps.
+ * \param line NUL-terminated record, without a trailing newline.
+ * \param len  Number of bytes in \p line, excluding the terminator.
+ * \param ctx  Opaque pointer supplied at registration time.
+ */
+typedef void (*smart_helmet_vitals_sink_t)(const char *line, uint16 len,
+                                           void *ctx);
+
+/*!
+ * \brief Register where test telemetry is delivered.
+ *
+ * Only used when SMART_HELMET_ENABLE_VITALS_CSV or
+ * SMART_HELMET_ENABLE_SENS_DUMP is set; without a sink those options are
+ * inert. Pass NULL to detach.
+ */
+void SmartHelmet_VitalsSetSink(smart_helmet_vitals_sink_t sink, void *ctx);
 void SmartHelmet_VitalsPirEvent(void);
 void SmartHelmet_VitalsOnSensSample(void);
 void SmartHelmet_VitalsProcess(void);

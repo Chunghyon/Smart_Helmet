@@ -80,6 +80,8 @@ previous behaviour or trade CPU for robustness.
 | `SMART_HELMET_HR_BASELINE_MIN_WIN` | 8 | Valid windows to learn the baseline before change events are raised |
 | `SMART_HELMET_HR_CUSUM_SLACK_BPM` | 3 | Deviation absorbed before the CUSUM accumulates (noise dead-band) |
 | `SMART_HELMET_HR_CUSUM_LIMIT` | 24 | CUSUM threshold for a change event |
+| `SMART_HELMET_HR_CUSUM_SLACK_PCT` | 5 | Rate-proportional slack component; the effective slack is `max(SLACK_BPM, baseline * PCT / 100)`. Estimator scatter grows with rate, so a fixed 3 BPM dead-band that is correct at 60 BPM fires spuriously at 100 BPM. 5 % reproduces the old slack at 60 BPM and widens it above. Set to 0 for the fixed slack only |
+| `SMART_HELMET_HR_BASELINE_STALE_WIN` | 15 | Consecutive windows without a usable estimate after which the baseline is discarded and re-learned. Without it the baseline outlives an arbitrarily long signal loss, so a subject who steps away and returns at a slightly different rate trips an immediate false `rising` — the single largest false-alarm source found in testing. 0 restores the old behaviour |
 
 #### Motion handling (requires `SMART_HELMET_ENABLE_LIS3DH=1`)
 
@@ -91,6 +93,7 @@ detected; the SENS-only build behaves exactly as before.
 | `SMART_HELMET_LIS3DH_USE_FIFO` | 0 | Puts the LIS3DH in **stream** mode and drains up to `LIS3DH_FIFO_BURST` samples per poll. The part then buffers at its own ODR, so the motion reference has an even time base even though `SmartHelmet_PollSensors()` is called irregularly. **Precondition for a fully valid `ENABLE_HR_MOTION_ADAPT`** |
 | `SMART_HELMET_LIS3DH_FIFO_BURST` | 16 | Max samples drained per poll |
 | `SMART_HELMET_ENABLE_HR_MOTION_ADAPT` | 0 | NLMS adaptive filter (`HR_ADAPT_TAPS`, `HR_ADAPT_MU_Q8`) that subtracts the accel-correlated component from the SENS residual instead of discarding the window. The motion gate then relaxes to `MOTION_RMS_MG_ADAPT`, and raw accel energy is no longer folded into `band_energy`. On a synthetic 2.3 Hz head-sway test it removes 82 % of the disturbance energy and recovers the true 66 BPM, where the un-cancelled path rejects the window outright (`why=16`). Without FIFO mode the accel/SENS alignment is only approximate |
+| `SMART_HELMET_HR_ADAPT_REF_AXES` | 3 | Reference channels for the canceller. `3` uses the per-axis high-passed x/y/z, which is signed and linear in the disturbance. `1` uses the high-passed vector magnitude (original behaviour) — gravity dominates the magnitude, so a lateral sway appears rectified and at twice its real frequency and a linear filter cannot subtract it. On the 2.3 Hz sway scenario, availability is 0.4 % with `1` and ~71 % with `3` |
 | `SMART_HELMET_HR_ADAPT_TAPS` | 8 | Adaptive filter length |
 | `SMART_HELMET_HR_ADAPT_MU_Q8` | 32 | NLMS step size (Q8). Larger converges faster but tracks noise |
 | `SMART_HELMET_MOTION_RMS_MG_ADAPT` | 250 | Relaxed motion gate used while the canceller is converged |
@@ -126,6 +129,19 @@ Calm log: `ok=` (1=meaningful pulse proxy) `why=` reason code + second line text
 | 18 no_resp | no plausible respiration (`HR_REQUIRE_RESP`) |
 
 Not medical-grade.
+
+### Test / observability
+
+See [TESTING.md](TESTING.md) for the full test plan and
+[`headset/test/smart_helmet`](../../test/smart_helmet/README.md) for the
+automated host regression suite (`run_tests.sh`).
+
+| Option | Default | Effect |
+|--------|---------|--------|
+| `SMART_HELMET_ENABLE_VITALS_LOG2` | 1 | Second calm-log line carrying the change-detection state: `chg`, `base`, `d`, `cup`, `cdn`, `resp`, `rq`, `fs`, `jit`, `drop`, `rem`, `act`. Split from the main line because the log macro takes a limited argument count |
+| `SMART_HELMET_ENABLE_VITALS_CSV` | 0 | One CSV record per processed window through the sink registered with `SmartHelmet_VitalsSetSink()`. Column order is fixed and documented in the test README |
+| `SMART_HELMET_ENABLE_SENS_DUMP` | 0 | Raw SENS samples as `seq,mv,time_us`. A capture can be replayed through the host harness, so the DSP can be retuned against real waveforms without hardware. High bandwidth — not for production builds |
+| `SMART_HELMET_TELEMETRY_LINE_MAX` | 160 | Maximum telemetry record size |
 
 ## Integration
 

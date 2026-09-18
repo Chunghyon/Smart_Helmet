@@ -54,6 +54,19 @@ static uint8  last_hr_valid_have;
 static uint8  hr_delta_rej;        /* consecutive dBPM rejections */
 static uint8  sens_dropped;        /* SENS samples missed this window */
 
+#if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
+static smart_helmet_vitals_sink_t sh_sink;
+static void  *sh_sink_ctx;
+static char   sh_telem[SMART_HELMET_TELEMETRY_LINE_MAX];
+static uint16 sh_telem_len;
+#endif
+#if SMART_HELMET_ENABLE_VITALS_CSV
+static uint32 sh_win_seq;          /* processed-window counter */
+#endif
+#if SMART_HELMET_ENABLE_SENS_DUMP
+static uint32 sh_dump_seq;         /* raw sample counter */
+#endif
+
 /*!
  * Effective sample rate in Q8 Hz. Either the nominal rate or, with
  * SMART_HELMET_ENABLE_VITALS_TIMESTAMP, the measured one. All BPM maths goes
@@ -84,16 +97,23 @@ static int16  resp_ordered[SMART_HELMET_RESP_WIN];
 #if SMART_HELMET_ENABLE_HR_CUSUM
 static uint16 hr_base_bpm;
 static uint8  hr_base_n;
+#if SMART_HELMET_HR_BASELINE_STALE_WIN
+static uint16 hr_invalid_run;      /* consecutive windows without hr_valid */
+#endif
 static int32  hr_cusum_up;
 static int32  hr_cusum_dn;
 #endif
 
 #if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
 /* NLMS motion canceller: accel residual history + adaptive weights (Q12). */
-static int16  adapt_ref[SMART_HELMET_HR_ADAPT_TAPS];
-static int32  adapt_w[SMART_HELMET_HR_ADAPT_TAPS];
+#define ADAPT_AXES SMART_HELMET_HR_ADAPT_REF_AXES
+static int16  adapt_ref[ADAPT_AXES][SMART_HELMET_HR_ADAPT_TAPS];
+static int32  adapt_w[ADAPT_AXES][SMART_HELMET_HR_ADAPT_TAPS];
 static uint8  adapt_ref_n;
-static int16  adapt_last_accel_hp;
+static int16  adapt_last_accel_hp[ADAPT_AXES];
+/* Per-axis high-pass state, used only for the multi-channel reference. */
+static int32  adapt_axis_px[ADAPT_AXES];
+static int32  adapt_axis_py[ADAPT_AXES];
 static uint8  adapt_have_accel;
 static uint32 adapt_e_in;
 static uint32 adapt_e_out;
@@ -1048,29 +1068,36 @@ static int16 shMotionCancel(int16 hp)
     int32 e;
     int32 norm = 0;
     uint8 i;
+    uint8 ax;
 
     if (!adapt_have_accel)
     {
         return hp;
     }
 
-    /* Newest reference sample first. */
-    for (i = SMART_HELMET_HR_ADAPT_TAPS - 1u; i > 0; i--)
+    /* Newest reference sample first, one delay line per reference channel. */
+    for (ax = 0; ax < ADAPT_AXES; ax++)
     {
-        adapt_ref[i] = adapt_ref[i - 1];
+        for (i = SMART_HELMET_HR_ADAPT_TAPS - 1u; i > 0; i--)
+        {
+            adapt_ref[ax][i] = adapt_ref[ax][i - 1];
+        }
+        adapt_ref[ax][0] = adapt_last_accel_hp[ax];
     }
-    adapt_ref[0] = adapt_last_accel_hp;
     if (adapt_ref_n < SMART_HELMET_HR_ADAPT_TAPS)
     {
         adapt_ref_n++;
         return hp;   /* delay line not full yet */
     }
 
-    for (i = 0; i < SMART_HELMET_HR_ADAPT_TAPS; i++)
+    for (ax = 0; ax < ADAPT_AXES; ax++)
     {
-        int32 r = adapt_ref[i];
-        y += (adapt_w[i] * r) / 4096;
-        norm += r * r;
+        for (i = 0; i < SMART_HELMET_HR_ADAPT_TAPS; i++)
+        {
+            int32 r = adapt_ref[ax][i];
+            y += (adapt_w[ax][i] * r) / 4096;
+            norm += r * r;
+        }
     }
 
     if (y > 32767)
@@ -1104,28 +1131,31 @@ static int16 shMotionCancel(int16 hp)
     {
         int32 den = norm + 64;
         int32 mu_e = ((int32)SMART_HELMET_HR_ADAPT_MU_Q8 * e) / 256;
-        for (i = 0; i < SMART_HELMET_HR_ADAPT_TAPS; i++)
+        for (ax = 0; ax < ADAPT_AXES; ax++)
         {
-            int32 step = mu_e * adapt_ref[i];
-            int32 d = den;
-            /*
-             * step * 4096 must stay inside int32, so scale numerator and
-             * denominator down together (the ratio is preserved).
-             */
-            while (step > 524287 || step < -524288)
+            for (i = 0; i < SMART_HELMET_HR_ADAPT_TAPS; i++)
             {
-                step >>= 1;
-                d = (d > 1) ? (d >> 1) : 1;
-            }
-            adapt_w[i] += (step * 4096) / d;
-            /* Keep weights bounded so a glitch cannot run the filter away. */
-            if (adapt_w[i] > (int32)(8 * 4096))
-            {
-                adapt_w[i] = (int32)(8 * 4096);
-            }
-            if (adapt_w[i] < -(int32)(8 * 4096))
-            {
-                adapt_w[i] = -(int32)(8 * 4096);
+                int32 step = mu_e * adapt_ref[ax][i];
+                int32 d = den;
+                /*
+                 * step * 4096 must stay inside int32, so scale numerator and
+                 * denominator down together (the ratio is preserved).
+                 */
+                while (step > 524287 || step < -524288)
+                {
+                    step >>= 1;
+                    d = (d > 1) ? (d >> 1) : 1;
+                }
+                adapt_w[ax][i] += (step * 4096) / d;
+                /* Keep weights bounded so a glitch cannot run away. */
+                if (adapt_w[ax][i] > (int32)(8 * 4096))
+                {
+                    adapt_w[ax][i] = (int32)(8 * 4096);
+                }
+                if (adapt_w[ax][i] < -(int32)(8 * 4096))
+                {
+                    adapt_w[ax][i] = -(int32)(8 * 4096);
+                }
             }
         }
     }
@@ -1138,7 +1168,9 @@ static void shMotionAdaptReset(void)
     memset(adapt_ref, 0, sizeof(adapt_ref));
     memset(adapt_w, 0, sizeof(adapt_w));
     adapt_ref_n = 0;
-    adapt_last_accel_hp = 0;
+    memset(adapt_last_accel_hp, 0, sizeof(adapt_last_accel_hp));
+    memset(adapt_axis_px, 0, sizeof(adapt_axis_px));
+    memset(adapt_axis_py, 0, sizeof(adapt_axis_py));
     adapt_have_accel = 0;
     adapt_e_in = 0;
     adapt_e_out = 0;
@@ -1320,6 +1352,158 @@ static uint16 shRespBpm(uint16 *quality_q8)
     return bpm;
 }
 #endif /* RESP */
+
+#if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
+/*
+ * Minimal CSV builder. The firmware has no printf, and the QCC log macro
+ * cannot carry a formatted string, so records are assembled by hand.
+ */
+static void shTelemReset(void)
+{
+    sh_telem_len = 0;
+    sh_telem[0] = '\0';
+}
+
+static void shTelemChar(char c)
+{
+    /* Leave room for the NUL terminator. */
+    if (sh_telem_len + 1u < (uint16)SMART_HELMET_TELEMETRY_LINE_MAX)
+    {
+        sh_telem[sh_telem_len++] = c;
+        sh_telem[sh_telem_len] = '\0';
+    }
+}
+
+static void shTelemU32(uint32 v)
+{
+    char tmp[10];
+    uint8 n = 0;
+
+    if (!v)
+    {
+        shTelemChar('0');
+        return;
+    }
+    while (v && n < sizeof(tmp))
+    {
+        tmp[n++] = (char)('0' + (v % 10u));
+        v /= 10u;
+    }
+    while (n)
+    {
+        shTelemChar(tmp[--n]);
+    }
+}
+
+/*! Append a field, preceded by a comma unless it is the first one. */
+static void shTelemFieldI32(int32 v)
+{
+    if (sh_telem_len)
+    {
+        shTelemChar(',');
+    }
+    if (v < 0)
+    {
+        shTelemChar('-');
+        /* -(-2147483648) overflows int32, so negate in uint32 space. */
+        shTelemU32(0u - (uint32)v);
+    }
+    else
+    {
+        shTelemU32((uint32)v);
+    }
+}
+
+static void shTelemFlush(void)
+{
+    if (sh_sink && sh_telem_len)
+    {
+        sh_sink(sh_telem, sh_telem_len, sh_sink_ctx);
+    }
+    shTelemReset();
+}
+#endif /* CSV || DUMP */
+
+#if SMART_HELMET_ENABLE_VITALS_CSV
+/*!
+ * One CSV record per processed window.
+ *
+ * Column order is fixed and documented in headset/test/smart_helmet/README.md;
+ * the offline analysis scripts depend on it, so append new columns at the end
+ * rather than inserting them.
+ */
+static void shTelemCsvWindow(uint16 energy, uint16 baseline, uint16 sens_abs,
+                             uint16 rms, uint8 active)
+{
+    if (!sh_sink)
+    {
+        return;
+    }
+    shTelemReset();
+    shTelemFieldI32((int32)sh_win_seq);
+    shTelemFieldI32((int32)active);
+    shTelemFieldI32(sh_vitals.hr_valid ? 1 : 0);
+    shTelemFieldI32((int32)sh_vitals.hr_reason);
+    shTelemFieldI32((int32)sh_vitals.hr_bpm);
+    shTelemFieldI32((int32)sh_vitals.hr_bpm_peak);
+    shTelemFieldI32((int32)sh_vitals.hr_bpm_fft);
+    shTelemFieldI32((int32)sh_vitals.hr_bpm_ac);
+    shTelemFieldI32((int32)sh_vitals.hr_baseline_bpm);
+    shTelemFieldI32((int32)sh_vitals.hr_delta_bpm);
+    shTelemFieldI32((int32)sh_vitals.hr_cusum_up);
+    shTelemFieldI32((int32)sh_vitals.hr_cusum_dn);
+    shTelemFieldI32((int32)sh_vitals.hr_change);
+    shTelemFieldI32((int32)sh_vitals.resp_bpm);
+    shTelemFieldI32((int32)sh_vitals.resp_q8);
+    shTelemFieldI32((int32)sh_vitals.fs_x100);
+    shTelemFieldI32((int32)sh_vitals.fs_jitter_pct);
+    shTelemFieldI32((int32)sh_vitals.sens_dropped);
+    shTelemFieldI32((int32)energy);
+    shTelemFieldI32((int32)baseline);
+    shTelemFieldI32((int32)sens_abs);
+    shTelemFieldI32((int32)rms);
+    shTelemFieldI32((int32)sh_vitals.adapt_removed_pct);
+    shTelemFieldI32((int32)sh_vitals.sens_mv);
+    shTelemFlush();
+    sh_win_seq++;
+}
+#endif /* CSV */
+
+/*!
+ * Change-detection state, emitted as a second log line and (optionally) as a
+ * CSV record. Split from the main calm line because the QCC log macro takes a
+ * limited number of arguments.
+ */
+static void shVitalsReport(uint16 energy, uint16 baseline, uint16 sens_abs,
+                           uint16 rms, uint8 active)
+{
+#if SMART_HELMET_ENABLE_VITALS_LOG2
+    CC_LOGN("Vitals: chg=%u base=%u d=%d cup=%u cdn=%u resp=%u rq=%u fs=%u jit=%u drop=%u rem=%u act=%u",
+            (unsigned)sh_vitals.hr_change,
+            (unsigned)sh_vitals.hr_baseline_bpm,
+            (int)sh_vitals.hr_delta_bpm,
+            (unsigned)sh_vitals.hr_cusum_up,
+            (unsigned)sh_vitals.hr_cusum_dn,
+            (unsigned)sh_vitals.resp_bpm,
+            (unsigned)sh_vitals.resp_q8,
+            (unsigned)sh_vitals.fs_x100,
+            (unsigned)sh_vitals.fs_jitter_pct,
+            (unsigned)sh_vitals.sens_dropped,
+            (unsigned)sh_vitals.adapt_removed_pct,
+            (unsigned)active);
+#endif
+#if SMART_HELMET_ENABLE_VITALS_CSV
+    shTelemCsvWindow(energy, baseline, sens_abs, rms, active);
+#else
+    UNUSED(energy);
+    UNUSED(baseline);
+    UNUSED(sens_abs);
+    UNUSED(rms);
+#endif
+#if !SMART_HELMET_ENABLE_VITALS_LOG2
+    UNUSED(active);
+#endif
+}
 
 static void shHrDisturb(uint8 holdoff_win)
 {
@@ -1721,6 +1905,15 @@ void SmartHelmet_VitalsInit(void)
     hr_delta_rej = 0;
     sens_dropped = 0;
     fs_q8 = (uint16)(FS_HZ * 256u);
+#if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
+    shTelemReset();
+#endif
+#if SMART_HELMET_ENABLE_VITALS_CSV
+    sh_win_seq = 0;
+#endif
+#if SMART_HELMET_ENABLE_SENS_DUMP
+    sh_dump_seq = 0;
+#endif
 #if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
     ts_prev_us = 0;
     ts_prev_valid = 0;
@@ -1740,6 +1933,9 @@ void SmartHelmet_VitalsInit(void)
 #if SMART_HELMET_ENABLE_HR_CUSUM
     hr_base_bpm = 0;
     hr_base_n = 0;
+#if SMART_HELMET_HR_BASELINE_STALE_WIN
+    hr_invalid_run = 0;
+#endif
     hr_cusum_up = 0;
     hr_cusum_dn = 0;
 #endif
@@ -1787,7 +1983,21 @@ void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
 
     hp = shHighPass((int32)mag, &hp_prev_x, &hp_prev_y);
 #if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
-    adapt_last_accel_hp = hp;
+#if (SMART_HELMET_HR_ADAPT_REF_AXES == 3)
+    /*
+     * Per-axis reference. The high pass removes gravity, leaving a signed
+     * disturbance the filter can actually subtract; the vector magnitude
+     * cannot serve that purpose because gravity rectifies it.
+     */
+    adapt_last_accel_hp[0] = shHighPass(ax, &adapt_axis_px[0],
+                                        &adapt_axis_py[0]);
+    adapt_last_accel_hp[1] = shHighPass(ay, &adapt_axis_px[1],
+                                        &adapt_axis_py[1]);
+    adapt_last_accel_hp[2] = shHighPass(az, &adapt_axis_px[2],
+                                        &adapt_axis_py[2]);
+#else
+    adapt_last_accel_hp[0] = hp;
+#endif
     adapt_have_accel = 1;
 #endif
     band_hp[band_idx] = hp;
@@ -1812,6 +2022,18 @@ void SmartHelmet_VitalsNoteSensDropped(void)
 #if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
     /* The next interval spans a gap and must not pollute the rate estimate. */
     ts_prev_valid = 0;
+#endif
+}
+
+void SmartHelmet_VitalsSetSink(smart_helmet_vitals_sink_t sink, void *ctx)
+{
+#if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
+    sh_sink = sink;
+    sh_sink_ctx = ctx;
+    shTelemReset();
+#else
+    UNUSED(sink);
+    UNUSED(ctx);
 #endif
 }
 
@@ -1848,6 +2070,20 @@ void SmartHelmet_VitalsPushSensInMvAt(uint16 mv, uint32 time_us)
 #endif
 
     sh_vitals.sens_mv = mv;
+
+#if SMART_HELMET_ENABLE_SENS_DUMP
+    /* seq,mv,time_us -- replayable by the host harness. */
+    if (sh_sink)
+    {
+        shTelemReset();
+        shTelemFieldI32((int32)sh_dump_seq);
+        shTelemFieldI32((int32)mv);
+        shTelemFieldI32((int32)time_us);
+        shTelemFlush();
+        sh_dump_seq++;
+    }
+#endif
+
     hp = shHighPass((int32)mv, &sens_prev_x, &sens_prev_y);
 
 #if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
@@ -1994,6 +2230,25 @@ static void shUpdateHrChange(void)
 
     if (!sh_vitals.hr_valid || !sh_vitals.hr_bpm)
     {
+#if SMART_HELMET_HR_BASELINE_STALE_WIN
+        /*
+         * A long gap means we can no longer assume the same subject at the
+         * same rate. Drop the baseline so it is re-learned instead of
+         * reporting the re-acquisition as a real change.
+         */
+        if (hr_invalid_run < 0xffffu)
+        {
+            hr_invalid_run++;
+        }
+        if (hr_invalid_run >= SMART_HELMET_HR_BASELINE_STALE_WIN)
+        {
+            hr_base_bpm = 0;
+            hr_base_n = 0;
+            hr_cusum_up = 0;
+            hr_cusum_dn = 0;
+            sh_vitals.hr_change = smart_helmet_trend_unknown;
+        }
+#endif
         sh_vitals.hr_baseline_bpm = hr_base_bpm;
         sh_vitals.hr_delta_bpm = 0;
         sh_vitals.hr_cusum_up = (uint16)hr_cusum_up;
@@ -2001,10 +2256,25 @@ static void shUpdateHrChange(void)
         return;
     }
 
+#if SMART_HELMET_HR_BASELINE_STALE_WIN
+    hr_invalid_run = 0;
+#endif
+
     if (!hr_base_bpm)
     {
         hr_base_bpm = sh_vitals.hr_bpm;
     }
+
+#if SMART_HELMET_HR_CUSUM_SLACK_PCT
+    {
+        int32 prop = ((int32)hr_base_bpm * SMART_HELMET_HR_CUSUM_SLACK_PCT)
+                     / 100;
+        if (prop > slack)
+        {
+            slack = prop;
+        }
+    }
+#endif
 
     dev = (int32)sh_vitals.hr_bpm - (int32)hr_base_bpm;
 
@@ -2148,6 +2418,8 @@ void SmartHelmet_VitalsProcess(void)
         prev_sens_mv_valid = 0;
         CC_LOGN("Vitals: ACTIVE ok=0 why=motion rms=%u sa=%u ho=%u sens=%umV (pulse N/A)",
 				rms, sens_abs, (unsigned)hr_win_left, sh_vitals.sens_mv);
+        shVitalsReport(sh_vitals.band_energy, sh_vitals.baseline_energy,
+                       sens_abs, rms, 1u);
         return;
     }
 
@@ -2334,6 +2606,7 @@ void SmartHelmet_VitalsProcess(void)
             sens_abs, sh_vitals.sens_mv);
 	UNUSED(shHrLogWhy);
 	shHrLogWhy(sh_vitals.hr_reason, energy, sens_abs, hr_win_left, sh_vitals.hr_bpm_peak, sh_vitals.hr_bpm_fft, sh_vitals.hr_bpm);
+    shVitalsReport(energy, baseline, sens_abs, rms, 0u);
 }
 
 const smart_helmet_vitals_status_t *SmartHelmet_VitalsGetStatus(void)
@@ -2349,6 +2622,10 @@ void SmartHelmet_VitalsPushSensInMvAt(uint16 mv, uint32 time_us)
     UNUSED(mv); UNUSED(time_us);
 }
 void SmartHelmet_VitalsNoteSensDropped(void) {}
+void SmartHelmet_VitalsSetSink(smart_helmet_vitals_sink_t sink, void *ctx)
+{
+    UNUSED(sink); UNUSED(ctx);
+}
 void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
 {
     UNUSED(x_mg); UNUSED(y_mg); UNUSED(z_mg);

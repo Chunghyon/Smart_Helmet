@@ -524,6 +524,20 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_ENABLE_HR_MOTION_ADAPT (0)
 #endif
 
+/*!
+ * Number of accelerometer reference channels fed to the NLMS canceller.
+ *
+ *   3 - per-axis high-passed x/y/z (default). Signed and linear in the
+ *       disturbance, which is what an adaptive filter needs.
+ *   1 - the high-passed vector magnitude (original behaviour). Because
+ *       gravity dominates the magnitude, a lateral sway shows up rectified
+ *       and at twice its real frequency, so the canceller cannot subtract
+ *       it. Kept only for comparison.
+ */
+#ifndef SMART_HELMET_HR_ADAPT_REF_AXES
+#define SMART_HELMET_HR_ADAPT_REF_AXES     (3)
+#endif
+
 /*! NLMS filter length (taps over the accel reference history). */
 #ifndef SMART_HELMET_HR_ADAPT_TAPS
 #define SMART_HELMET_HR_ADAPT_TAPS         (8)
@@ -541,6 +555,82 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  */
 #ifndef SMART_HELMET_MOTION_RMS_MG_ADAPT
 #define SMART_HELMET_MOTION_RMS_MG_ADAPT   (250)
+#endif
+
+/* -------------------------------------------------------------------------
+ * Test / observability options (stage 0 of the pulse-change test plan).
+ *
+ * These exist so the change-detection behaviour can actually be measured on
+ * hardware. All default to off except the extra log line, so a production
+ * build is unaffected.
+ * ---------------------------------------------------------------------- */
+
+/*!
+ * Second calm-log line carrying the change-detection state (hr_change,
+ * baseline, CUSUM accumulators, respiration, measured fs / jitter, dropped
+ * SENS samples). Split from the main line because the QCC log macro has a
+ * limited argument count.
+ */
+#ifndef SMART_HELMET_ENABLE_VITALS_LOG2
+#define SMART_HELMET_ENABLE_VITALS_LOG2    (1)
+#endif
+
+/*!
+ * Emit one CSV record per processed window through the telemetry sink
+ * registered with SmartHelmet_VitalsSetSink(). Intended for long recordings
+ * that are analysed offline; see headset/test/smart_helmet/README.md.
+ */
+#ifndef SMART_HELMET_ENABLE_VITALS_CSV
+#define SMART_HELMET_ENABLE_VITALS_CSV     (0)
+#endif
+
+/*!
+ * Raw SENS sample dump. Every sample (millivolts + capture timestamp) is
+ * pushed to the telemetry sink, so a real recording can be replayed against
+ * the host harness and the DSP retuned without the hardware.
+ *
+ * This is the highest-value option for tuning, but it is also the highest
+ * bandwidth one: at the default 25 Hz it produces a line every 40 ms.
+ */
+#ifndef SMART_HELMET_ENABLE_SENS_DUMP
+#define SMART_HELMET_ENABLE_SENS_DUMP      (0)
+#endif
+
+/*! Max bytes of a single telemetry record (CSV line or dump line). */
+#ifndef SMART_HELMET_TELEMETRY_LINE_MAX
+#define SMART_HELMET_TELEMETRY_LINE_MAX    (160)
+#endif
+
+/* -------------------------------------------------------------------------
+ * Change-detection robustness (found by the host regression harness, see
+ * headset/test/smart_helmet).
+ * ---------------------------------------------------------------------- */
+
+/*!
+ * Number of consecutive windows without a usable pulse estimate after which
+ * the CUSUM baseline is discarded and re-learned from scratch.
+ *
+ * Without this the baseline survives an arbitrarily long signal loss, so a
+ * subject who steps away and returns at a slightly different rate trips an
+ * immediate false "rising". At the default 1 s window, 15 means ~15 s of
+ * signal loss. Set to 0 to keep the baseline forever (old behaviour).
+ */
+#ifndef SMART_HELMET_HR_BASELINE_STALE_WIN
+#define SMART_HELMET_HR_BASELINE_STALE_WIN (15)
+#endif
+
+/*!
+ * Rate-proportional component of the CUSUM slack, in percent of the current
+ * baseline. The effective slack is the larger of
+ * SMART_HELMET_HR_CUSUM_SLACK_BPM and baseline * this / 100.
+ *
+ * Estimator scatter grows with rate, so a fixed 3 BPM slack that is correct
+ * at 60 BPM is too tight at 100 BPM and produces false alarms there. 5 %
+ * reproduces the old slack at 60 BPM and widens it above that. Set to 0 to
+ * use the fixed slack only.
+ */
+#ifndef SMART_HELMET_HR_CUSUM_SLACK_PCT
+#define SMART_HELMET_HR_CUSUM_SLACK_PCT    (5)
 #endif
 
 #endif /* SMART_HELMET_CONFIG_H */

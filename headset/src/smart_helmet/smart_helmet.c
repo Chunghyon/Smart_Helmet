@@ -7,6 +7,7 @@
 #endif
 
 #include "smart_helmet.h"
+#include "smart_helmet_config.h"
 #include "smart_helmet_sensors.h"
 #include "smart_helmet_vitals.h"
 
@@ -18,6 +19,26 @@ DEBUG_LOG_DEFINE_LEVEL_VAR
 static TaskData sh_task_data;
 static Task sh_client_task;
 static bool sh_ready;
+
+#if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
+/*
+ * Test telemetry: forward each record to the Wi-SUN UART as a plain ASCII
+ * line, so a serial capture can be analysed offline. Dropped silently when
+ * the UART is busy; telemetry must never stall the vitals pipeline.
+ */
+static void smartHelmetTelemetrySink(const char *line, uint16 len, void *ctx)
+{
+    static const uint8 eol[2] = { '\r', '\n' };
+
+    UNUSED(ctx);
+    if (!line || !len)
+    {
+        return;
+    }
+    (void)SmartHelmet_UartSend((const uint8 *)line, len);
+    (void)SmartHelmet_UartSend(eol, sizeof(eol));
+}
+#endif
 
 static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
 {
@@ -64,6 +85,9 @@ bool SmartHelmet_Init(Task client_task)
     SmartHelmet_SensorsInit();
     SmartHelmet_SensorsStartVerify(&sh_task_data);
     SmartHelmet_VitalsInit();
+#if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
+    SmartHelmet_VitalsSetSink(smartHelmetTelemetrySink, NULL);
+#endif
     SmartHelmet_AdcRequestScan();
 
     sh_ready = TRUE;
