@@ -46,7 +46,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /* LIS3DH on I2C0. Set to 0 while the part is depopulated or holding
  * SCL/SDA low; set back to 1 after the accelerometer is remounted. */
 #ifndef SMART_HELMET_ENABLE_LIS3DH
-#define SMART_HELMET_ENABLE_LIS3DH         (0)
+#define SMART_HELMET_ENABLE_LIS3DH         (1)
 #endif
 /*! LIS3DH output data rate selector (CTRL_REG1 ODR field, 0x5 = 100 Hz). */
 #ifndef SMART_HELMET_LIS3DH_ODR_SEL
