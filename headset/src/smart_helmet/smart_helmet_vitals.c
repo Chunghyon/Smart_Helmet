@@ -52,6 +52,52 @@ static uint8  prev_sens_mv_valid;
 static uint16 last_hr_valid_bpm;   /* last fused BPM with hr_valid */
 static uint8  last_hr_valid_have;
 static uint8  hr_delta_rej;        /* consecutive dBPM rejections */
+static uint8  sens_dropped;        /* SENS samples missed this window */
+
+/*!
+ * Effective sample rate in Q8 Hz. Either the nominal rate or, with
+ * SMART_HELMET_ENABLE_VITALS_TIMESTAMP, the measured one. All BPM maths goes
+ * through this so a drifting timer does not silently scale the result.
+ */
+static uint16 fs_q8 = (uint16)(FS_HZ * 256u);
+
+#if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+static uint32 ts_prev_us;
+static uint8  ts_prev_valid;
+static uint32 ts_sum_us;           /* sum of intervals this window */
+static uint32 ts_jit_sum_us;       /* sum of |interval - nominal| */
+static uint16 ts_n;                /* intervals accumulated */
+static uint8  timebase_ok = 1;
+#endif
+
+#if SMART_HELMET_ENABLE_RESP
+static int16  resp_buf[SMART_HELMET_RESP_WIN];
+static uint8  resp_idx;
+static uint8  resp_count;
+static uint8  resp_decim_n;
+static int32  resp_decim_acc;
+static int32  resp_dc;             /* slow DC tracker (Q8) */
+static uint8  resp_dc_valid;
+static int16  resp_ordered[SMART_HELMET_RESP_WIN];
+#endif
+
+#if SMART_HELMET_ENABLE_HR_CUSUM
+static uint16 hr_base_bpm;
+static uint8  hr_base_n;
+static int32  hr_cusum_up;
+static int32  hr_cusum_dn;
+#endif
+
+#if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+/* NLMS motion canceller: accel residual history + adaptive weights (Q12). */
+static int16  adapt_ref[SMART_HELMET_HR_ADAPT_TAPS];
+static int32  adapt_w[SMART_HELMET_HR_ADAPT_TAPS];
+static uint8  adapt_ref_n;
+static int16  adapt_last_accel_hp;
+static uint8  adapt_have_accel;
+static uint32 adapt_e_in;
+static uint32 adapt_e_out;
+#endif
 
 /* Chronological scratch for peak/FFT/autocorrelation (max BAND_WIN) */
 #if (SMART_HELMET_ENABLE_HR_PEAK || SMART_HELMET_ENABLE_HR_FFT || \
@@ -92,6 +138,21 @@ static uint16 shSqrtU32(uint32 v)
     }
     return (uint16)res;
 }
+
+#if (SMART_HELMET_ENABLE_HR_PEAK || SMART_HELMET_ENABLE_HR_AUTOCORR)
+/*!
+ * BPM from an interval expressed in samples (Q8), using the effective rate.
+ * BPM = 60 * fs / interval.
+ */
+static uint16 shIntervalQ8ToBpm(uint16 interval_q8)
+{
+    if (!interval_q8)
+    {
+        return 0;
+    }
+    return (uint16)((60u * (uint32)fs_q8) / (uint32)interval_q8);
+}
+#endif
 
 /*! Saturating accumulate so a motion burst cannot wrap the sum to a small value. */
 static void shAccSat(uint32 *sum, uint32 term)
@@ -234,7 +295,7 @@ static uint8 shCopySensOrdered(uint8 n)
 }
 #endif /* any estimator */
 
-#if SMART_HELMET_ENABLE_HR_AUTOCORR
+#if (SMART_HELMET_ENABLE_HR_AUTOCORR || SMART_HELMET_ENABLE_RESP)
 /*! Largest |sample| in a chunk (saturated to int16 range). */
 static uint16 shMaxAbsI16(const int16 *x, uint8 n)
 {
@@ -312,8 +373,9 @@ static void shFitScale3(uint32 *a, uint32 *b, uint32 *c)
 #if SMART_HELMET_ENABLE_HR_FFT
 static uint16 shBinQ8ToBpm(uint16 k_q8)
 {
-    return (uint16)(((uint32)k_q8 * 60u * (uint32)FS_HZ) /
-                    ((uint32)FFT_N * 256u));
+    /* BPM = k * fs * 60 / N, with k in Q8 and fs taken as Q4 for headroom. */
+    return (uint16)(((uint32)k_q8 * 60u * (uint32)(fs_q8 >> 4)) /
+                    ((uint32)FFT_N * 4096u));
 }
 #endif
 
@@ -462,7 +524,7 @@ static uint16 shPeakBpm(const int16 *x, uint8 n, uint8 *peak_count_out)
 #endif
 
     /* BPM = 60 * fs / ibi (ibi carried in Q8 for sub-sample resolution) */
-    bpm = (uint16)((60u * (uint32)FS_HZ * 256u) / (uint32)ibi_q8);
+    bpm = shIntervalQ8ToBpm(ibi_q8);
     if (bpm < SMART_HELMET_HR_BPM_MIN || bpm > SMART_HELMET_HR_BPM_MAX)
     {
         return 0;
@@ -599,6 +661,7 @@ static uint16 shFftBpm(const int16 *x, uint8 n, uint16 *mag_out)
     uint16 best_k = 0;
     uint16 best_k_q8;
     uint32 best_p = 0;
+    uint32 best_score = 0;
     uint32 sum_p = 0;
     uint16 band_bins = 0;
     uint16 bpm;
@@ -687,10 +750,40 @@ static uint16 shFftBpm(const int16 *x, uint8 n, uint16 *mag_out)
         int32 pr = fft_re[k] / 8;
         int32 pi = fft_im[k] / 8;
         uint32 p = (uint32)(pr * pr + pi * pi);
-        sum_p += p;
-        band_bins++;
-        if (p > best_p)
+        uint32 score = p;
+#if SMART_HELMET_HR_FFT_HPS
+        /*
+         * Harmonic product spectrum (2 harmonics): a real pulse has energy at
+         * the rate and its first harmonic, whereas a motion/interference line
+         * usually does not. This strongly suppresses the half-rate pick.
+         */
+        if ((uint32)(2u * k) < (FFT_N / 2u))
         {
+            int32 hr_re = fft_re[2u * k] / 8;
+            int32 hr_im = fft_im[2u * k] / 8;
+            uint32 ph = (uint32)(hr_re * hr_re + hr_im * hr_im);
+            /*
+             * Geometric mean of the two, kept in 32-bit range. Note this
+             * deliberately penalises harmonic-free lines, so enable it only
+             * when the pulse waveform is expected to be harmonic-rich.
+             */
+            score = shSqrtU32(((p >> 8) + 1u) * ((ph >> 8) + 1u));
+        }
+        else
+        {
+            /* Harmonic out of range: score on the fundamental alone, same scale. */
+            score = (p >> 8) + 1u;
+        }
+#endif
+#if SMART_HELMET_HR_FFT_HPS
+        sum_p += score;
+#else
+        sum_p += p;
+#endif
+        band_bins++;
+        if (score > best_score)
+        {
+            best_score = score;
             best_p = p;
             best_k = k;
         }
@@ -703,7 +796,12 @@ static uint16 shFftBpm(const int16 *x, uint8 n, uint16 *mag_out)
     /* Require peak above mean band power */
     {
         uint32 mean_p = sum_p / band_bins;
+#if SMART_HELMET_HR_FFT_HPS
+        /* With HPS the gate must use the same (harmonic-weighted) score. */
+        if (best_score < (mean_p * SMART_HELMET_HR_FFT_SNR_Q8) / 256u)
+#else
         if (best_p < (mean_p * SMART_HELMET_HR_FFT_SNR_Q8) / 256u)
+#endif
         {
             return 0;
         }
@@ -925,7 +1023,7 @@ static uint16 shAutoCorrBpm(const int16 *x, uint8 n, uint16 *quality_q8)
         return 0;
     }
 
-    bpm = (uint16)((60u * (uint32)FS_HZ * 256u) / (uint32)lag_q8);
+    bpm = shIntervalQ8ToBpm(lag_q8);
     if (bpm < SMART_HELMET_HR_BPM_MIN || bpm > SMART_HELMET_HR_BPM_MAX)
     {
         return 0;
@@ -933,6 +1031,295 @@ static uint16 shAutoCorrBpm(const int16 *x, uint8 n, uint16 *quality_q8)
     return bpm;
 }
 #endif /* AUTOCORR */
+
+#if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+/*!
+ * NLMS motion canceller.
+ *
+ * Uses the accelerometer residual as a reference for the motion-correlated
+ * part of the SENS residual and subtracts the adaptively filtered estimate,
+ * instead of discarding the whole window. Falls through unchanged when no
+ * accelerometer sample has ever arrived (LIS3DH disabled or not detected),
+ * which keeps the SENS-only configuration working exactly as before.
+ */
+static int16 shMotionCancel(int16 hp)
+{
+    int32 y = 0;
+    int32 e;
+    int32 norm = 0;
+    uint8 i;
+
+    if (!adapt_have_accel)
+    {
+        return hp;
+    }
+
+    /* Newest reference sample first. */
+    for (i = SMART_HELMET_HR_ADAPT_TAPS - 1u; i > 0; i--)
+    {
+        adapt_ref[i] = adapt_ref[i - 1];
+    }
+    adapt_ref[0] = adapt_last_accel_hp;
+    if (adapt_ref_n < SMART_HELMET_HR_ADAPT_TAPS)
+    {
+        adapt_ref_n++;
+        return hp;   /* delay line not full yet */
+    }
+
+    for (i = 0; i < SMART_HELMET_HR_ADAPT_TAPS; i++)
+    {
+        int32 r = adapt_ref[i];
+        y += (adapt_w[i] * r) / 4096;
+        norm += r * r;
+    }
+
+    if (y > 32767)
+    {
+        y = 32767;
+    }
+    if (y < -32768)
+    {
+        y = -32768;
+    }
+    e = (int32)hp - y;
+    if (e > 32767)
+    {
+        e = 32767;
+    }
+    if (e < -32768)
+    {
+        e = -32768;
+    }
+
+    /* Track how much energy the filter removes, for the log / status. */
+    {
+        uint32 in2 = (uint32)((int32)hp * (int32)hp);
+        uint32 out2 = (uint32)(e * e);
+        adapt_e_in = adapt_e_in - (adapt_e_in >> 5) + (in2 >> 5);
+        adapt_e_out = adapt_e_out - (adapt_e_out >> 5) + (out2 >> 5);
+    }
+
+    /* w += mu * e * ref / (norm + eps) */
+    if (norm > 0)
+    {
+        int32 den = norm + 64;
+        int32 mu_e = ((int32)SMART_HELMET_HR_ADAPT_MU_Q8 * e) / 256;
+        for (i = 0; i < SMART_HELMET_HR_ADAPT_TAPS; i++)
+        {
+            int32 step = mu_e * adapt_ref[i];
+            int32 d = den;
+            /*
+             * step * 4096 must stay inside int32, so scale numerator and
+             * denominator down together (the ratio is preserved).
+             */
+            while (step > 524287 || step < -524288)
+            {
+                step >>= 1;
+                d = (d > 1) ? (d >> 1) : 1;
+            }
+            adapt_w[i] += (step * 4096) / d;
+            /* Keep weights bounded so a glitch cannot run the filter away. */
+            if (adapt_w[i] > (int32)(8 * 4096))
+            {
+                adapt_w[i] = (int32)(8 * 4096);
+            }
+            if (adapt_w[i] < -(int32)(8 * 4096))
+            {
+                adapt_w[i] = -(int32)(8 * 4096);
+            }
+        }
+    }
+
+    return (int16)e;
+}
+
+static void shMotionAdaptReset(void)
+{
+    memset(adapt_ref, 0, sizeof(adapt_ref));
+    memset(adapt_w, 0, sizeof(adapt_w));
+    adapt_ref_n = 0;
+    adapt_last_accel_hp = 0;
+    adapt_have_accel = 0;
+    adapt_e_in = 0;
+    adapt_e_out = 0;
+}
+#endif /* MOTION_ADAPT */
+
+#if SMART_HELMET_ENABLE_RESP
+/*!
+ * Feed the respiration path: decimate by averaging, then remove the slow DC
+ * so only the breathing excursion is left.
+ */
+static void shRespPush(uint16 mv)
+{
+    int32 v;
+
+    resp_decim_acc += mv;
+    resp_decim_n++;
+    if (resp_decim_n < SMART_HELMET_RESP_DECIM)
+    {
+        return;
+    }
+    v = resp_decim_acc / SMART_HELMET_RESP_DECIM;
+    resp_decim_acc = 0;
+    resp_decim_n = 0;
+
+    if (!resp_dc_valid)
+    {
+        resp_dc = v << 8;
+        resp_dc_valid = 1;
+    }
+    else
+    {
+        /* Slow EMA: below the respiration band, so it only tracks drift. */
+        resp_dc += (((v << 8) - resp_dc) * 12) / 256;
+    }
+
+    v -= (resp_dc >> 8);
+    if (v > 32767)
+    {
+        v = 32767;
+    }
+    if (v < -32768)
+    {
+        v = -32768;
+    }
+    resp_buf[resp_idx] = (int16)v;
+    resp_idx = (uint8)((resp_idx + 1) % SMART_HELMET_RESP_WIN);
+    if (resp_count < SMART_HELMET_RESP_WIN)
+    {
+        resp_count++;
+    }
+}
+
+/*!
+ * Respiration rate by autocorrelation of the decimated envelope.
+ * \param quality_q8 r(lag)/r(0) at the winning lag, Q8. May be NULL.
+ */
+static uint16 shRespBpm(uint16 *quality_q8)
+{
+    uint16 fs_resp_q8 = (uint16)(fs_q8 / SMART_HELMET_RESP_DECIM);
+    uint16 min_lag;
+    uint16 max_lag;
+    uint16 lag;
+    uint16 best_lag = 0;
+    int32  best_r = 0;
+    int32  r0 = 0;
+    uint8  n;
+    uint8  i;
+    uint8  start;
+    uint8  shift = 0;
+    uint16 peak = 0;
+    uint16 bpm;
+
+    if (quality_q8)
+    {
+        *quality_q8 = 0;
+    }
+    if (!fs_resp_q8)
+    {
+        return 0;
+    }
+
+    /* lag = fs_resp * 60 / bpm */
+    min_lag = (uint16)(((uint32)fs_resp_q8 * 60u) /
+                       ((uint32)SMART_HELMET_RESP_BPM_MAX * 256u));
+    max_lag = (uint16)(((uint32)fs_resp_q8 * 60u) /
+                       ((uint32)SMART_HELMET_RESP_BPM_MIN * 256u));
+    if (min_lag < 2)
+    {
+        min_lag = 2;
+    }
+
+    n = resp_count;
+    /* Need at least two periods of the slowest rate for a stable estimate. */
+    if (n < (uint8)(max_lag * 2u))
+    {
+        return 0;
+    }
+    if (max_lag >= n)
+    {
+        max_lag = (uint16)(n - 1u);
+    }
+    if (max_lag < min_lag)
+    {
+        return 0;
+    }
+
+    start = (uint8)((resp_idx + SMART_HELMET_RESP_WIN - n) % SMART_HELMET_RESP_WIN);
+    for (i = 0; i < n; i++)
+    {
+        resp_ordered[i] = resp_buf[(start + i) % SMART_HELMET_RESP_WIN];
+    }
+
+    peak = shMaxAbsI16(resp_ordered, n);
+    if (!peak)
+    {
+        return 0;
+    }
+    while (shift < 15 &&
+           ((((uint32)peak >> shift) * ((uint32)peak >> shift)) * n) > 0x3fffffffu)
+    {
+        shift++;
+    }
+
+    for (i = 0; i < n; i++)
+    {
+        int32 v = (int32)resp_ordered[i] >> shift;
+        r0 += v * v;
+    }
+    if (r0 <= 0)
+    {
+        return 0;
+    }
+
+    for (lag = min_lag; lag <= max_lag; lag++)
+    {
+        int32 acc = 0;
+        uint8 cnt = (uint8)(n - lag);
+        for (i = 0; i < cnt; i++)
+        {
+            acc += ((int32)resp_ordered[i] >> shift) *
+                   ((int32)resp_ordered[i + lag] >> shift);
+        }
+        if (!best_lag || acc > best_r)
+        {
+            best_r = acc;
+            best_lag = lag;
+        }
+    }
+
+    if (!best_lag || best_r <= 0)
+    {
+        return 0;
+    }
+    {
+        uint32 den = ((uint32)r0) >> 8;
+        uint32 q;
+        if (!den)
+        {
+            den = 1;
+        }
+        q = (uint32)best_r / den;
+        if (quality_q8)
+        {
+            *quality_q8 = (q > 0xffffu) ? 0xffffu : (uint16)q;
+        }
+        if (q < SMART_HELMET_RESP_MIN_Q8)
+        {
+            return 0;
+        }
+    }
+
+    bpm = (uint16)(((uint32)fs_resp_q8 * 60u) /
+                   ((uint32)best_lag * 256u));
+    if (bpm < SMART_HELMET_RESP_BPM_MIN || bpm > SMART_HELMET_RESP_BPM_MAX)
+    {
+        return 0;
+    }
+    return bpm;
+}
+#endif /* RESP */
 
 static void shHrDisturb(uint8 holdoff_win)
 {
@@ -1332,6 +1719,33 @@ void SmartHelmet_VitalsInit(void)
     last_hr_valid_bpm = 0;
     last_hr_valid_have = 0;
     hr_delta_rej = 0;
+    sens_dropped = 0;
+    fs_q8 = (uint16)(FS_HZ * 256u);
+#if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+    ts_prev_us = 0;
+    ts_prev_valid = 0;
+    ts_sum_us = 0;
+    ts_jit_sum_us = 0;
+    ts_n = 0;
+    timebase_ok = 1;
+#endif
+#if SMART_HELMET_ENABLE_RESP
+    memset(resp_buf, 0, sizeof(resp_buf));
+    resp_idx = resp_count = 0;
+    resp_decim_n = 0;
+    resp_decim_acc = 0;
+    resp_dc = 0;
+    resp_dc_valid = 0;
+#endif
+#if SMART_HELMET_ENABLE_HR_CUSUM
+    hr_base_bpm = 0;
+    hr_base_n = 0;
+    hr_cusum_up = 0;
+    hr_cusum_dn = 0;
+#endif
+#if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+    shMotionAdaptReset();
+#endif
 #if SMART_HELMET_ENABLE_HR_FFT
     shFftSmoothReset();
 #endif
@@ -1345,6 +1759,14 @@ void SmartHelmet_VitalsInit(void)
             (unsigned)SMART_HELMET_HR_FFT_WINDOW_HANN,
             (unsigned)SMART_HELMET_HR_FFT_INTERP,
             (unsigned)SMART_HELMET_HR_FUSE_MODE);
+    CC_LOGN("SmartHelmet Vitals: ts=%u resp=%u cusum=%u hps=%u ovs=%u fifo=%u adapt=%u",
+            (unsigned)SMART_HELMET_ENABLE_VITALS_TIMESTAMP,
+            (unsigned)SMART_HELMET_ENABLE_RESP,
+            (unsigned)SMART_HELMET_ENABLE_HR_CUSUM,
+            (unsigned)SMART_HELMET_HR_FFT_HPS,
+            (unsigned)SMART_HELMET_ENABLE_SENS_OVERSAMPLE,
+            (unsigned)SMART_HELMET_LIS3DH_USE_FIFO,
+            (unsigned)SMART_HELMET_ENABLE_HR_MOTION_ADAPT);
 }
 
 void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
@@ -1364,6 +1786,10 @@ void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
     }
 
     hp = shHighPass((int32)mag, &hp_prev_x, &hp_prev_y);
+#if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+    adapt_last_accel_hp = hp;
+    adapt_have_accel = 1;
+#endif
     band_hp[band_idx] = hp;
     band_idx = (uint8)((band_idx + 1) % BAND_WIN);
     if (band_count < BAND_WIN)
@@ -1374,11 +1800,64 @@ void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
 
 void SmartHelmet_VitalsPushSensInMv(uint16 mv)
 {
+    SmartHelmet_VitalsPushSensInMvAt(mv, 0);
+}
+
+void SmartHelmet_VitalsNoteSensDropped(void)
+{
+    if (sens_dropped < 0xff)
+    {
+        sens_dropped++;
+    }
+#if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+    /* The next interval spans a gap and must not pollute the rate estimate. */
+    ts_prev_valid = 0;
+#endif
+}
+
+void SmartHelmet_VitalsPushSensInMvAt(uint16 mv, uint32 time_us)
+{
     int16 hp;
     int32 a;
 
+#if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+    if (time_us)
+    {
+        if (ts_prev_valid)
+        {
+            /* Unsigned difference is wrap-safe for a monotonic microsecond clock. */
+            uint32 dt = time_us - ts_prev_us;
+            const uint32 nominal = 1000000u / FS_HZ;
+            /* Ignore absurd gaps (scheduler stall, first sample after a drop). */
+            if (dt >= (nominal / 4u) && dt <= (nominal * 4u))
+            {
+                uint32 jit = (dt > nominal) ? (dt - nominal) : (nominal - dt);
+                ts_sum_us += dt;
+                ts_jit_sum_us += jit;
+                if (ts_n < 0xffff)
+                {
+                    ts_n++;
+                }
+            }
+        }
+        ts_prev_us = time_us;
+        ts_prev_valid = 1;
+    }
+#else
+    UNUSED(time_us);
+#endif
+
     sh_vitals.sens_mv = mv;
     hp = shHighPass((int32)mv, &sens_prev_x, &sens_prev_y);
+
+#if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+    hp = shMotionCancel(hp);
+#endif
+
+#if SMART_HELMET_ENABLE_RESP
+    shRespPush(mv);
+#endif
+
     sens_hp[sens_idx] = hp;
     sens_idx = (uint8)((sens_idx + 1) % BAND_WIN);
     if (sens_count < BAND_WIN)
@@ -1427,6 +1906,170 @@ void SmartHelmet_VitalsOnSensSample(void)
     }
 }
 
+/*!
+ * Refresh the effective sample rate from the measured intervals and decide
+ * whether the window's time base is trustworthy.
+ */
+static void shUpdateTimebase(void)
+{
+#if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+    const uint32 nominal = 1000000u / FS_HZ;
+
+    if (ts_n >= (MOTION_WIN / 2u))
+    {
+        uint32 mean = ts_sum_us / ts_n;
+        uint32 jit = ts_jit_sum_us / ts_n;
+        uint32 err_pct;
+
+        if (mean)
+        {
+            uint32 hz_x100 = (100u * 1000000u) / mean;
+            uint32 q8 = (1000000u * 256u) / mean;
+            sh_vitals.fs_x100 = (hz_x100 > 0xffffu) ? 0xffffu : (uint16)hz_x100;
+            fs_q8 = (q8 > 0xffffu) ? 0xffffu : (uint16)q8;
+
+            sh_vitals.fs_jitter_pct = (uint8)((jit * 100u) / mean > 255u ?
+                                              255u : (jit * 100u) / mean);
+            err_pct = (mean > nominal) ? (((mean - nominal) * 100u) / nominal)
+                                       : (((nominal - mean) * 100u) / nominal);
+            timebase_ok = (err_pct <= SMART_HELMET_VITALS_FS_TOL_PCT &&
+                           sh_vitals.fs_jitter_pct <= SMART_HELMET_VITALS_JITTER_PCT)
+                          ? 1u : 0u;
+        }
+    }
+    else
+    {
+        /* Not enough clean intervals: fall back to the nominal rate. */
+        fs_q8 = (uint16)(FS_HZ * 256u);
+        sh_vitals.fs_x100 = 0;
+        sh_vitals.fs_jitter_pct = 0;
+        timebase_ok = 1;
+    }
+    ts_sum_us = 0;
+    ts_jit_sum_us = 0;
+    ts_n = 0;
+#else
+    fs_q8 = (uint16)(FS_HZ * 256u);
+    sh_vitals.fs_x100 = 0;
+    sh_vitals.fs_jitter_pct = 0;
+#endif
+}
+
+/*! Refresh the respiration estimate (no-op when the option is off). */
+static void shUpdateResp(void)
+{
+#if SMART_HELMET_ENABLE_RESP
+    uint16 q8 = 0;
+    uint16 bpm = shRespBpm(&q8);
+
+    sh_vitals.resp_bpm = bpm;
+    sh_vitals.resp_q8 = q8;
+    sh_vitals.resp_valid = bpm ? TRUE : FALSE;
+#else
+    sh_vitals.resp_bpm = 0;
+    sh_vitals.resp_q8 = 0;
+    sh_vitals.resp_valid = FALSE;
+#endif
+}
+
+/*!
+ * Track a slow personal BPM baseline and run a two-sided CUSUM on the
+ * deviation, so a small but sustained rate shift is flagged even though the
+ * absolute BPM is only a proxy.
+ */
+static void shUpdateHrChange(void)
+{
+#if SMART_HELMET_ENABLE_HR_CUSUM
+    int32 dev;
+    int32 slack = SMART_HELMET_HR_CUSUM_SLACK_BPM;
+
+#if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+    if (adapt_e_in)
+    {
+        uint32 pct = (adapt_e_out >= adapt_e_in) ? 0u :
+                     (((adapt_e_in - adapt_e_out) * 100u) / adapt_e_in);
+        sh_vitals.adapt_removed_pct = (pct > 100u) ? 100u : (uint8)pct;
+    }
+#endif
+
+    if (!sh_vitals.hr_valid || !sh_vitals.hr_bpm)
+    {
+        sh_vitals.hr_baseline_bpm = hr_base_bpm;
+        sh_vitals.hr_delta_bpm = 0;
+        sh_vitals.hr_cusum_up = (uint16)hr_cusum_up;
+        sh_vitals.hr_cusum_dn = (uint16)hr_cusum_dn;
+        return;
+    }
+
+    if (!hr_base_bpm)
+    {
+        hr_base_bpm = sh_vitals.hr_bpm;
+    }
+
+    dev = (int32)sh_vitals.hr_bpm - (int32)hr_base_bpm;
+
+    if (hr_base_n < SMART_HELMET_HR_BASELINE_MIN_WIN)
+    {
+        /* Learning phase: track fast, do not raise change events yet. */
+        hr_base_n++;
+        hr_base_bpm = (uint16)((int32)hr_base_bpm +
+                               (dev * 64) / 256);
+        hr_cusum_up = 0;
+        hr_cusum_dn = 0;
+    }
+    else
+    {
+        hr_cusum_up += dev - slack;
+        if (hr_cusum_up < 0)
+        {
+            hr_cusum_up = 0;
+        }
+        hr_cusum_dn += (-dev) - slack;
+        if (hr_cusum_dn < 0)
+        {
+            hr_cusum_dn = 0;
+        }
+        if (hr_cusum_up > 0xffff)
+        {
+            hr_cusum_up = 0xffff;
+        }
+        if (hr_cusum_dn > 0xffff)
+        {
+            hr_cusum_dn = 0xffff;
+        }
+
+        if (hr_cusum_up >= (int32)SMART_HELMET_HR_CUSUM_LIMIT)
+        {
+            sh_vitals.hr_change = smart_helmet_trend_rising;
+            /* Accept the new level as the baseline and re-arm. */
+            hr_base_bpm = sh_vitals.hr_bpm;
+            hr_cusum_up = 0;
+            hr_cusum_dn = 0;
+        }
+        else if (hr_cusum_dn >= (int32)SMART_HELMET_HR_CUSUM_LIMIT)
+        {
+            sh_vitals.hr_change = smart_helmet_trend_falling;
+            hr_base_bpm = sh_vitals.hr_bpm;
+            hr_cusum_up = 0;
+            hr_cusum_dn = 0;
+        }
+        else
+        {
+            sh_vitals.hr_change = smart_helmet_trend_stable;
+            hr_base_bpm = (uint16)((int32)hr_base_bpm +
+                (dev * SMART_HELMET_HR_BASELINE_ALPHA_Q8) / 256);
+        }
+    }
+
+    sh_vitals.hr_baseline_bpm = hr_base_bpm;
+    sh_vitals.hr_delta_bpm = (int16)dev;
+    sh_vitals.hr_cusum_up = (uint16)hr_cusum_up;
+    sh_vitals.hr_cusum_dn = (uint16)hr_cusum_dn;
+#else
+    sh_vitals.hr_change = smart_helmet_trend_unknown;
+#endif
+}
+
 void SmartHelmet_VitalsProcess(void)
 {
     uint16 rms;
@@ -1448,18 +2091,35 @@ void SmartHelmet_VitalsProcess(void)
 #if SMART_HELMET_ENABLE_HR_AUTOCORR
     uint16 ac_q8 = 0;
 #endif
+    uint16 motion_thresh = SMART_HELMET_MOTION_RMS_MG;
+
+    shUpdateTimebase();
+    shUpdateResp();
+
+#if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+    /*
+     * With the adaptive canceller running we can tolerate more movement
+     * before giving up on the window.
+     */
+    if (adapt_have_accel && adapt_ref_n >= SMART_HELMET_HR_ADAPT_TAPS)
+    {
+        motion_thresh = SMART_HELMET_MOTION_RMS_MG_ADAPT;
+    }
+#endif
 
     have_accel = (motion_count >= (MOTION_WIN / 2));
     rms = have_accel ? shRmsDevU16(motion_mag, motion_count) : 0;
     sh_vitals.motion_rms_mg = rms;
     sh_vitals.pir_events_win = pir_events;
+    sh_vitals.sens_dropped = sens_dropped;
+    sens_dropped = 0;
 
     e_sens = shEnergyI16(sens_hp, sens_count);
     sens_abs = shMeanAbsI16(sens_hp, sens_count);
     e_accel = have_accel ? shEnergyI16(band_hp, band_count) : 0;
 
     active = FALSE;
-    if (have_accel && rms >= SMART_HELMET_MOTION_RMS_MG)
+    if (have_accel && rms >= motion_thresh)
     {
         active = TRUE;
     }
@@ -1498,7 +2158,17 @@ void SmartHelmet_VitalsProcess(void)
         energy = e_sens;
         if (have_accel && band_count > (BAND_WIN / 4))
         {
-            energy = (uint16)(e_sens + (e_accel / 4));
+#if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+            /*
+             * The SENS residual has already had the accel-correlated part
+             * removed, so folding raw accel energy back in would re-create
+             * the disturbance the canceller just took out.
+             */
+            if (!(adapt_have_accel && adapt_ref_n >= SMART_HELMET_HR_ADAPT_TAPS))
+#endif
+            {
+                energy = (uint16)(e_sens + (e_accel / 4));
+            }
         }
     }
     else if (have_accel)
@@ -1578,6 +2248,18 @@ void SmartHelmet_VitalsProcess(void)
 #if (SMART_HELMET_ENABLE_HR_PEAK || SMART_HELMET_ENABLE_HR_FFT || \
      SMART_HELMET_ENABLE_HR_AUTOCORR)
         sig = shHrSignalReason(energy, sens_abs);
+#if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+        if (sig == hr_ok && !timebase_ok)
+        {
+            sig = hr_timebase;
+        }
+#endif
+#if (SMART_HELMET_ENABLE_RESP && SMART_HELMET_HR_REQUIRE_RESP)
+        if (sig == hr_ok && !sh_vitals.resp_valid)
+        {
+            sig = hr_no_resp;
+        }
+#endif
 		if (sig != hr_ok)
         {
             /* Prefer concrete signal reason over generic holdoff */
@@ -1625,6 +2307,8 @@ void SmartHelmet_VitalsProcess(void)
 #endif
     }
 
+    shUpdateHrChange();
+
     prev_sens_mv = sh_vitals.sens_mv;
     prev_sens_mv_valid = 1;
 
@@ -1660,6 +2344,11 @@ const smart_helmet_vitals_status_t *SmartHelmet_VitalsGetStatus(void)
 #else /* !SMART_HELMET_ENABLE_VITALS_PROXY */
 
 void SmartHelmet_VitalsInit(void) {}
+void SmartHelmet_VitalsPushSensInMvAt(uint16 mv, uint32 time_us)
+{
+    UNUSED(mv); UNUSED(time_us);
+}
+void SmartHelmet_VitalsNoteSensDropped(void) {}
 void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
 {
     UNUSED(x_mg); UNUSED(y_mg); UNUSED(z_mg);
