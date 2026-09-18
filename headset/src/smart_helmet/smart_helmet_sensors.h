@@ -34,9 +34,29 @@ typedef struct
     int16    ambient_temp_x100;
 } smart_helmet_sensor_data_t;
 
+/*! One accelerometer sample in milli-g. */
+typedef struct
+{
+    int16 x_mg;
+    int16 y_mg;
+    int16 z_mg;
+} smart_helmet_accel_sample_t;
+
 void SmartHelmet_SensorsInit(void);
 void SmartHelmet_SensorsPoll(void);
 const smart_helmet_sensor_data_t *SmartHelmet_SensorsGetData(void);
+
+/*!
+ * \brief Number of accelerometer samples drained in the last poll.
+ *
+ * Always 0 unless SMART_HELMET_LIS3DH_USE_FIFO is enabled, in which case the
+ * caller should forward the whole burst so the motion reference keeps the
+ * sensor's own even time base.
+ */
+uint8 SmartHelmet_SensorsAccelBurstCount(void);
+
+/*! \brief Accelerometer burst drained in the last poll (NULL when unused). */
+const smart_helmet_accel_sample_t *SmartHelmet_SensorsAccelBurst(void);
 
 /*! \brief First probe + start 1 s retry on \a retry_task until expected IDs. */
 void SmartHelmet_SensorsStartVerify(Task retry_task);

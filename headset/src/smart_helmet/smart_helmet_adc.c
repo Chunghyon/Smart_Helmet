@@ -17,6 +17,9 @@ PIR_OUT PIO is not used; SENS_IN is the radar IF analog path.
 
 #include <adc.h>
 #include <message.h>
+#if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+#include <vm.h>
+#endif
 #include <panic.h>
 #include <string.h>
 #include <logging.h>
@@ -42,6 +45,10 @@ static sh_adc_mode_t sh_adc_mode;
 static uint16 sh_adc_vref_mv;
 static smart_helmet_adc_sample_t sh_adc_sample;
 static bool sh_sens_pending;
+#if SMART_HELMET_ENABLE_SENS_OVERSAMPLE
+static uint8  sh_sens_os_n;     /*!< conversions accumulated this tick */
+static uint32 sh_sens_os_acc;   /*!< running sum of scaled millivolts */
+#endif
 
 static const vm_adc_source_type sh_adc_sources[smart_helmet_adc_channel_count] =
 {
@@ -54,12 +61,32 @@ static const vm_adc_source_type sh_adc_sources[smart_helmet_adc_channel_count] =
 static void shAdcFeedVitalsSens(uint16 mv)
 {
 #if SMART_HELMET_ENABLE_VITALS_PROXY
+#if SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+    /*
+     * Timestamp at delivery so the DSP can measure the real interval instead
+     * of assuming SMART_HELMET_VITALS_FS_HZ. VmGetTimerTime() is a free
+     * running microsecond counter; wrap is handled by the unsigned difference
+     * in the vitals layer.
+     */
+    SmartHelmet_VitalsPushSensInMvAt(mv, (uint32)VmGetTimerTime());
+#else
     SmartHelmet_VitalsPushSensInMv(mv);
+#endif
     SmartHelmet_VitalsOnSensSample();
 #else
     UNUSED(mv);
 #endif
 }
+
+#if SMART_HELMET_ADC_SENS_PRIORITY
+/*! A SENS tick could not be served. Report it instead of sampling late. */
+static void shAdcSensDropped(void)
+{
+#if SMART_HELMET_ENABLE_VITALS_PROXY
+    SmartHelmet_VitalsNoteSensDropped();
+#endif
+}
+#endif
 
 static void shAdcRequestNextFull(void)
 {
@@ -78,11 +105,13 @@ static void shAdcRequestNextFull(void)
             sh_adc_sample.millivolts[smart_helmet_adc_co],
             sh_adc_sample.millivolts[smart_helmet_adc_nh3],
             sh_adc_sample.millivolts[smart_helmet_adc_no2]);
+#if !SMART_HELMET_ADC_SENS_PRIORITY
         if (sh_sens_pending)
         {
             sh_sens_pending = FALSE;
             SmartHelmet_AdcRequestSensIn();
         }
+#endif
         return;
     }
 
@@ -94,6 +123,10 @@ static void shAdcStartSens(void)
 {
     sh_adc_mode = sh_adc_mode_sens;
     sh_adc_index = smart_helmet_adc_sens_in;
+#if SMART_HELMET_ENABLE_SENS_OVERSAMPLE
+    sh_sens_os_n = 0;
+    sh_sens_os_acc = 0;
+#endif
     AdcReadRequest(sh_adc_task, adcsel_vref_hq_buff, 0, 0);
     AdcReadRequest(sh_adc_task, SMART_HELMET_ADC_SENS_IN, 0, 0);
 }
@@ -105,6 +138,10 @@ void SmartHelmet_AdcInit(Task client_task)
     sh_adc_mode = sh_adc_mode_idle;
     sh_adc_vref_mv = 0;
     sh_sens_pending = FALSE;
+#if SMART_HELMET_ENABLE_SENS_OVERSAMPLE
+    sh_sens_os_n = 0;
+    sh_sens_os_acc = 0;
+#endif
     memset(&sh_adc_sample, 0, sizeof(sh_adc_sample));
     CC_LOGN("SmartHelmet ADC: init gas=%ums sens=%ums (vitals path, no PIR PIO)",
             SMART_HELMET_ADC_PERIOD_MS, SMART_HELMET_ADC_SENS_PERIOD_MS);
@@ -160,7 +197,17 @@ void SmartHelmet_AdcRequestSensIn(void)
     }
     if (sh_adc_mode != sh_adc_mode_idle)
     {
+#if SMART_HELMET_ADC_SENS_PRIORITY
+        /*
+         * Never take the sample late: a deferred tick fired straight after the
+         * gas scan bunches two samples together and modulates the sampling
+         * interval at the gas-scan rate (1 Hz => a 60 BPM artefact right in
+         * the middle of the search band). Drop it and report the gap instead.
+         */
+        shAdcSensDropped();
+#else
         sh_sens_pending = TRUE;
+#endif
         return;
     }
     shAdcStartSens();
@@ -195,6 +242,20 @@ bool SmartHelmet_AdcHandleMessage(Task task, MessageId id, Message message)
             {
                 scaled_mv = result->reading;
             }
+#if SMART_HELMET_ENABLE_SENS_OVERSAMPLE
+            sh_sens_os_acc += scaled_mv;
+            sh_sens_os_n++;
+            if (sh_sens_os_n < SMART_HELMET_SENS_OVERSAMPLE_N)
+            {
+                /* Stay in SENS mode and take another conversion right away. */
+                AdcReadRequest(sh_adc_task, adcsel_vref_hq_buff, 0, 0);
+                AdcReadRequest(sh_adc_task, SMART_HELMET_ADC_SENS_IN, 0, 0);
+                return TRUE;
+            }
+            scaled_mv = sh_sens_os_acc / sh_sens_os_n;
+            sh_sens_os_acc = 0;
+            sh_sens_os_n = 0;
+#endif
             sh_adc_sample.millivolts[smart_helmet_adc_sens_in] = (uint16)scaled_mv;
             sh_adc_sample.valid[smart_helmet_adc_sens_in] = TRUE;
             sh_adc_mode = sh_adc_mode_idle;
@@ -220,7 +281,14 @@ bool SmartHelmet_AdcHandleMessage(Task task, MessageId id, Message message)
 
             if (sh_adc_index == smart_helmet_adc_sens_in)
             {
+#if SMART_HELMET_ADC_SENS_PRIORITY
+                /*
+                 * This sample belongs to the gas scan, not to the vitals
+                 * cadence; feeding it would insert an off-grid sample.
+                 */
+#else
                 shAdcFeedVitalsSens((uint16)scaled_mv);
+#endif
             }
 
             sh_adc_index++;

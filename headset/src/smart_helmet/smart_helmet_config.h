@@ -359,4 +359,188 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_HR_FUSE_MIN_AGREE     (2)
 #endif
 
+/* ========================================================================== */
+/* Priority 1 — sampling integrity + presence sanity check                    */
+/* ========================================================================== */
+
+/*!
+ * P1-1: give the SENS_IN (vitals) conversion priority over the gas scan.
+ *
+ * Legacy behaviour (0): a SENS tick that lands while the 4-channel gas scan is
+ * running is deferred and then fired immediately after the scan finishes. The
+ * gas scan repeats every SMART_HELMET_ADC_PERIOD_MS (1000 ms), so the SENS
+ * sample spacing is modulated at exactly 1 Hz — i.e. 60 BPM, right in the
+ * middle of the HR search band. The estimators can lock onto that artifact.
+ *
+ * With 1 the gas scan is postponed instead, and a SENS tick that still cannot
+ * run is reported as a dropped sample rather than being bunched up.
+ */
+#ifndef SMART_HELMET_ADC_SENS_PRIORITY
+#define SMART_HELMET_ADC_SENS_PRIORITY     (1)
+#endif
+
+/*!
+ * P1-2: timestamp every SENS sample and derive the effective sample rate from
+ * the measured intervals instead of trusting SMART_HELMET_VITALS_FS_HZ.
+ * MessageSendLater is not a precision timer, so the nominal 40 ms can drift.
+ */
+#ifndef SMART_HELMET_ENABLE_VITALS_TIMESTAMP
+#define SMART_HELMET_ENABLE_VITALS_TIMESTAMP (1)
+#endif
+
+/*!
+ * Max mean sampling-interval error (percent of nominal) still usable.
+ * Beyond this the BPM scale would be wrong, so the window is rejected.
+ */
+#ifndef SMART_HELMET_VITALS_FS_TOL_PCT
+#define SMART_HELMET_VITALS_FS_TOL_PCT     (25)
+#endif
+
+/*!
+ * Max mean absolute jitter (percent of the measured interval) still usable.
+ * Above this the time base is too irregular for a frequency estimate.
+ */
+#ifndef SMART_HELMET_VITALS_JITTER_PCT
+#define SMART_HELMET_VITALS_JITTER_PCT     (20)
+#endif
+
+/*!
+ * P1-3: respiration estimate from the SENS envelope (0.15-0.5 Hz).
+ * Respiration is 10-100x stronger than the pulse component in a Doppler radar
+ * IF signal, so it is both a useful vital on its own and the cheapest possible
+ * "is a person actually in front of the sensor and measurable" check.
+ */
+#ifndef SMART_HELMET_ENABLE_RESP
+#define SMART_HELMET_ENABLE_RESP           (1)
+#endif
+
+/*! Respiration search band (breaths per minute). */
+#define SMART_HELMET_RESP_BPM_MIN          (8)
+#define SMART_HELMET_RESP_BPM_MAX          (30)
+
+/*! SENS decimation factor feeding the respiration buffer (25 Hz / 8 ~= 3 Hz). */
+#define SMART_HELMET_RESP_DECIM            (8)
+
+/*! Respiration analysis buffer length (64 @ ~3 Hz ~= 20 s). */
+#define SMART_HELMET_RESP_WIN              (64)
+
+/*! Min normalised autocorrelation (Q8) before a respiration rate is accepted. */
+#ifndef SMART_HELMET_RESP_MIN_Q8
+#define SMART_HELMET_RESP_MIN_Q8           (64)   /* ~0.25 */
+#endif
+
+/*!
+ * 1 = hr_valid additionally requires a plausible respiration rate.
+ * Blocks pulse reports when nobody is in front of the radar or the wearer is
+ * sitting in a Doppler null, both of which otherwise look like "weak pulse".
+ */
+#ifndef SMART_HELMET_HR_REQUIRE_RESP
+#define SMART_HELMET_HR_REQUIRE_RESP       (0)
+#endif
+
+/* ========================================================================== */
+/* Priority 2 — signal conditioning + estimator / output quality              */
+/* ========================================================================== */
+
+/*!
+ * P2-1: oversample SENS_IN and average before handing samples to the vitals
+ * chain. Acts as an anti-aliasing filter and drops ADC noise by ~sqrt(N).
+ * The effective vitals rate stays SMART_HELMET_VITALS_FS_HZ.
+ */
+#ifndef SMART_HELMET_ENABLE_SENS_OVERSAMPLE
+#define SMART_HELMET_ENABLE_SENS_OVERSAMPLE (0)
+#endif
+
+/*! Conversions averaged per delivered vitals sample (1 = off). */
+#ifndef SMART_HELMET_SENS_OVERSAMPLE_N
+#define SMART_HELMET_SENS_OVERSAMPLE_N     (4)
+#endif
+
+/*!
+ * P2-2: harmonic product spectrum. Score each candidate bin with
+ * P(k) * P(2k) so a strong second harmonic cannot be mistaken for the
+ * fundamental (and vice versa). Reuses the existing FFT output.
+ */
+#ifndef SMART_HELMET_HR_FFT_HPS
+#define SMART_HELMET_HR_FFT_HPS            (0)
+#endif
+
+/*!
+ * P2-3: track a slow personal BPM baseline and run a two-sided CUSUM on the
+ * deviation. This is the actual "has the pulse changed?" output — far more
+ * sensitive to small sustained drifts than a fixed threshold, and far less
+ * prone to false alarms than comparing single windows.
+ */
+#ifndef SMART_HELMET_ENABLE_HR_CUSUM
+#define SMART_HELMET_ENABLE_HR_CUSUM       (1)
+#endif
+
+/*! BPM baseline EMA weight (Q8) applied per valid window. */
+#ifndef SMART_HELMET_HR_BASELINE_ALPHA_Q8
+#define SMART_HELMET_HR_BASELINE_ALPHA_Q8  (12)  /* ~0.05 */
+#endif
+
+/*! Valid windows required before the BPM baseline is trusted. */
+#ifndef SMART_HELMET_HR_BASELINE_MIN_WIN
+#define SMART_HELMET_HR_BASELINE_MIN_WIN   (8)
+#endif
+
+/*! CUSUM slack (BPM). Deviations below this are treated as noise. */
+#ifndef SMART_HELMET_HR_CUSUM_SLACK_BPM
+#define SMART_HELMET_HR_CUSUM_SLACK_BPM    (3)
+#endif
+
+/*! CUSUM alarm level (BPM-windows accumulated past the slack). */
+#ifndef SMART_HELMET_HR_CUSUM_LIMIT
+#define SMART_HELMET_HR_CUSUM_LIMIT        (24)
+#endif
+
+/* ========================================================================== */
+/* Priority 3 — accelerometer time base + motion cancellation                 */
+/* Both degrade to no-ops when SMART_HELMET_ENABLE_LIS3DH is 0.               */
+/* ========================================================================== */
+
+/*!
+ * P3-1: read the LIS3DH through its FIFO (stream mode) instead of taking one
+ * sample per poll. Gives the accelerometer a regular time base, which is a
+ * precondition for using it as a motion reference signal.
+ */
+#ifndef SMART_HELMET_LIS3DH_USE_FIFO
+#define SMART_HELMET_LIS3DH_USE_FIFO       (0)
+#endif
+
+/*! Samples drained from the FIFO per poll (LIS3DH FIFO holds 32). */
+#ifndef SMART_HELMET_LIS3DH_FIFO_BURST
+#define SMART_HELMET_LIS3DH_FIFO_BURST     (16)
+#endif
+
+/*!
+ * P3-2: NLMS adaptive filter that subtracts the accelerometer-correlated part
+ * of the SENS residual, instead of simply discarding every window with motion.
+ * Recovers usable windows during light movement, which is most of the time for
+ * a helmet. No effect when the LIS3DH is disabled or not detected.
+ */
+#ifndef SMART_HELMET_ENABLE_HR_MOTION_ADAPT
+#define SMART_HELMET_ENABLE_HR_MOTION_ADAPT (0)
+#endif
+
+/*! NLMS filter length (taps over the accel reference history). */
+#ifndef SMART_HELMET_HR_ADAPT_TAPS
+#define SMART_HELMET_HR_ADAPT_TAPS         (8)
+#endif
+
+/*! NLMS step size (Q8). Larger = faster tracking, less stable. */
+#ifndef SMART_HELMET_HR_ADAPT_MU_Q8
+#define SMART_HELMET_HR_ADAPT_MU_Q8        (32)  /* ~0.125 */
+#endif
+
+/*!
+ * With motion cancellation active the motion gate can be relaxed, since light
+ * movement is now removed rather than rejected. RMS (mg) above this still
+ * forces ACTIVITY. Only used when SMART_HELMET_ENABLE_HR_MOTION_ADAPT is 1.
+ */
+#ifndef SMART_HELMET_MOTION_RMS_MG_ADAPT
+#define SMART_HELMET_MOTION_RMS_MG_ADAPT   (250)
+#endif
+
 #endif /* SMART_HELMET_CONFIG_H */

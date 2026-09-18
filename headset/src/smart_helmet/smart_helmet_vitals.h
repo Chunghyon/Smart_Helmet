@@ -51,7 +51,9 @@ typedef enum
 	hr_delta,           /*!< |ΔBPM| vs last valid too large */
 	hr_none,            /*!< no estimate this window */
 	hr_disabled,        /*!< HR peak/FFT compile-off */
-	hr_motion           /*!< motion gate active (accel RMS / SENS residual) */
+	hr_motion,          /*!< motion gate active (accel RMS / SENS residual) */
+	hr_timebase,        /*!< sample timing too irregular / wrong rate */
+	hr_no_resp          /*!< no plausible respiration => not measurable */
 } smart_helmet_hr_reason_t;
 
 typedef struct
@@ -73,6 +75,33 @@ typedef struct
     uint16                     hr_bpm_ac;
     /*! Autocorrelation peak / r(0), Q8 (rhythm quality). */
     uint16                     hr_ac_q8;
+
+    /*! Measured sample rate x100 (Hz). 0 when not timestamped. */
+    uint16                     fs_x100;
+    /*! Mean sampling jitter as percent of the mean interval. */
+    uint8                      fs_jitter_pct;
+    /*! SENS samples dropped since the previous window (cadence conflicts). */
+    uint8                      sens_dropped;
+
+    /*! Respiration estimate (breaths/min). 0 if unavailable. */
+    uint16                     resp_bpm;
+    /*! Respiration autocorrelation quality, Q8. */
+    uint16                     resp_q8;
+    /*! Respiration estimate usable this window. */
+    bool                       resp_valid;
+
+    /*! Slow personal BPM baseline. 0 until enough valid windows. */
+    uint16                     hr_baseline_bpm;
+    /*! Signed deviation of hr_bpm from the baseline (BPM). */
+    int16                      hr_delta_bpm;
+    /*! Two-sided CUSUM accumulators (rise / fall). */
+    uint16                     hr_cusum_up;
+    uint16                     hr_cusum_dn;
+    /*! Sustained pulse-rate change detected (CUSUM past limit). */
+    smart_helmet_trend_flag_t  hr_change;
+
+    /*! Motion energy removed by the adaptive filter, percent. */
+    uint8                      adapt_removed_pct;
     /*! Fused BPM when peak/FFT agree or one is strong; else 0. */
     uint16                     hr_bpm;
     uint8                      hr_peak_count;   /*!< peaks in last analysis window */
@@ -86,6 +115,20 @@ typedef struct
 void SmartHelmet_VitalsInit(void);
 void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg);
 void SmartHelmet_VitalsPushSensInMv(uint16 mv);
+
+/*!
+ * \brief Push a SENS_IN sample together with its capture time.
+ * \param mv     Sample in millivolts.
+ * \param time_us Capture timestamp (microseconds, may wrap).
+ *
+ * Used when SMART_HELMET_ENABLE_VITALS_TIMESTAMP is set so the effective
+ * sample rate is measured rather than assumed. SmartHelmet_VitalsPushSensInMv
+ * is equivalent to passing no timestamp.
+ */
+void SmartHelmet_VitalsPushSensInMvAt(uint16 mv, uint32 time_us);
+
+/*! \brief Record SENS samples that could not be taken (cadence conflict). */
+void SmartHelmet_VitalsNoteSensDropped(void);
 void SmartHelmet_VitalsPirEvent(void);
 void SmartHelmet_VitalsOnSensSample(void);
 void SmartHelmet_VitalsProcess(void);
