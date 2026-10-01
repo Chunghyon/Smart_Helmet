@@ -52,7 +52,7 @@ static const TaskData appInitTask = { .handler = appHandleAppInit};
 #define MSG_APP_INIT_START 0xFFF0
 
 // SM = "Smart Helmet"
-#define HJC_MODEL_NAME "SM"
+#define HJC_MODEL_NAME "SH"
 #define HJC_VERSION_NUMBER	"1.1.20"
 #define README_VERSION_SM	1.1.20
 #define README_HEX_VERSION_SM 5A315F312E312E3230

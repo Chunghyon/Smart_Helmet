@@ -22,7 +22,7 @@ for /f "usebackq tokens=*" %%a in ("%TEMP_FILE%") do (
     
     echo !clean_line! | findstr "debug" >nul
     if !errorlevel! equ 0 (
-        set "APP_NAME=SM"
+        set "APP_NAME=SH"
         set "APP_TYPE=debug"
         echo Found configuration: APP_NAME=!APP_NAME!, APP_TYPE=!APP_TYPE!
         goto SUCCESS
@@ -30,7 +30,7 @@ for /f "usebackq tokens=*" %%a in ("%TEMP_FILE%") do (
     
     echo !clean_line! | findstr "release" >nul
     if !errorlevel! equ 0 (
-        set "APP_NAME=SM"
+        set "APP_NAME=SH"
         set "APP_TYPE=release"
         echo Found configuration: APP_NAME=!APP_NAME!, APP_TYPE=!APP_TYPE!
         goto SUCCESS
