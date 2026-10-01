@@ -329,19 +329,22 @@ static void shWisunLogResult(void)
 
 static void shWisunSendProbe(const char *cmd)
 {
+    uint8 frame[16];
     uint16 len = 0;
-    static const uint8 eol[2] = { '\r', '\n' };
 
-    while (cmd[len] != '\0')
+    while (cmd[len] != '\0' && len + 2 < sizeof(frame))
     {
+        frame[len] = (uint8)cmd[len];
         len++;
     }
-    sh_wisun.tx_ok = SmartHelmet_UartSend((const uint8 *)cmd, len) &&
-                     SmartHelmet_UartSend(eol, sizeof(eol));
+    frame[len++] = '\r';
+    frame[len++] = '\n';
+    /* One flush. A split "param" then CR-LF is parsed as
+     * "Command have no CR-LF" / "invalid cmd". */
+    sh_wisun.tx_ok = SmartHelmet_UartSend(frame, len);
     CC_LOGN("SmartHelmet WS8856: send %s tx=%u try=%u baud=115200 8N1",
             cmd, sh_wisun.tx_ok, sh_wisun.tries);
-    shLogBytes("TX", (const uint8 *)cmd, len);
-    shLogBytes("TX", eol, sizeof(eol));
+    shLogBytes("TX", frame, len);
 }
 
 static void shWisunArm(uint16 delay_ms)
