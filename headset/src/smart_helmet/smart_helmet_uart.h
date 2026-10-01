@@ -47,8 +47,10 @@ typedef struct
     smart_helmet_wisun_link_t result;
     bool   tx_ok;
     bool   rx_seen;
-    bool   module_seen;   /* "8856" or param fields */
-    bool   ip_seen;       /* IPv6-looking reply after ip */
+    bool   module_seen;   /* Silent Smart CLI: role/status/phy/8856 */
+    bool   ip_seen;       /* IPv6 from ip command, not a lone colon */
+    bool   online;        /* param status field is 5 (routing node up) */
+    uint8  status_code;   /* 0xFF if no status digit yet */
     uint8  tries;
     char   last_line[48];
 } smart_helmet_wisun_status_t;

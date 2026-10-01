@@ -128,7 +128,6 @@ static void shLogHex(const char *tag, const uint8 *data, uint16 len)
             uint8 b = data[off + i];
             line[n++] = shHexNibble((uint8)(b >> 4));
             line[n++] = shHexNibble((uint8)(b & 0x0f));
-            line[n++] = ' ';
         }
         line[n] = '\0';
         CC_LOGN("SmartHelmet UART %s +%u %s", tag, off, line);
@@ -201,20 +200,78 @@ static void shCopyPreview(const uint8 *data, uint16 len)
     uint16 i;
     uint16 n = 0;
 
+    /* Keep CR/LF as '|' so the log viewer does not cut the line at a space
+     * or stop on the first newline. Silent Smart replies are multi-line. */
     for (i = 0; i < len && n + 1 < sizeof(sh_wisun.last_line); i++)
     {
         uint8 c = data[i];
         if (c == '\r' || c == '\n')
         {
-            if (n)
-            {
-                break;
-            }
-            continue;
+            sh_wisun.last_line[n++] = '|';
         }
-        sh_wisun.last_line[n++] = (c >= 32 && c < 127) ? (char)c : '.';
+        else if (c == ' ')
+        {
+            sh_wisun.last_line[n++] = '_';
+        }
+        else
+        {
+            sh_wisun.last_line[n++] = (c >= 32 && c < 127) ? (char)c : '.';
+        }
     }
     sh_wisun.last_line[n] = '\0';
+}
+
+static bool shIpv6Like(const uint8 *data, uint16 len)
+{
+    uint16 i;
+    uint8 colons = 0;
+    uint8 hex = 0;
+
+    for (i = 0; i < len; i++)
+    {
+        uint8 c = data[i];
+        if (c == ':')
+        {
+            colons++;
+        }
+        else if ((c >= '0' && c <= '9') ||
+                 (c >= 'a' && c <= 'f') ||
+                 (c >= 'A' && c <= 'F'))
+        {
+            hex++;
+        }
+    }
+    return colons >= 2 && hex >= 4;
+}
+
+static void shNoteStatus(const uint8 *data, uint16 len)
+{
+    uint16 i;
+
+    for (i = 0; i + 6 < len; i++)
+    {
+        if (shContainsFold(data + i, (uint16)(len - i), "status"))
+        {
+            uint16 j = (uint16)(i + 6);
+            while (j < len && (data[j] < '0' || data[j] > '9'))
+            {
+                j++;
+                if (j > i + 12)
+                {
+                    break;
+                }
+            }
+            if (j < len && data[j] >= '0' && data[j] <= '9')
+            {
+                sh_wisun.status_code = (uint8)(data[j] - '0');
+                if (sh_wisun.status_code == 5)
+                {
+                    sh_wisun.online = TRUE;
+                }
+            }
+            return;
+        }
+    }
 }
 
 static void shWisunNoteRx(const uint8 *data, uint16 len)
@@ -226,18 +283,24 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
     sh_wisun.rx_seen = TRUE;
     shCopyPreview(data, len);
 
+    /* WS8856FLS / WS8854 family CLI: "param" returns role, status, PHY.
+     * status 5 means the routing node is online. "ip" returns an IPv6. */
     if (shContainsFold(data, len, "8856") ||
-        shContainsFold(data, len, "ws8856") ||
         shContainsFold(data, len, "role") ||
         shContainsFold(data, len, "status") ||
-        shContainsFold(data, len, "phy"))
+        shContainsFold(data, len, "phy") ||
+        shContainsFold(data, len, "domain"))
     {
         sh_wisun.module_seen = TRUE;
+        shNoteStatus(data, len);
     }
-    if (sh_wisun_step == 2 &&
-        (shContainsFold(data, len, ":") || shContainsFold(data, len, "ip")))
+    if (sh_wisun_step == 2 && shIpv6Like(data, len))
     {
         sh_wisun.ip_seen = TRUE;
+    }
+    if (shContainsFold(data, len, "udpr"))
+    {
+        CC_LOGN("SmartHelmet WS8856: udpr data line=%s", sh_wisun.last_line);
     }
 }
 
@@ -246,9 +309,9 @@ static void shWisunLogResult(void)
     if (sh_wisun.module_seen)
     {
         sh_wisun.result = smart_helmet_wisun_module_ok;
-        CC_LOGN("SmartHelmet WS8856 UART ok tx=%u rx=%u ip=%u try=%u line=%s",
-                sh_wisun.tx_ok, sh_wisun.rx_seen, sh_wisun.ip_seen,
-                sh_wisun.tries, sh_wisun.last_line);
+        CC_LOGN("SmartHelmet WS8856 proto ok tx=%u ip=%u online=%u st=%u try=%u line=%s",
+                sh_wisun.tx_ok, sh_wisun.ip_seen, sh_wisun.online,
+                sh_wisun.status_code, sh_wisun.tries, sh_wisun.last_line);
     }
     else if (sh_wisun.rx_seen)
     {
@@ -390,6 +453,7 @@ void SmartHelmet_UartStartVerify(void)
     return;
 #else
     memset(&sh_wisun, 0, sizeof(sh_wisun));
+    sh_wisun.status_code = 0xFF;
     sh_wisun_step = 1;
     sh_rx_asm_len = 0;
     CC_LOGN("SmartHelmet WS8856: link check start (param, then ip)");

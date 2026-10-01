@@ -14,8 +14,8 @@
 #define headsetConfigIdleTimeoutMs()   D_SEC(600)
 
 /*! This timer is active when headset enters HEADSET_STATE_LIMBO or on recieving charger disconnect indication*/
-//#define headsetConfigLimboTimeoutMs()   D_SEC(600)
-#define headsetConfigLimboTimeoutMs()   D_SEC(30)
+#define headsetConfigLimboTimeoutMs()   D_SEC(600)
+//#define headsetConfigLimboTimeoutMs()   D_SEC(30)
 
 /*! Time to wait for successful disconnection of link with handset. */
 #define headsetConfigDisconnectTimeoutMs()  D_SEC(5)
