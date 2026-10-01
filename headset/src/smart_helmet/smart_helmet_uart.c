@@ -95,16 +95,11 @@ static bool shContainsFold(const uint8 *data, uint16 len, const char *needle)
 static uint8 sh_rx_prev[48];
 static uint16 sh_rx_prev_len;
 
-static char shHexNibble(uint8 v)
+static void shLogBytes(const char *tag, const uint8 *data, uint16 len)
 {
-    return (char)((v < 10) ? ('0' + v) : ('A' + (v - 10)));
-}
-
-static void shLogHex(const char *tag, const uint8 *data, uint16 len)
-{
-    char line[52];
     uint16 off = 0;
 
+    UNUSED(tag);
     if (!data)
     {
         return;
@@ -113,25 +108,25 @@ static void shLogHex(const char *tag, const uint8 *data, uint16 len)
     {
         len = 36;
     }
+    /* CC_LOGN formats %s later, so a stack string is already gone.
+     * Print raw bytes as numbers. */
     while (off < len)
     {
-        uint16 n = 0;
+        uint8 b[8];
         uint16 i;
-        uint16 chunk = (uint16)(len - off);
+        uint16 n = (uint16)(len - off);
 
-        if (chunk > 12)
+        if (n > 8)
         {
-            chunk = 12;
+            n = 8;
         }
-        for (i = 0; i < chunk && n + 3 < sizeof(line); i++)
+        for (i = 0; i < 8; i++)
         {
-            uint8 b = data[off + i];
-            line[n++] = shHexNibble((uint8)(b >> 4));
-            line[n++] = shHexNibble((uint8)(b & 0x0f));
+            b[i] = (i < n) ? data[off + i] : 0;
         }
-        line[n] = '\0';
-        CC_LOGN("SmartHelmet UART %s +%u %s", tag, off, line);
-        off = (uint16)(off + chunk);
+        CC_LOGN("SmartHelmet UART bytes +%u n=%u %u %u %u %u %u %u %u %u",
+                off, n, b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
+        off = (uint16)(off + n);
     }
 }
 
@@ -345,8 +340,8 @@ static void shWisunSendProbe(const char *cmd)
                      SmartHelmet_UartSend(eol, sizeof(eol));
     CC_LOGN("SmartHelmet WS8856: send %s tx=%u try=%u baud=115200 8N1",
             cmd, sh_wisun.tx_ok, sh_wisun.tries);
-    shLogHex("TX", (const uint8 *)cmd, len);
-    shLogHex("TX", eol, sizeof(eol));
+    shLogBytes("TX", (const uint8 *)cmd, len);
+    shLogBytes("TX", eol, sizeof(eol));
 }
 
 static void shWisunArm(uint16 delay_ms)
@@ -555,7 +550,7 @@ bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message)
                 sh_rx_asm_len = (uint16)(sh_rx_asm_len + copy);
             }
             shWisunNoteRx(ptr, size);
-            shLogHex("RX", ptr, size);
+            shLogBytes("RX", ptr, size);
             shLogRxShape(ptr, size);
             if (sh_uart_rx_cb)
             {
