@@ -236,4 +236,5 @@
     </group>
     <group name="mde#2"/>
     <group name="mde#2/release/Run on Device"/>
+    <group name="mde#1/release"/>
 </settings>

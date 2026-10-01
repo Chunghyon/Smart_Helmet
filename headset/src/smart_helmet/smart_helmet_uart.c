@@ -92,6 +92,110 @@ static bool shContainsFold(const uint8 *data, uint16 len, const char *needle)
     return FALSE;
 }
 
+static uint8 sh_rx_prev[48];
+static uint16 sh_rx_prev_len;
+
+static char shHexNibble(uint8 v)
+{
+    return (char)((v < 10) ? ('0' + v) : ('A' + (v - 10)));
+}
+
+static void shLogHex(const char *tag, const uint8 *data, uint16 len)
+{
+    char line[52];
+    uint16 off = 0;
+
+    if (!data)
+    {
+        return;
+    }
+    if (len > 36)
+    {
+        len = 36;
+    }
+    while (off < len)
+    {
+        uint16 n = 0;
+        uint16 i;
+        uint16 chunk = (uint16)(len - off);
+
+        if (chunk > 12)
+        {
+            chunk = 12;
+        }
+        for (i = 0; i < chunk && n + 3 < sizeof(line); i++)
+        {
+            uint8 b = data[off + i];
+            line[n++] = shHexNibble((uint8)(b >> 4));
+            line[n++] = shHexNibble((uint8)(b & 0x0f));
+            line[n++] = ' ';
+        }
+        line[n] = '\0';
+        CC_LOGN("SmartHelmet UART %s +%u %s", tag, off, line);
+        off = (uint16)(off + chunk);
+    }
+}
+
+static void shLogRxShape(const uint8 *data, uint16 len)
+{
+    uint16 i;
+    uint16 printable = 0;
+    uint16 crlf = 0;
+    uint16 zero = 0;
+    uint16 same = 0;
+    bool identical = FALSE;
+
+    for (i = 0; i < len; i++)
+    {
+        uint8 c = data[i];
+        if (c == '\r' || c == '\n')
+        {
+            crlf++;
+        }
+        else if (c >= 32 && c < 127)
+        {
+            printable++;
+        }
+        if (c == 0)
+        {
+            zero++;
+        }
+    }
+    if (sh_rx_prev_len == len && len && len <= sizeof(sh_rx_prev))
+    {
+        identical = TRUE;
+        for (i = 0; i < len; i++)
+        {
+            if (sh_rx_prev[i] == data[i])
+            {
+                same++;
+            }
+            else
+            {
+                identical = FALSE;
+            }
+        }
+    }
+    if (len && len <= sizeof(sh_rx_prev))
+    {
+        memcpy(sh_rx_prev, data, len);
+        sh_rx_prev_len = len;
+    }
+    CC_LOGN("SmartHelmet UART RX shape len=%u ascii=%u crlf=%u nul=%u same=%u identical=%u",
+            len, printable, crlf, zero, same, identical);
+    if (identical && printable * 2 < len)
+    {
+        CC_LOGN("SmartHelmet UART hint: stable binary frame, baud mismatch unlikely");
+    }
+    else if (!identical && sh_rx_prev_len && printable * 4 < len)
+    {
+        CC_LOGN("SmartHelmet UART hint: varying garbage, baud/framing suspect");
+    }
+    else if (crlf && printable * 2 >= len)
+    {
+        CC_LOGN("SmartHelmet UART hint: text CLI, baud looks matched");
+    }
+}
 static void shCopyPreview(const uint8 *data, uint16 len)
 {
     uint16 i;
@@ -176,8 +280,10 @@ static void shWisunSendProbe(const char *cmd)
     }
     sh_wisun.tx_ok = SmartHelmet_UartSend((const uint8 *)cmd, len) &&
                      SmartHelmet_UartSend(eol, sizeof(eol));
-    CC_LOGN("SmartHelmet WS8856: send %s tx=%u try=%u",
+    CC_LOGN("SmartHelmet WS8856: send %s tx=%u try=%u baud=115200 8N1",
             cmd, sh_wisun.tx_ok, sh_wisun.tries);
+    shLogHex("TX", (const uint8 *)cmd, len);
+    shLogHex("TX", eol, sizeof(eol));
 }
 
 static void shWisunArm(uint16 delay_ms)
@@ -384,7 +490,9 @@ bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message)
                 memcpy(sh_rx_asm + sh_rx_asm_len, ptr, copy);
                 sh_rx_asm_len = (uint16)(sh_rx_asm_len + copy);
             }
-            shWisunNoteRx(sh_rx_asm, sh_rx_asm_len);
+            shWisunNoteRx(ptr, size);
+            shLogHex("RX", ptr, size);
+            shLogRxShape(ptr, size);
             if (sh_uart_rx_cb)
             {
                 sh_uart_rx_cb(ptr, size, sh_uart_rx_ctx);
