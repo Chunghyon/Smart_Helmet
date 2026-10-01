@@ -1,6 +1,6 @@
 /*!
 \file       smart_helmet_uart.c
-\brief      Wi-SUN UART transport (QCC Stream UART)
+\brief      Wi-SUN UART transport (QCC Stream UART) and WS8856FLS link check
 */
 #ifdef DEBUG
 #define PP_DEBUG_LOG_ON
@@ -26,6 +26,11 @@ static Task sh_uart_task;
 static smart_helmet_uart_rx_cb_t sh_uart_rx_cb;
 static void *sh_uart_rx_ctx;
 
+static smart_helmet_wisun_status_t sh_wisun;
+static uint8 sh_wisun_step;          /* 0 idle, 1 param, 2 ip, 3 done */
+static uint8 sh_rx_asm[SMART_HELMET_WISUN_RX_BUF_SIZE];
+static uint16 sh_rx_asm_len;
+
 static bool shUartMapPio(uint16 pio, pin_function_id fn)
 {
 #if SMART_HELMET_ENABLE_WISUN_UART
@@ -39,11 +44,157 @@ static bool shUartMapPio(uint16 pio, pin_function_id fn)
     return PioSetFunction(pio, fn);
 }
 
+static bool shContainsFold(const uint8 *data, uint16 len, const char *needle)
+{
+    uint16 nlen = 0;
+    uint16 i;
+
+    if (!data || !needle)
+    {
+        return FALSE;
+    }
+    while (needle[nlen] != '\0')
+    {
+        nlen++;
+    }
+    if (!nlen || len < nlen)
+    {
+        return FALSE;
+    }
+    for (i = 0; i + nlen <= len; i++)
+    {
+        uint16 j;
+        bool match = TRUE;
+
+        for (j = 0; j < nlen; j++)
+        {
+            uint8 a = data[i + j];
+            uint8 b = (uint8)needle[j];
+            if (a >= 'A' && a <= 'Z')
+            {
+                a = (uint8)(a - 'A' + 'a');
+            }
+            if (b >= 'A' && b <= 'Z')
+            {
+                b = (uint8)(b - 'A' + 'a');
+            }
+            if (a != b)
+            {
+                match = FALSE;
+                break;
+            }
+        }
+        if (match)
+        {
+            return TRUE;
+        }
+    }
+    return FALSE;
+}
+
+static void shCopyPreview(const uint8 *data, uint16 len)
+{
+    uint16 i;
+    uint16 n = 0;
+
+    for (i = 0; i < len && n + 1 < sizeof(sh_wisun.last_line); i++)
+    {
+        uint8 c = data[i];
+        if (c == '\r' || c == '\n')
+        {
+            if (n)
+            {
+                break;
+            }
+            continue;
+        }
+        sh_wisun.last_line[n++] = (c >= 32 && c < 127) ? (char)c : '.';
+    }
+    sh_wisun.last_line[n] = '\0';
+}
+
+static void shWisunNoteRx(const uint8 *data, uint16 len)
+{
+    if (!data || !len)
+    {
+        return;
+    }
+    sh_wisun.rx_seen = TRUE;
+    shCopyPreview(data, len);
+
+    if (shContainsFold(data, len, "8856") ||
+        shContainsFold(data, len, "ws8856") ||
+        shContainsFold(data, len, "role") ||
+        shContainsFold(data, len, "status") ||
+        shContainsFold(data, len, "phy"))
+    {
+        sh_wisun.module_seen = TRUE;
+    }
+    if (sh_wisun_step == 2 &&
+        (shContainsFold(data, len, ":") || shContainsFold(data, len, "ip")))
+    {
+        sh_wisun.ip_seen = TRUE;
+    }
+}
+
+static void shWisunLogResult(void)
+{
+    if (sh_wisun.module_seen)
+    {
+        sh_wisun.result = smart_helmet_wisun_module_ok;
+        CC_LOGN("SmartHelmet WS8856 UART ok tx=%u rx=%u ip=%u try=%u line=%s",
+                sh_wisun.tx_ok, sh_wisun.rx_seen, sh_wisun.ip_seen,
+                sh_wisun.tries, sh_wisun.last_line);
+    }
+    else if (sh_wisun.rx_seen)
+    {
+        sh_wisun.result = smart_helmet_wisun_rx_unknown;
+        CC_LOGN("SmartHelmet WS8856 UART rx but not CLI tx=%u try=%u line=%s",
+                sh_wisun.tx_ok, sh_wisun.tries, sh_wisun.last_line);
+    }
+    else if (sh_wisun.tx_ok)
+    {
+        sh_wisun.result = smart_helmet_wisun_tx_only;
+        CC_LOGN("SmartHelmet WS8856 UART fail: TX ok, no RX (PIO%u/%u 115200)",
+                SMART_HELMET_WISUN_UART_TX_PIO, SMART_HELMET_WISUN_UART_RX_PIO);
+    }
+    else
+    {
+        sh_wisun.result = smart_helmet_wisun_idle;
+        CC_LOGN("SmartHelmet WS8856 UART fail: TX flush failed");
+    }
+}
+
+static void shWisunSendProbe(const char *cmd)
+{
+    uint16 len = 0;
+    static const uint8 eol[2] = { '\r', '\n' };
+
+    while (cmd[len] != '\0')
+    {
+        len++;
+    }
+    sh_wisun.tx_ok = SmartHelmet_UartSend((const uint8 *)cmd, len) &&
+                     SmartHelmet_UartSend(eol, sizeof(eol));
+    CC_LOGN("SmartHelmet WS8856: send %s tx=%u try=%u",
+            cmd, sh_wisun.tx_ok, sh_wisun.tries);
+}
+
+static void shWisunArm(uint16 delay_ms)
+{
+    if (sh_uart_task)
+    {
+        MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
+        MessageSendLater(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK,
+                         NULL, delay_ms);
+    }
+}
+
 bool SmartHelmet_UartInit(Task client_task)
 {
 #if !SMART_HELMET_ENABLE_WISUN_UART
-	UNUSED(shUartMapPio);
-	sh_uart_task = client_task;
+    UNUSED(shUartMapPio);
+    sh_uart_task = client_task;
     return TRUE;
 #else
     sh_uart_task = client_task;
@@ -79,15 +230,16 @@ bool SmartHelmet_UartInit(Task client_task)
     MessageStreamTaskFromSink(sh_uart_sink, sh_uart_task);
     MessageStreamTaskFromSource(sh_uart_source, sh_uart_task);
 
-	CC_LOGN("SmartHelmet UART: Wi-SUN TX=PIO%u RX=PIO%u ready",
-                   SMART_HELMET_WISUN_UART_TX_PIO,
-                   SMART_HELMET_WISUN_UART_RX_PIO);
+    CC_LOGN("SmartHelmet UART: WS8856FLS TX=PIO%u RX=PIO%u 115200 8N1",
+            SMART_HELMET_WISUN_UART_TX_PIO,
+            SMART_HELMET_WISUN_UART_RX_PIO);
     return TRUE;
 #endif
 }
 
 void SmartHelmet_UartClose(void)
 {
+    SmartHelmet_UartStopVerify();
     sh_uart_sink = 0;
     sh_uart_source = 0;
 }
@@ -126,10 +278,79 @@ bool SmartHelmet_UartSend(const uint8 *data, uint16 len)
     return SinkFlush(sh_uart_sink, len) != 0;
 }
 
+void SmartHelmet_UartStartVerify(void)
+{
+#if !SMART_HELMET_ENABLE_WISUN_UART || !SMART_HELMET_ENABLE_WISUN_LINK_CHECK
+    return;
+#else
+    memset(&sh_wisun, 0, sizeof(sh_wisun));
+    sh_wisun_step = 1;
+    sh_rx_asm_len = 0;
+    CC_LOGN("SmartHelmet WS8856: link check start (param, then ip)");
+    shWisunArm(SMART_HELMET_WISUN_LINK_BOOT_MS);
+#endif
+}
+
+void SmartHelmet_UartStopVerify(void)
+{
+    if (sh_uart_task)
+    {
+        MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
+    }
+    sh_wisun_step = 0;
+}
+
+const smart_helmet_wisun_status_t *SmartHelmet_UartGetStatus(void)
+{
+    return &sh_wisun;
+}
+
+static void shWisunOnTimeout(void)
+{
+#if SMART_HELMET_ENABLE_WISUN_UART && SMART_HELMET_ENABLE_WISUN_LINK_CHECK
+    if (sh_wisun_step == 1)
+    {
+        if (sh_wisun.module_seen)
+        {
+            sh_wisun_step = 2;
+            sh_rx_asm_len = 0;
+            shWisunSendProbe("ip");
+            shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+            return;
+        }
+        if (sh_wisun.tries >= SMART_HELMET_WISUN_LINK_RETRIES)
+        {
+            sh_wisun_step = 3;
+            shWisunLogResult();
+            return;
+        }
+        sh_wisun.tries++;
+        sh_rx_asm_len = 0;
+        shWisunSendProbe("param");
+        shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+        return;
+    }
+
+    if (sh_wisun_step == 2)
+    {
+        sh_wisun_step = 3;
+        shWisunLogResult();
+    }
+#else
+    UNUSED(shWisunSendProbe);
+#endif
+}
+
 bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message)
 {
     UNUSED(task);
     UNUSED(message);
+
+    if (id == SMART_HELMET_WISUN_LINK_CHECK)
+    {
+        shWisunOnTimeout();
+        return TRUE;
+    }
 
     if (id == MESSAGE_MORE_DATA)
     {
@@ -150,13 +371,44 @@ bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message)
             return TRUE;
         }
         ptr = SourceMap(sh_uart_source);
-        if (ptr && sh_uart_rx_cb)
+        if (ptr)
         {
-            sh_uart_rx_cb(ptr, size, sh_uart_rx_ctx);
-        }
-        else if (ptr)
-        {
-            DEBUG_LOG_VERBOSE("SmartHelmet UART: RX %u bytes", size);
+            uint16 copy = size;
+
+            if (sh_rx_asm_len + copy > SMART_HELMET_WISUN_RX_BUF_SIZE)
+            {
+                copy = (uint16)(SMART_HELMET_WISUN_RX_BUF_SIZE - sh_rx_asm_len);
+            }
+            if (copy)
+            {
+                memcpy(sh_rx_asm + sh_rx_asm_len, ptr, copy);
+                sh_rx_asm_len = (uint16)(sh_rx_asm_len + copy);
+            }
+            shWisunNoteRx(sh_rx_asm, sh_rx_asm_len);
+            if (sh_uart_rx_cb)
+            {
+                sh_uart_rx_cb(ptr, size, sh_uart_rx_ctx);
+            }
+            else
+            {
+                CC_LOGN("SmartHelmet UART: RX %u bytes line=%s",
+                        size, sh_wisun.last_line);
+            }
+            if (sh_wisun_step == 1 && sh_wisun.module_seen)
+            {
+                sh_wisun_step = 2;
+                shWisunSendProbe("ip");
+                shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+            }
+            else if (sh_wisun_step == 2 && sh_wisun.ip_seen)
+            {
+                sh_wisun_step = 3;
+                shWisunLogResult();
+                if (sh_uart_task)
+                {
+                    MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
+                }
+            }
         }
         SourceDrop(sh_uart_source, size);
         return TRUE;

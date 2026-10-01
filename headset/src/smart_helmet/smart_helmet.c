@@ -58,14 +58,8 @@ bool SmartHelmet_Init(Task client_task)
     sh_client_task = client_task;
     sh_task_data.handler = smartHelmetTaskHandler;
 
-    /* Prefer dedicated module task for stream/ADC callbacks so headset SM
-     * is not required to forward every message. Client may still call
-     * SmartHelmet_HandleMessage from its own handler if preferred. */
-    Task self = &sh_task_data;
-    if (client_task)
-    {
-        self = client_task;
-    }
+    /* ADC, UART and I2C retry run on the module task so headset SM does not
+     * have to forward stream / timer messages. */
 
     if (!SmartHelmet_I2cInit())
     {
@@ -76,10 +70,14 @@ bool SmartHelmet_Init(Task client_task)
     /* ADC gas + SENS_IN vitals timers on the module task (not headset SM). */
     SmartHelmet_AdcInit(&sh_task_data);
 
-    if (!SmartHelmet_UartInit(self))
+    if (!SmartHelmet_UartInit(&sh_task_data))
     {
         DEBUG_LOG_ERROR("SmartHelmet: UART init failed");
         /* Non-fatal for sensor-only bring-up */
+    }
+    else
+    {
+        SmartHelmet_UartStartVerify();
     }
 
     SmartHelmet_SensorsInit();
@@ -99,6 +97,7 @@ bool SmartHelmet_Init(Task client_task)
 void SmartHelmet_Close(void)
 {
     SmartHelmet_SensorsStopVerify();
+    SmartHelmet_UartStopVerify();
     SmartHelmet_AdcStop();
     SmartHelmet_UartClose();
     SmartHelmet_I2cClose();

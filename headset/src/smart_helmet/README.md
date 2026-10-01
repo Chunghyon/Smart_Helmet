@@ -7,7 +7,7 @@ Schematic reference: `schematic/SMART_HELMET_260816_1.DSN`
 | I2C0 | SCL, SDA | CJMCU-8118 (CCS811), LIS3DH, GY-906-BAA (MLX90614), SSD1315 optional |
 | I2C1 | SCL1, SDA1 | SSD1315 optional |
 | ADC | SENS_IN, CO, NH3, NO2 | Radar IF amp (SENS_IN), MICS-6814 (gas) |
-| UART | TXD, RXD | Wi-SUN module |
+| UART | TXD, RXD | WS8856FLS Wi-SUN (115200 8N1, PIO14/13) |
 
 ## Vitals proxy (not clinical HR)
 

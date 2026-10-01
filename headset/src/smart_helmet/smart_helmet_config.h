@@ -29,7 +29,11 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_ENABLE_ADC            (1)
 #endif
 #ifndef SMART_HELMET_ENABLE_WISUN_UART
-#define SMART_HELMET_ENABLE_WISUN_UART     (0)
+#define SMART_HELMET_ENABLE_WISUN_UART     (1)
+#endif
+/* Query WS8856FLS over UART (param / ip) and log whether the link answers. */
+#ifndef SMART_HELMET_ENABLE_WISUN_LINK_CHECK
+#define SMART_HELMET_ENABLE_WISUN_LINK_CHECK (1)
 #endif
 /* CJMCU-8118 CCS811 (gas) on I2C0 */
 #ifndef SMART_HELMET_ENABLE_CCS811
@@ -128,6 +132,22 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /*! RX assemble buffer */
 #define SMART_HELMET_WISUN_RX_BUF_SIZE     (256)
 #define SMART_HELMET_WISUN_TX_BUF_MIN      (64)
+
+/* WS8856FLS (Silent Smart, same CLI family as WS8854FLS):
+ * text commands, lowercase, terminated by CR LF. No AT+ prefix.
+ *   param  -> role, network status, TX power, PHY
+ *   ip     -> module IPv6
+ * Boot can take tens of seconds before status=5 (online). The check only
+ * proves the UART and that a WS8856-family CLI answered. */
+#ifndef SMART_HELMET_WISUN_LINK_BOOT_MS
+#define SMART_HELMET_WISUN_LINK_BOOT_MS    (800)
+#endif
+#ifndef SMART_HELMET_WISUN_LINK_TIMEOUT_MS
+#define SMART_HELMET_WISUN_LINK_TIMEOUT_MS (1500)
+#endif
+#ifndef SMART_HELMET_WISUN_LINK_RETRIES
+#define SMART_HELMET_WISUN_LINK_RETRIES    (8)
+#endif
 
 /* -------------------------------------------------------------------------- */
 /* Vitals proxy (LIS3DH + PD-V12 / SENS_IN) — trend only, not clinical HR    */
