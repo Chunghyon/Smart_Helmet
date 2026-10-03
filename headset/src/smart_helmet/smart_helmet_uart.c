@@ -109,8 +109,8 @@ static void shLogBytes(const char *tag, const uint8 *data, uint16 len)
     {
         len = 36;
     }
-    /* CC_LOGN formats %s later, so a stack string is already gone.
-     * Print raw bytes as numbers. */
+    /* Host log decoder only ships the argument words. %x is decoded on the PC.
+     * %s of a RAM buffer is not — that pointer is not a firmware string id. */
     while (off < len)
     {
         uint8 b[8];
@@ -125,7 +125,7 @@ static void shLogBytes(const char *tag, const uint8 *data, uint16 len)
         {
             b[i] = (i < n) ? data[off + i] : 0;
         }
-        CC_LOGN("SmartHelmet UART bytes +%u n=%u %u %u %u %u %u %u %u %u",
+        CC_LOGN("SmartHelmet UART bytes +%u n=%u %x %x %x %x %x %x %x %x",
                 off, n, b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7]);
         off = (uint16)(off + n);
     }
@@ -297,7 +297,8 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
     }
     if (shContainsFold(data, len, "udpr"))
     {
-        CC_LOGN("SmartHelmet WS8856: udpr data line=%s", sh_wisun.last_line);
+        CC_LOGN("SmartHelmet WS8856: udpr data");
+        shLogBytes("RX", (const uint8 *)sh_wisun.last_line, 24);
     }
 }
 
@@ -306,15 +307,17 @@ static void shWisunLogResult(void)
     if (sh_wisun.module_seen)
     {
         sh_wisun.result = smart_helmet_wisun_module_ok;
-        CC_LOGN("SmartHelmet WS8856 proto ok tx=%u ip=%u online=%u st=%u try=%u line=%s",
+        CC_LOGN("SmartHelmet WS8856 proto ok tx=%u ip=%u online=%u st=%u try=%u",
                 sh_wisun.tx_ok, sh_wisun.ip_seen, sh_wisun.online,
-                sh_wisun.status_code, sh_wisun.tries, sh_wisun.last_line);
+                sh_wisun.status_code, sh_wisun.tries);
+        shLogBytes("RX", (const uint8 *)sh_wisun.last_line, 24);
     }
     else if (sh_wisun.rx_seen)
     {
         sh_wisun.result = smart_helmet_wisun_rx_unknown;
-        CC_LOGN("SmartHelmet WS8856 UART rx but not CLI tx=%u try=%u line=%s",
-                sh_wisun.tx_ok, sh_wisun.tries, sh_wisun.last_line);
+        CC_LOGN("SmartHelmet WS8856 UART rx but not CLI tx=%u try=%u",
+                sh_wisun.tx_ok, sh_wisun.tries);
+        shLogBytes("RX", (const uint8 *)sh_wisun.last_line, 24);
     }
     else if (sh_wisun.tx_ok)
     {
@@ -344,8 +347,8 @@ static void shWisunSendProbe(const char *cmd)
     /* One flush. A split "param" then CR-LF is parsed as
      * "Command have no CR-LF" / "invalid cmd". */
     sh_wisun.tx_ok = SmartHelmet_UartSend(frame, len);
-    CC_LOGN("SmartHelmet WS8856: send %s tx=%u try=%u baud=115200 8N1",
-            cmd, sh_wisun.tx_ok, sh_wisun.tries);
+    CC_LOGN("SmartHelmet WS8856: send cmd tx=%u try=%u baud=115200 8N1",
+            sh_wisun.tx_ok, sh_wisun.tries);
     shLogBytes("TX", frame, len);
 }
 
@@ -446,13 +449,24 @@ static void shAtFinish(void)
     {
         sh_wisun.result = smart_helmet_wisun_module_ok;
     }
-    CC_LOGN("SmartHelmet AT: done reset=%u mode=%u pass=%u fail=%u at_ok=%u line=%s",
+    CC_LOGN("SmartHelmet AT: done reset=%u mode=%u pass=%u fail=%u at_ok=%u",
             sh_wisun.reset_seen, sh_wisun.at_mode, sh_wisun.at_pass,
-            sh_wisun.at_fail, sh_wisun.at_ok, sh_wisun.last_line);
+            sh_wisun.at_fail, sh_wisun.at_ok);
+    shLogBytes("RX", (const uint8 *)sh_wisun.last_line, 24);
     shWisunLogResult();
     if (sh_uart_task)
     {
         MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
+    }
+}
+
+static void shWisunArm(uint16 delay_ms)
+{
+    if (sh_uart_task)
+    {
+        MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
+        MessageSendLater(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK,
+                         NULL, delay_ms);
     }
 }
 
@@ -484,8 +498,8 @@ static void shLogAsmKeywords(void)
 
 static void shAtNoteResult(bool pass)
 {
-    CC_LOGN("SmartHelmet AT: %s %s line=%s",
-            sh_wisun.at_cmd, pass ? "PASS" : "FAIL", sh_wisun.last_line);
+    CC_LOGN("SmartHelmet AT: result pass=%u", pass);
+    shLogBytes("RX", (const uint8 *)sh_wisun.at_cmd, 8);
     if (pass)
     {
         if (sh_wisun.at_pass < 0xff)
@@ -513,16 +527,6 @@ static void shResetNoteBanner(void)
         CC_LOGN("SmartHelmet AT: Router start (mode=%u) — wait settle",
                 sh_wisun.at_mode);
         shWisunArm(SMART_HELMET_WISUN_REPLY_SETTLE_MS);
-    }
-}
-
-static void shWisunArm(uint16 delay_ms)
-{
-    if (sh_uart_task)
-    {
-        MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
-        MessageSendLater(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK,
-                         NULL, delay_ms);
     }
 }
 
@@ -746,8 +750,7 @@ bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message)
             }
             else
             {
-                CC_LOGN("SmartHelmet UART: RX %u bytes line=%s",
-                        size, sh_wisun.last_line);
+                CC_LOGN("SmartHelmet UART: RX %u bytes", size);
             }
             if (sh_wisun_step == SH_STEP_RESET)
             {
