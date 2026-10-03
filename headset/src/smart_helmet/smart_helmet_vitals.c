@@ -6,7 +6,7 @@ SENS_IN primary. Peak detect gives beat intervals; FFT finds dominant
 frequency in ~0.8–3 Hz. Both are proxies, not clinical HR.
 */
 #ifdef DEBUG
-#define PP_DEBUG_LOG_ON
+#define PP_DEBUG_LOG_ONx
 #endif
 
 #include "smart_helmet_config.h"

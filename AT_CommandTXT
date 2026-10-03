@@ -1,0 +1,26 @@
+[+++]: AT mode switched to the transmission mode
+[ping]: Send an ICMP packet,ping <ipv6> [len]
+[param]: read wi-sun parameters
+[clear]: Restore to factory settings
+[save]: Save the parameter to flash
+[clrst]: Restore to factory and Reboot
+[svrst]: Save the parameter and Reboot
+[reset]: Software Reboot
+[version]: Read the software and hardware versions
+[netname]: Configure and read Wi-SUN network names
+[cca]: Configure and read CCA (Clear Channel Assesment) of PHY
+[txpower]: Configure and read RF transmitting power
+[pan]: Configure and read Wi-SUN network PanId
+[mac]: Configure and read MAC address
+[domain]: Configure and read wi-sun domain region 1-NA 2-JP 3-EU 7-BZ
+[chrate]: Configure and read Wireless rate
+[chconfig]: Read the current value for PHY settings
+[ip]: read IPV6 address
+[udpopts]: UDP options Configure
+[udps]: UDP data transmission udps <ip> <data>
+[fstat]: read fan status(the network connection status)
+[role]: read fan role(router:2 border router:1)
+[neighbor]: Read neighbor devices
+[exit]: Exit command mode and enter transfer mode
+[at_save]: Save parameters in transmission mode
+[at_dest]: Configure the destination address in transmission mode

@@ -352,6 +352,10 @@ extern void debugLogData(const uint8 *data, uint16 data_size);
 #define UNUSED8(a,b,c,d,e,f,g,h,i)      (void)(a),UNUSED7(b,c,d,e,f,g,h,i)
 #define UNUSED9(a,b,c,d,e,f,g,h,i,j)    (void)(a),UNUSED8(b,c,d,e,f,g,h,i,j)
 #define UNUSED10(a,b,c,d,e,f,g,h,i,j,k) (void)(a),UNUSED9(b,c,d,e,f,g,h,i,j,k)
+#define UNUSED11(a,b,c,d,e,f,g,h,i,j,k,l) (void)(a),UNUSED10(b,c,d,e,f,g,h,i,j,k,l)
+#define UNUSED12(a,b,c,d,e,f,g,h,i,j,k,l,m) (void)(a),UNUSED11(b,c,d,e,f,g,h,i,j,k,l,m)
+#define UNUSED13(a,b,c,d,e,f,g,h,i,j,k,l,m,n) (void)(a),UNUSED12(b,c,d,e,f,g,h,i,j,k,l,m,n)
+#define UNUSED14(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o) (void)(a),UNUSED13(b,c,d,e,f,g,h,i,j,k,l,m,n,o)
 
 #define ALL_UNUSED_IMPL_(nargs) UNUSED ## nargs
 #define ALL_UNUSED_IMPL(nargs) ALL_UNUSED_IMPL_(nargs)
