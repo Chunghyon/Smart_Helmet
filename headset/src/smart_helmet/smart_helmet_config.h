@@ -50,7 +50,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /* LIS3DH on I2C0. Set to 0 while the part is depopulated or holding
  * SCL/SDA low; set back to 1 after the accelerometer is remounted. */
 #ifndef SMART_HELMET_ENABLE_LIS3DH
-#define SMART_HELMET_ENABLE_LIS3DH         (1)
+#define SMART_HELMET_ENABLE_LIS3DH         (0)
 #endif
 /*! LIS3DH output data rate selector (CTRL_REG1 ODR field, 0x5 = 100 Hz). */
 #ifndef SMART_HELMET_LIS3DH_ODR_SEL
@@ -167,6 +167,20 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #ifndef SMART_HELMET_WISUN_REPLY_SETTLE_MS
 #define SMART_HELMET_WISUN_REPLY_SETTLE_MS (400)
 #endif
+
+/* Join profile of the live border/router (param dump 2026-10-03).
+ * MAC and IPv6 stay device-unique and are never written. */
+#ifndef SMART_HELMET_WISUN_PROVISION
+#define SMART_HELMET_WISUN_PROVISION       (1)
+#endif
+#define SMART_HELMET_WISUN_NETNAME         "ws_wisun_net"
+#define SMART_HELMET_WISUN_PAN_HEX         "abcd"
+#define SMART_HELMET_WISUN_DOMAIN          "1"
+#define SMART_HELMET_WISUN_CHRATE_KBPS     "50"
+#define SMART_HELMET_WISUN_CLASS           "1"
+#define SMART_HELMET_WISUN_TXPOWER_DBM     "20"
+#define SMART_HELMET_WISUN_CCA_DBM         "-83"
+#define SMART_HELMET_WISUN_UDP_PORT        "1234"
 
 /* -------------------------------------------------------------------------- */
 /* Vitals proxy (LIS3DH + PD-V12 / SENS_IN) — trend only, not clinical HR    */
