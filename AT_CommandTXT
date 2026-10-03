@@ -1,4 +1,5 @@
-[+++]: AT mode switched to the transmission mode
+[+++]: Switch to passthrough mode in AT command mode
+[exit]: Switch to AT mode in passthrough mode
 [ping]: Send an ICMP packet,ping <ipv6> [len]
 [param]: read wi-sun parameters
 [clear]: Restore to factory settings
@@ -21,6 +22,5 @@
 [fstat]: read fan status(the network connection status)
 [role]: read fan role(router:2 border router:1)
 [neighbor]: Read neighbor devices
-[exit]: Exit command mode and enter transfer mode
 [at_save]: Save parameters in transmission mode
 [at_dest]: Configure the destination address in transmission mode
