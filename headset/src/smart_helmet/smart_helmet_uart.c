@@ -100,6 +100,7 @@ static uint16 sh_rx_prev_len;
 
 /* External so the debugger can read the last UART line. CC_LOGN %s uses this. */
 char rx_str[48];
+char rx_array[8][48];
 
 static uint8 sh_rx_line[96];
 static uint16 sh_rx_line_len;
@@ -107,6 +108,7 @@ static uint16 sh_rx_line_len;
 static void shLogAscii(const uint8 *data, uint16 len)
 {
     uint16 off = 0;
+    static int idx_array = 0;
 
     if (!data || !len)
     {
@@ -127,8 +129,13 @@ static void shLogAscii(const uint8 *data, uint16 len)
             rx_str[i] = (b >= 32 && b < 127) ? (char)b : '.';
         }
         rx_str[n] = '\0';
-        CC_LOGN("SmartHelmet UART %s", rx_str);
+        CC_LOGN("strlen1(rx_str) : %d", strlen(rx_str));
+        CC_LOGDATA((uint8*)rx_str, n);
+        memcpy(rx_array[idx_array], rx_str, n+1);
+        CC_LOGN("UART RX : %s, %s", rx_array[idx_array], rx_str);
         off = (uint16)(off + n);
+        idx_array = (idx_array+1) % 8;
+        CC_LOGN("strlen2(rx_str) : %d", strlen(rx_str));
     }
 }
 
