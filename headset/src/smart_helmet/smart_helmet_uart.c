@@ -98,6 +98,12 @@ static bool shContainsFold(const uint8 *data, uint16 len, const char *needle)
 static uint8 sh_rx_prev[48];
 static uint16 sh_rx_prev_len;
 
+/* External so the debugger can read the last UART line. CC_LOGN %s uses this. */
+char rx_str[48];
+
+static uint8 sh_rx_line[96];
+static uint16 sh_rx_line_len;
+
 static void shLogAscii(const uint8 *data, uint16 len)
 {
     uint16 off = 0;
@@ -106,41 +112,62 @@ static void shLogAscii(const uint8 *data, uint16 len)
     {
         return;
     }
-    if (len > 48)
-    {
-        len = 48;
-    }
-    /* %s of RAM is decoded as a firmware string id and prints garbage.
-     * %c is an argument word, so the host shows the character. */
     while (off < len)
     {
-        char c[8];
         uint16 i;
         uint16 n = (uint16)(len - off);
 
-        if (n > 8)
+        if (n > sizeof(rx_str) - 1)
         {
-            n = 8;
+            n = (uint16)(sizeof(rx_str) - 1);
         }
-        for (i = 0; i < 8; i++)
+        for (i = 0; i < n; i++)
         {
-            uint8 b = (i < n) ? data[off + i] : (uint8)' ';
-            if (b == '\r' || b == '\n')
-            {
-                c[i] = '|';
-            }
-            else if (b >= 32 && b < 127)
-            {
-                c[i] = (char)b;
-            }
-            else
-            {
-                c[i] = '.';
-            }
+            uint8 b = data[off + i];
+            rx_str[i] = (b >= 32 && b < 127) ? (char)b : '.';
         }
-        CC_LOGN("SmartHelmet UART %c%c%c%c%c%c%c%c",
-                c[0], c[1], c[2], c[3], c[4], c[5], c[6], c[7]);
+        rx_str[n] = '\0';
+        CC_LOGN("SmartHelmet UART %s", rx_str);
         off = (uint16)(off + n);
+    }
+}
+
+static void shRxLineFlush(void)
+{
+    if (!sh_rx_line_len)
+    {
+        return;
+    }
+    shLogAscii(sh_rx_line, sh_rx_line_len);
+    sh_rx_line_len = 0;
+}
+
+static void shRxLinePush(const uint8 *data, uint16 len)
+{
+    uint16 i;
+
+    if (!data || !len)
+    {
+        return;
+    }
+    for (i = 0; i < len; i++)
+    {
+        uint8 b = data[i];
+
+        if (b == '\n')
+        {
+            shRxLineFlush();
+            continue;
+        }
+        if (b == '\r')
+        {
+            continue;
+        }
+        if (sh_rx_line_len >= sizeof(sh_rx_line))
+        {
+            shRxLineFlush();
+        }
+        sh_rx_line[sh_rx_line_len++] = b;
     }
 }
 
@@ -876,7 +903,7 @@ static void shUartConsume(const uint8 *ptr, uint16 size)
     }
     shWisunNoteRx(ptr, size);
     //CC_LOGN("SmartHelmet UART RX %u", size);
-    shLogAscii(ptr, size);
+    shRxLinePush(ptr, size);
     shLogRxShape(ptr, size);
     if (sh_uart_rx_cb)
     {

@@ -12,6 +12,9 @@
 
 typedef void (*smart_helmet_uart_rx_cb_t)(const uint8 *data, uint16 len, void *ctx);
 
+/*! Last UART line copied for CC_LOGN %s. Not a firmware string literal. */
+extern char rx_str[48];
+
 /*! \brief Configure PIO mux and open Stream UART. */
 bool SmartHelmet_UartInit(Task client_task);
 
