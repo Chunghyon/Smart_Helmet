@@ -167,6 +167,10 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #ifndef SMART_HELMET_WISUN_REPLY_SETTLE_MS
 #define SMART_HELMET_WISUN_REPLY_SETTLE_MS (400)
 #endif
+/* Drain the UART source even if MORE_DATA was missed. */
+#ifndef SMART_HELMET_WISUN_RX_POLL_MS
+#define SMART_HELMET_WISUN_RX_POLL_MS      (50)
+#endif
 
 /* Join profile of the live border/router (param dump 2026-10-03).
  * MAC and IPv6 stay device-unique and are never written. */

@@ -31,7 +31,9 @@ bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message);
 enum
 {
     /*! WS8856FLS UART identity / link retry. */
-    SMART_HELMET_WISUN_LINK_CHECK = 0x5200
+    SMART_HELMET_WISUN_LINK_CHECK = 0x5200,
+    /*! Periodic UART source drain. Logs RX with %c, not %s. */
+    SMART_HELMET_WISUN_RX_POLL = 0x5201
 };
 
 typedef enum
