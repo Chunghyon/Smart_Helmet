@@ -1,26 +1,36 @@
-[+++]: Switch to passthrough mode in AT command mode
-[exit]: Switch to AT mode in passthrough mode
-[ping]: Send an ICMP packet,ping <ipv6> [len]
-[param]: read wi-sun parameters
-[clear]: Restore to factory settings
-[save]: Save the parameter to flash
-[clrst]: Restore to factory and Reboot
-[svrst]: Save the parameter and Reboot
-[reset]: Software Reboot
-[version]: Read the software and hardware versions
-[netname]: Configure and read Wi-SUN network names
-[cca]: Configure and read CCA (Clear Channel Assesment) of PHY
-[txpower]: Configure and read RF transmitting power
-[pan]: Configure and read Wi-SUN network PanId
-[mac]: Configure and read MAC address
-[domain]: Configure and read wi-sun domain region 1-NA 2-JP 3-EU 7-BZ
-[chrate]: Configure and read Wireless rate
-[chconfig]: Read the current value for PHY settings
-[ip]: read IPV6 address
-[udpopts]: UDP options Configure
-[udps]: UDP data transmission udps <ip> <data>
-[fstat]: read fan status(the network connection status)
-[role]: read fan role(router:2 border router:1)
-[neighbor]: Read neighbor devices
-[at_save]: Save parameters in transmission mode
-[at_dest]: Configure the destination address in transmission mode
+WS8856FLS commands. PDF WS8856FLS_InstructionManual_EN_v1.2 overrides AT_CommandTXT.
+Format: name param1 param2 CR LF. No parameter = query. Space between name and parameter.
+
+save                         save to flash, reply ok
+clear                        factory reset, reply ok
+help                         list commands
+reset                        reboot now, reply OK
+reset <sec>                  reboot after 1-3600 s
+svrst                        save and reboot
+clrst                        factory reset and reboot
+param                        query role, state, name, mac, pan, ipv6, tx, cca, phy, udp
+role                         net role:1 border, net role:2 router
+netname <name>               set 1-32 chars. query: Network name:<name>
+                             default name is Wi-SUN Network
+pan <id>                     border only, 0x0001-0xfffe. router is fixed 0xffff
+ip                           Ipv6 address:<local>(local) <global>(global)
+mac                          query mac:<address>
+mac <address>                set 64-bit mac. do not duplicate
+udpopts <opt> <para>         opt: udp_port, broadcast, multicast, disp_source
+udpopts                      query udp_port, broadcast, multicast, disp_source
+udps <ipv6> <data>           UDP send, ASCII up to 1480
+fstat                        state 1 ready, 2 auth, 3 FAN, 4 routing, 5 joined
+chrate <rate>                50 100 150 200 300 kbps. class follows this, no class command
+domain <id>                  1 NA, 2 JP, 3 EU, 7 BZ
+chconfig                     query only: domain rate class chbase chspace chnum
++++                          enter passthrough
+at_save                      save passthrough settings
+at_dest <ipv6>               passthrough destination
+exit                         leave passthrough
+ping <ipv6> [len]            ICMP, default 40 bytes, max 1480
+txpower <dbm>                query txpower:<power>, set range 14 to 20
+cca <dbm>                    query CCA threshold:<dbm>, set range -60 to -100
+connum                       border only, connected node count
+conlist                      border only, connected ipv6 list
+routpath <ipv6>              border only, path
+neighbor                     current neighbors number:<num> then mac list

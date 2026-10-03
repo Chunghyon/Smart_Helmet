@@ -107,8 +107,8 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /* -------------------------------------------------------------------------- */
 #define SMART_HELMET_ADC_SENS_IN           (adcsel_led4)  /* SENS_IN */
 #define SMART_HELMET_ADC_CO                (adcsel_led0)  /* CO (MICS-6814) */
-#define SMART_HELMET_ADC_NH3               (adcsel_led1)  /* NH3 */
-#define SMART_HELMET_ADC_NO2               (adcsel_led2)  /* NO2 */
+#define SMART_HELMET_ADC_NH3               (adcsel_led1)  /* NH3 (MICS-6814) */
+#define SMART_HELMET_ADC_NO2               (adcsel_led2)  /* NO2 (MICS-6814) */
 
 /*! Extra settling time after enabling sensor bias (ms), if any */
 #define SMART_HELMET_ADC_SETTLE_MS         (5)
@@ -172,12 +172,14 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_RX_POLL_MS      (50)
 #endif
 
-/* Join profile of the live border/router (param dump 2026-10-03).
- * MAC and IPv6 stay device-unique and are never written. */
+/* Join profile from the live router param, syntax from
+ * WS8856FLS_InstructionManual_EN_v1.2.pdf (overrides AT_CommandTXT).
+ * Router PAN stays 0xffff (PDF 2.11). class is not a set command.
+ * udpopts is "udpopts udp_port <port>". MAC and IPv6 are not written. */
 #ifndef SMART_HELMET_WISUN_PROVISION
 #define SMART_HELMET_WISUN_PROVISION       (1)
 #endif
-#define SMART_HELMET_WISUN_NETNAME         "ws_wisun_net"
+#define SMART_HELMET_WISUN_NETNAME         "SmartHelmetWisun"
 #define SMART_HELMET_WISUN_PAN_HEX         "abcd"
 #define SMART_HELMET_WISUN_DOMAIN          "1"
 #define SMART_HELMET_WISUN_CHRATE_KBPS     "50"

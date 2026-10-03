@@ -132,7 +132,7 @@ static void shLogAscii(const uint8 *data, uint16 len)
 #ifdef DEBUG
         CC_LOGN("str len : %d", strlen(rx_str));
         CC_LOGDATA((uint8*)rx_str, n);
-        DEBUG_PRINT("UART RX : %s\n", rx_str);
+        DEBUG_PRINT("UART : %s\n", rx_str);
 #endif
 
         off = (uint16)(off + n);
@@ -145,6 +145,7 @@ static void shRxLineFlush(void)
     {
         return;
     }
+    CC_LOGN("%s", __func__);
     shLogAscii(sh_rx_line, sh_rx_line_len);
     sh_rx_line_len = 0;
 }
@@ -294,7 +295,8 @@ static void shNoteStatus(const uint8 *data, uint16 len)
 
     for (i = 0; i + 6 < len; i++)
     {
-        if (shContainsFold(data + i, (uint16)(len - i), "status"))
+        if (shContainsFold(data + i, (uint16)(len - i), "state") ||
+            shContainsFold(data + i, (uint16)(len - i), "status"))
         {
             uint16 j = (uint16)(i + 6);
             while (j < len && (data[j] < '0' || data[j] > '9'))
@@ -394,8 +396,8 @@ static void shWisunSendProbe(const char *cmd)
     /* One flush. A split "param" then CR-LF is parsed as
      * "Command have no CR-LF" / "invalid cmd". */
     sh_wisun.tx_ok = SmartHelmet_UartSend(frame, len);
-    CC_LOGN("SmartHelmet WS8856: send cmd tx=%u try=%u baud=115200 8N1",
-            sh_wisun.tx_ok, sh_wisun.tries);
+    //CC_LOGN("SmartHelmet WS8856: send cmd tx=%u try=%u baud=115200 8N1", sh_wisun.tx_ok, sh_wisun.tries);
+    CC_LOGN("UART TX");
     shLogAscii(frame, len);
 }
 
@@ -407,8 +409,8 @@ static const struct
 } sh_at_cmds[] =
 {
     { "version",  0 },
-    { "role",     "router" },
-    { "param",    "status" },
+    { "role",     "role:" },
+    { "param",    "state" },
     { "mac",      ":" },
     { "ip",       0 },
     { "fstat",    0 },
@@ -464,8 +466,9 @@ static void shProvPlan(void)
     {
         shProvQueue("netname " SMART_HELMET_WISUN_NETNAME);
     }
-    if (!shAsmHas("0x" SMART_HELMET_WISUN_PAN_HEX) &&
-        !shAsmHas("0X" SMART_HELMET_WISUN_PAN_HEX))
+    /* PDF 2.11: only the border router sets PAN. A router is fixed at 0xffff. */
+    if (shAsmHas("border") &&
+        !shAsmHas("0x" SMART_HELMET_WISUN_PAN_HEX))
     {
         shProvQueue("pan 0x" SMART_HELMET_WISUN_PAN_HEX);
     }
@@ -474,16 +477,13 @@ static void shProvPlan(void)
     {
         shProvQueue("domain " SMART_HELMET_WISUN_DOMAIN);
     }
+    /* PDF 2.17: chrate selects the PHY. class is query-only via chconfig. */
     if (!shAsmHas("rate=" SMART_HELMET_WISUN_CHRATE_KBPS "kbps") &&
         !shAsmHas("rate:" SMART_HELMET_WISUN_CHRATE_KBPS))
     {
         shProvQueue("chrate " SMART_HELMET_WISUN_CHRATE_KBPS);
     }
-    if (!shAsmHas("class=" SMART_HELMET_WISUN_CLASS))
-    {
-        shProvQueue("class " SMART_HELMET_WISUN_CLASS);
-    }
-    if (!shAsmHas("20dbm") && !shAsmHas(": 20"))
+    if (!shAsmHas("20dbm") && !shAsmHas("txpower:20") && !shAsmHas(": 20"))
     {
         shProvQueue("txpower " SMART_HELMET_WISUN_TXPOWER_DBM);
     }
@@ -491,10 +491,10 @@ static void shProvPlan(void)
     {
         shProvQueue("cca " SMART_HELMET_WISUN_CCA_DBM);
     }
-    if (!shAsmHas("udp_port=" SMART_HELMET_WISUN_UDP_PORT) &&
-        !shAsmHas("ud<p_port=" SMART_HELMET_WISUN_UDP_PORT))
+    /* PDF 2.14: udpopts <opt> <para>, not a bare port. */
+    if (!shAsmHas("udp_port=" SMART_HELMET_WISUN_UDP_PORT))
     {
-        shProvQueue("udpopts " SMART_HELMET_WISUN_UDP_PORT);
+        shProvQueue("udpopts udp_port " SMART_HELMET_WISUN_UDP_PORT);
     }
     CC_LOGN("SmartHelmet AT provision fixes=%u asm=%u",
             sh_prov_n, sh_rx_asm_len);
@@ -557,7 +557,10 @@ static bool shAtReplyOk(void)
     }
     if (!strcmp(cmd, "role"))
     {
-        return shContainsFold(sh_rx_asm, sh_rx_asm_len, "router") ||
+        /* PDF 2.9: "net role:1" border, "net role:2" router. */
+        return shContainsFold(sh_rx_asm, sh_rx_asm_len, "role:1") ||
+               shContainsFold(sh_rx_asm, sh_rx_asm_len, "role:2") ||
+               shContainsFold(sh_rx_asm, sh_rx_asm_len, "router") ||
                shContainsFold(sh_rx_asm, sh_rx_asm_len, "border");
     }
     if (expect && !shContainsFold((const uint8 *)cmd, (uint16)strlen(cmd), expect))
