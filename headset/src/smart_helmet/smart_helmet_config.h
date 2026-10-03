@@ -130,7 +130,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_UART_BAUD       (VM_UART_RATE_115K2)
 
 /*! RX assemble buffer */
-#define SMART_HELMET_WISUN_RX_BUF_SIZE     (256)
+#define SMART_HELMET_WISUN_RX_BUF_SIZE     (512)
 #define SMART_HELMET_WISUN_TX_BUF_MIN      (64)
 
 /* WS8856FLS (Silent Smart, same CLI family as WS8854FLS):
@@ -161,6 +161,11 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 #ifndef SMART_HELMET_WISUN_RESET_RETRIES
 #define SMART_HELMET_WISUN_RESET_RETRIES   (2)
+#endif
+/* param/ip replies arrive in several UART chunks. Wait this long after the
+ * last byte before judging or sending the next command. */
+#ifndef SMART_HELMET_WISUN_REPLY_SETTLE_MS
+#define SMART_HELMET_WISUN_REPLY_SETTLE_MS (400)
 #endif
 
 /* -------------------------------------------------------------------------- */

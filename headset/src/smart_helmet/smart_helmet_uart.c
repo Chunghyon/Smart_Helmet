@@ -237,7 +237,8 @@ static bool shIpv6Like(const uint8 *data, uint16 len)
             hex++;
         }
     }
-    return colons >= 2 && hex >= 4;
+    return colons >= 2 && hex >= 4 &&
+           shContainsFold(data, len, "fe80");
 }
 
 static void shNoteStatus(const uint8 *data, uint16 len)
@@ -469,6 +470,18 @@ static void shAtSendCurrent(void)
     shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
 }
 
+static void shLogAsmKeywords(void)
+{
+    CC_LOGN("SmartHelmet AT asm n=%u inv=%u ok=%u role=%u sta=%u ip=%u rst=%u",
+            sh_rx_asm_len,
+            shContainsFold(sh_rx_asm, sh_rx_asm_len, "invalid"),
+            shContainsFold(sh_rx_asm, sh_rx_asm_len, "ok"),
+            shContainsFold(sh_rx_asm, sh_rx_asm_len, "router"),
+            shContainsFold(sh_rx_asm, sh_rx_asm_len, "status"),
+            shIpv6Like(sh_rx_asm, sh_rx_asm_len),
+            shContainsFold(sh_rx_asm, sh_rx_asm_len, "Router start"));
+}
+
 static void shAtNoteResult(bool pass)
 {
     CC_LOGN("SmartHelmet AT: %s %s line=%s",
@@ -497,10 +510,9 @@ static void shResetNoteBanner(void)
     if (shContainsFold(sh_rx_asm, sh_rx_asm_len, "Router start"))
     {
         sh_wisun.reset_seen = TRUE;
-        CC_LOGN("SmartHelmet AT: Router start (mode=%u) — probing AT_CommandTXT",
+        CC_LOGN("SmartHelmet AT: Router start (mode=%u) — wait settle",
                 sh_wisun.at_mode);
-        sh_at_idx = 0;
-        shAtSendCurrent();
+        shWisunArm(SMART_HELMET_WISUN_REPLY_SETTLE_MS);
     }
 }
 
@@ -643,6 +655,8 @@ static void shWisunOnTimeout(void)
     {
         if (sh_wisun.reset_seen)
         {
+            sh_at_idx = 0;
+            shAtSendCurrent();
             return;
         }
         if (sh_wisun.tries == 0)
@@ -671,6 +685,8 @@ static void shWisunOnTimeout(void)
 
     if (sh_wisun_step == SH_STEP_CMD)
     {
+        shNoteStatus(sh_rx_asm, sh_rx_asm_len);
+        shLogAsmKeywords();
         shAtNoteResult(shAtReplyOk());
     }
 #else
@@ -736,10 +752,15 @@ bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message)
             if (sh_wisun_step == SH_STEP_RESET)
             {
                 shResetNoteBanner();
+                if (!sh_wisun.reset_seen)
+                {
+                    shWisunArm(SMART_HELMET_WISUN_RESET_WAIT_MS);
+                }
             }
-            else if (sh_wisun_step == SH_STEP_CMD && shAtReplyOk())
+            else if (sh_wisun_step == SH_STEP_CMD)
             {
-                shAtNoteResult(TRUE);
+                /* param comes in many chunks; do not send the next command yet. */
+                shWisunArm(SMART_HELMET_WISUN_REPLY_SETTLE_MS);
             }
         }
         SourceDrop(sh_uart_source, size);
