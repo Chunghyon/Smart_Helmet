@@ -8,7 +8,7 @@
 */
 
 #ifdef DEBUG
-#define PP_DEBUG_LOG_ONx
+#define PP_DEBUG_LOG_ON
 #endif
 
 #include <hfp.h>
@@ -220,6 +220,7 @@ int main(void)
 
     MessageSend((Task)&appInitTask, MSG_APP_INIT_START, NULL);
 
+    CC_LOGN("MessageLoop started");
     /* Start the message scheduler loop */
     MessageLoop();
 

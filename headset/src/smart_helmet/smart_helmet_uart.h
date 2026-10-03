@@ -50,12 +50,18 @@ typedef struct
     bool   module_seen;   /* Silent Smart CLI: role/status/phy/8856 */
     bool   ip_seen;       /* IPv6 from ip command, not a lone colon */
     bool   online;        /* param status field is 5 (routing node up) */
+    bool   reset_seen;    /* boot banner contained "Router start" */
+    bool   at_mode;       /* boot banner contained "AT Command mode" */
+    bool   at_ok;         /* every probed read command from AT_CommandTXT passed */
+    uint8  at_pass;
+    uint8  at_fail;
     uint8  status_code;   /* 0xFF if no status digit yet */
     uint8  tries;
+    char   at_cmd[12];    /* command in flight, or last finished */
     char   last_line[48];
 } smart_helmet_wisun_status_t;
 
-/*! \brief Send param/ip and log whether WS8856FLS answers. No-op if UART off. */
+/*! \brief reset, wait for "Router start", then probe read commands from AT_CommandTXT. */
 void SmartHelmet_UartStartVerify(void);
 
 /*! \brief Cancel a pending link-check timer. */

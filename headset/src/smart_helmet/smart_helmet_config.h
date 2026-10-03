@@ -50,7 +50,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /* LIS3DH on I2C0. Set to 0 while the part is depopulated or holding
  * SCL/SDA low; set back to 1 after the accelerometer is remounted. */
 #ifndef SMART_HELMET_ENABLE_LIS3DH
-#define SMART_HELMET_ENABLE_LIS3DH         (0)
+#define SMART_HELMET_ENABLE_LIS3DH         (1)
 #endif
 /*! LIS3DH output data rate selector (CTRL_REG1 ODR field, 0x5 = 100 Hz). */
 #ifndef SMART_HELMET_LIS3DH_ODR_SEL
@@ -147,6 +147,20 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 #ifndef SMART_HELMET_WISUN_LINK_RETRIES
 #define SMART_HELMET_WISUN_LINK_RETRIES    (8)
+#endif
+
+/* AT_CommandTXT (repo root): lowercase CLI, CR LF, no AT+ prefix.
+ * Bring-up sends reset, waits for "Router start", then probes read commands
+ * only (version/role/param/mac/ip/fstat/domain/cca/txpower/pan/chrate/
+ * chconfig/neighbor). clear/clrst/save/svrst/exit/udps/ping are not sent. */
+#ifndef SMART_HELMET_WISUN_AT_RESET_FIRST
+#define SMART_HELMET_WISUN_AT_RESET_FIRST  (1)
+#endif
+#ifndef SMART_HELMET_WISUN_RESET_WAIT_MS
+#define SMART_HELMET_WISUN_RESET_WAIT_MS   (20000)
+#endif
+#ifndef SMART_HELMET_WISUN_RESET_RETRIES
+#define SMART_HELMET_WISUN_RESET_RETRIES   (2)
 #endif
 
 /* -------------------------------------------------------------------------- */

@@ -27,7 +27,8 @@ static smart_helmet_uart_rx_cb_t sh_uart_rx_cb;
 static void *sh_uart_rx_ctx;
 
 static smart_helmet_wisun_status_t sh_wisun;
-static uint8 sh_wisun_step;          /* 0 idle, 1 param, 2 ip, 3 done */
+static uint8 sh_wisun_step;          /* 0 idle, 1 reset wait, 2 AT cmd, 3 done */
+static uint8 sh_at_idx;
 static uint8 sh_rx_asm[SMART_HELMET_WISUN_RX_BUF_SIZE];
 static uint16 sh_rx_asm_len;
 
@@ -347,6 +348,162 @@ static void shWisunSendProbe(const char *cmd)
     shLogBytes("TX", frame, len);
 }
 
+/* Read-only probes from AT_CommandTXT. expect=NULL accepts any non-invalid reply. */
+static const struct
+{
+    const char *cmd;
+    const char *expect;
+} sh_at_cmds[] =
+{
+    { "version",  0 },
+    { "role",     "router" },
+    { "param",    "status" },
+    { "mac",      ":" },
+    { "ip",       0 },
+    { "fstat",    0 },
+    { "domain",   0 },
+    { "cca",      0 },
+    { "txpower",  0 },
+    { "pan",      0 },
+    { "chrate",   0 },
+    { "chconfig", 0 },
+    { "neighbor", 0 }
+};
+
+#define SH_AT_CMD_COUNT  ((uint8)(sizeof(sh_at_cmds) / sizeof(sh_at_cmds[0])))
+#define SH_STEP_RESET    (1)
+#define SH_STEP_CMD      (2)
+#define SH_STEP_DONE     (3)
+
+static void shAtCopyCmd(const char *cmd)
+{
+    uint8 i = 0;
+
+    while (cmd[i] != '\0' && i + 1 < sizeof(sh_wisun.at_cmd))
+    {
+        sh_wisun.at_cmd[i] = cmd[i];
+        i++;
+    }
+    sh_wisun.at_cmd[i] = '\0';
+}
+
+static bool shAtReplyOk(void)
+{
+    const char *cmd = sh_at_cmds[sh_at_idx].cmd;
+    const char *expect = sh_at_cmds[sh_at_idx].expect;
+    uint16 i;
+    uint16 printable = 0;
+    uint16 cmd_len = 0;
+
+    if (sh_at_idx >= SH_AT_CMD_COUNT)
+    {
+        return FALSE;
+    }
+    if (shContainsFold(sh_rx_asm, sh_rx_asm_len, "invalid"))
+    {
+        return FALSE;
+    }
+    /* WS8856 answers "<OK" before or with the payload. Echo alone is not enough. */
+    if (shContainsFold(sh_rx_asm, sh_rx_asm_len, "ok"))
+    {
+        return TRUE;
+    }
+    if (!strcmp(cmd, "ip"))
+    {
+        return shIpv6Like(sh_rx_asm, sh_rx_asm_len);
+    }
+    if (!strcmp(cmd, "role"))
+    {
+        return shContainsFold(sh_rx_asm, sh_rx_asm_len, "router") ||
+               shContainsFold(sh_rx_asm, sh_rx_asm_len, "border");
+    }
+    if (expect && !shContainsFold((const uint8 *)cmd, (uint16)strlen(cmd), expect))
+    {
+        return shContainsFold(sh_rx_asm, sh_rx_asm_len, expect);
+    }
+    while (cmd[cmd_len] != '\0')
+    {
+        cmd_len++;
+    }
+    for (i = 0; i < sh_rx_asm_len; i++)
+    {
+        uint8 c = sh_rx_asm[i];
+        if (c >= 32 && c < 127)
+        {
+            printable++;
+        }
+    }
+    return printable > (uint16)(cmd_len + 2);
+}
+
+static void shAtFinish(void)
+{
+    sh_wisun_step = SH_STEP_DONE;
+    sh_wisun.at_ok = (sh_wisun.at_fail == 0 && sh_wisun.at_pass > 0 &&
+                      (!SMART_HELMET_WISUN_AT_RESET_FIRST || sh_wisun.reset_seen));
+    if (sh_wisun.at_ok || sh_wisun.module_seen)
+    {
+        sh_wisun.result = smart_helmet_wisun_module_ok;
+    }
+    CC_LOGN("SmartHelmet AT: done reset=%u mode=%u pass=%u fail=%u at_ok=%u line=%s",
+            sh_wisun.reset_seen, sh_wisun.at_mode, sh_wisun.at_pass,
+            sh_wisun.at_fail, sh_wisun.at_ok, sh_wisun.last_line);
+    shWisunLogResult();
+    if (sh_uart_task)
+    {
+        MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
+    }
+}
+
+static void shAtSendCurrent(void)
+{
+    if (sh_at_idx >= SH_AT_CMD_COUNT)
+    {
+        shAtFinish();
+        return;
+    }
+    sh_rx_asm_len = 0;
+    shAtCopyCmd(sh_at_cmds[sh_at_idx].cmd);
+    sh_wisun_step = SH_STEP_CMD;
+    shWisunSendProbe(sh_at_cmds[sh_at_idx].cmd);
+    shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+}
+
+static void shAtNoteResult(bool pass)
+{
+    CC_LOGN("SmartHelmet AT: %s %s line=%s",
+            sh_wisun.at_cmd, pass ? "PASS" : "FAIL", sh_wisun.last_line);
+    if (pass)
+    {
+        if (sh_wisun.at_pass < 0xff)
+        {
+            sh_wisun.at_pass++;
+        }
+    }
+    else if (sh_wisun.at_fail < 0xff)
+    {
+        sh_wisun.at_fail++;
+    }
+    sh_at_idx++;
+    shAtSendCurrent();
+}
+
+static void shResetNoteBanner(void)
+{
+    if (shContainsFold(sh_rx_asm, sh_rx_asm_len, "AT Command mode"))
+    {
+        sh_wisun.at_mode = TRUE;
+    }
+    if (shContainsFold(sh_rx_asm, sh_rx_asm_len, "Router start"))
+    {
+        sh_wisun.reset_seen = TRUE;
+        CC_LOGN("SmartHelmet AT: Router start (mode=%u) — probing AT_CommandTXT",
+                sh_wisun.at_mode);
+        sh_at_idx = 0;
+        shAtSendCurrent();
+    }
+}
+
 static void shWisunArm(uint16 delay_ms)
 {
     if (sh_uart_task)
@@ -452,10 +609,16 @@ void SmartHelmet_UartStartVerify(void)
 #else
     memset(&sh_wisun, 0, sizeof(sh_wisun));
     sh_wisun.status_code = 0xFF;
-    sh_wisun_step = 1;
+    sh_at_idx = 0;
     sh_rx_asm_len = 0;
-    CC_LOGN("SmartHelmet WS8856: link check start (param, then ip)");
-    shWisunArm(SMART_HELMET_WISUN_LINK_BOOT_MS);
+#if SMART_HELMET_WISUN_AT_RESET_FIRST
+    sh_wisun_step = SH_STEP_RESET;
+    CC_LOGN("SmartHelmet AT: reset, then wait for Router start");
+    shWisunArm(200);
+#else
+    CC_LOGN("SmartHelmet AT: skip reset, probe AT_CommandTXT");
+    shAtSendCurrent();
+#endif
 #endif
 }
 
@@ -476,33 +639,39 @@ const smart_helmet_wisun_status_t *SmartHelmet_UartGetStatus(void)
 static void shWisunOnTimeout(void)
 {
 #if SMART_HELMET_ENABLE_WISUN_UART && SMART_HELMET_ENABLE_WISUN_LINK_CHECK
-    if (sh_wisun_step == 1)
+    if (sh_wisun_step == SH_STEP_RESET)
     {
-        if (sh_wisun.module_seen)
+        if (sh_wisun.reset_seen)
         {
-            sh_wisun_step = 2;
+            return;
+        }
+        if (sh_wisun.tries == 0)
+        {
+            sh_wisun.tries = 1;
             sh_rx_asm_len = 0;
-            shWisunSendProbe("ip");
-            shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+            shWisunSendProbe("reset");
+            shWisunArm(SMART_HELMET_WISUN_RESET_WAIT_MS);
             return;
         }
-        if (sh_wisun.tries >= SMART_HELMET_WISUN_LINK_RETRIES)
+        if (sh_wisun.tries < SMART_HELMET_WISUN_RESET_RETRIES)
         {
-            sh_wisun_step = 3;
-            shWisunLogResult();
+            sh_wisun.tries++;
+            CC_LOGN("SmartHelmet AT: no Router start, reset retry %u",
+                    sh_wisun.tries);
+            sh_rx_asm_len = 0;
+            shWisunSendProbe("reset");
+            shWisunArm(SMART_HELMET_WISUN_RESET_WAIT_MS);
             return;
         }
-        sh_wisun.tries++;
-        sh_rx_asm_len = 0;
-        shWisunSendProbe("param");
-        shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+        CC_LOGN("SmartHelmet AT: FAIL no Router start after reset");
+        sh_wisun.at_fail++;
+        shAtFinish();
         return;
     }
 
-    if (sh_wisun_step == 2)
+    if (sh_wisun_step == SH_STEP_CMD)
     {
-        sh_wisun_step = 3;
-        shWisunLogResult();
+        shAtNoteResult(shAtReplyOk());
     }
 #else
     UNUSED(shWisunSendProbe);
@@ -564,20 +733,13 @@ bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message)
                 CC_LOGN("SmartHelmet UART: RX %u bytes line=%s",
                         size, sh_wisun.last_line);
             }
-            if (sh_wisun_step == 1 && sh_wisun.module_seen)
+            if (sh_wisun_step == SH_STEP_RESET)
             {
-                sh_wisun_step = 2;
-                shWisunSendProbe("ip");
-                shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+                shResetNoteBanner();
             }
-            else if (sh_wisun_step == 2 && sh_wisun.ip_seen)
+            else if (sh_wisun_step == SH_STEP_CMD && shAtReplyOk())
             {
-                sh_wisun_step = 3;
-                shWisunLogResult();
-                if (sh_uart_task)
-                {
-                    MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
-                }
+                shAtNoteResult(TRUE);
             }
         }
         SourceDrop(sh_uart_source, size);
