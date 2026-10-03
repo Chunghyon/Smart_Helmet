@@ -20,6 +20,8 @@
 
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
+static void shWisunArm(uint16 delay_ms);
+
 static Sink sh_uart_sink;
 static Source sh_uart_source;
 static Task sh_uart_task;
@@ -110,7 +112,7 @@ static void shLogBytes(const char *tag, const uint8 *data, uint16 len)
         len = 36;
     }
     /* Host log decoder only ships the argument words. %x is decoded on the PC.
-     * %s of a RAM buffer is not — that pointer is not a firmware string id. */
+     * %s of a RAM buffer is not: that pointer is not a firmware string id. */
     while (off < len)
     {
         uint8 b[8];
@@ -460,16 +462,6 @@ static void shAtFinish(void)
     }
 }
 
-static void shWisunArm(uint16 delay_ms)
-{
-    if (sh_uart_task)
-    {
-        MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
-        MessageSendLater(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK,
-                         NULL, delay_ms);
-    }
-}
-
 static void shAtSendCurrent(void)
 {
     if (sh_at_idx >= SH_AT_CMD_COUNT)
@@ -524,9 +516,19 @@ static void shResetNoteBanner(void)
     if (shContainsFold(sh_rx_asm, sh_rx_asm_len, "Router start"))
     {
         sh_wisun.reset_seen = TRUE;
-        CC_LOGN("SmartHelmet AT: Router start (mode=%u) — wait settle",
+        CC_LOGN("SmartHelmet AT: Router start (mode=%u) - wait settle",
                 sh_wisun.at_mode);
         shWisunArm(SMART_HELMET_WISUN_REPLY_SETTLE_MS);
+    }
+}
+
+static void shWisunArm(uint16 delay_ms)
+{
+    if (sh_uart_task)
+    {
+        MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
+        MessageSendLater(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK,
+                         NULL, delay_ms);
     }
 }
 

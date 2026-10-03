@@ -220,7 +220,7 @@ int main(void)
 
     MessageSend((Task)&appInitTask, MSG_APP_INIT_START, NULL);
 
-    CC_LOGN("MessageLoop started1");
+    CC_LOGN("MessageLoop started2");
     /* Start the message scheduler loop */
     MessageLoop();
 
