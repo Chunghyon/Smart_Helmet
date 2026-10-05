@@ -110,6 +110,10 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_ADC_CO                (adcsel_led0)  /* CO (MICS-6814) */
 #define SMART_HELMET_ADC_NH3               (adcsel_led1)  /* NH3 (MICS-6814) */
 #define SMART_HELMET_ADC_NO2               (adcsel_led2)  /* NO2 (MICS-6814) */
+/* MiCS-6814 divider supply. Rs = RL*(Vcc-Vadc)/Vadc. First reading is R0. */
+#ifndef SMART_HELMET_MICS_VCC_MV
+#define SMART_HELMET_MICS_VCC_MV           (3300)
+#endif
 
 /*! Extra settling time after enabling sensor bias (ms), if any */
 #define SMART_HELMET_ADC_SETTLE_MS         (5)

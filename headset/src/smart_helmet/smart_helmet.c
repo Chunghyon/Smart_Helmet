@@ -226,6 +226,65 @@ static uint16 shAppendX100(char *dst, uint16 n, uint16 max, int16 v)
     return shAppendU(dst, n, max, (uint16)(mag % 10));
 }
 
+/* MiCS-6814: RED/NH3 Rs falls with ppm, OX/NO2 Rs rises. First ADC is R0. */
+static uint16 sh_gas_r0_mv[3];
+
+static uint16 shGasRatioX100(uint16 mv, uint16 r0)
+{
+    uint32 rs;
+    uint32 rs0;
+
+    if (mv < 50 || mv >= SMART_HELMET_MICS_VCC_MV ||
+        r0 < 50 || r0 >= SMART_HELMET_MICS_VCC_MV)
+    {
+        return 100;
+    }
+    rs = ((uint32)(SMART_HELMET_MICS_VCC_MV - mv) * 1000u) / mv;
+    rs0 = ((uint32)(SMART_HELMET_MICS_VCC_MV - r0) * 1000u) / r0;
+    if (rs0 == 0)
+    {
+        return 100;
+    }
+    return (uint16)((rs * 100u) / rs0);
+}
+
+static uint16 shCoPpm(uint16 ratio_x100)
+{
+    if (ratio_x100 >= 80) return 1;
+    if (ratio_x100 >= 40) return 10;
+    if (ratio_x100 >= 20) return 40;
+    if (ratio_x100 >= 10) return 120;
+    if (ratio_x100 >= 5) return 400;
+    return 1000;
+}
+
+static uint16 shNh3Ppm(uint16 ratio_x100)
+{
+    if (ratio_x100 >= 80) return 1;
+    if (ratio_x100 >= 40) return 15;
+    if (ratio_x100 >= 20) return 60;
+    if (ratio_x100 >= 10) return 180;
+    return 500;
+}
+
+static uint16 shNo2PpmX100(uint16 ratio_x100)
+{
+    if (ratio_x100 <= 120) return 5;
+    if (ratio_x100 <= 200) return 25;
+    if (ratio_x100 <= 400) return 100;
+    if (ratio_x100 <= 800) return 400;
+    return 1000;
+}
+
+static uint16 shGasValue(uint8 ch, uint16 mv)
+{
+    if (sh_gas_r0_mv[ch] == 0 && mv >= 50 && mv < SMART_HELMET_MICS_VCC_MV)
+    {
+        sh_gas_r0_mv[ch] = mv;
+    }
+    return shGasRatioX100(mv, sh_gas_r0_mv[ch] ? sh_gas_r0_mv[ch] : mv);
+}
+
 void SmartHelmet_ReportStart(void)
 {
     char line[192];
@@ -282,6 +341,7 @@ void SmartHelmet_ReportStart(void)
     else
     {
         n = shAppendX100(line, n, sizeof(line), s->object_temp_x100);
+        n = shAppend(line, n, sizeof(line), "C");
     }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\namb:");
@@ -296,6 +356,7 @@ void SmartHelmet_ReportStart(void)
     else
     {
         n = shAppendX100(line, n, sizeof(line), s->hdc_temp_x100);
+        n = shAppend(line, n, sizeof(line), "C");
     }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nrh:");
@@ -310,6 +371,7 @@ void SmartHelmet_ReportStart(void)
     else
     {
         n = shAppendX100(line, n, sizeof(line), (int16)s->hdc_humidity_x100);
+        n = shAppend(line, n, sizeof(line), "%");
     }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nvoc:");
@@ -323,28 +385,41 @@ void SmartHelmet_ReportStart(void)
     else
     {
         n = shAppendU(line, n, sizeof(line), s->ccs811_tvoc);
+        n = shAppend(line, n, sizeof(line), "ppb");
     }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nco:");
 #if !SMART_HELMET_ENABLE_ADC
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
-    n = shAppendU(line, n, sizeof(line),
-                  adc ? adc->millivolts[smart_helmet_adc_co] : 0);
+    {
+        uint16 mv = adc ? adc->millivolts[smart_helmet_adc_co] : 0;
+        uint16 ratio = shGasValue(0, mv);
+        n = shAppendU(line, n, sizeof(line), shCoPpm(ratio));
+        n = shAppend(line, n, sizeof(line), "ppm");
+    }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nnh3:");
 #if !SMART_HELMET_ENABLE_ADC
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
-    n = shAppendU(line, n, sizeof(line),
-                  adc ? adc->millivolts[smart_helmet_adc_nh3] : 0);
+    {
+        uint16 mv = adc ? adc->millivolts[smart_helmet_adc_nh3] : 0;
+        uint16 ratio = shGasValue(1, mv);
+        n = shAppendU(line, n, sizeof(line), shNh3Ppm(ratio));
+        n = shAppend(line, n, sizeof(line), "ppm");
+    }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nno2:");
 #if !SMART_HELMET_ENABLE_ADC
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
-    n = shAppendU(line, n, sizeof(line),
-                  adc ? adc->millivolts[smart_helmet_adc_no2] : 0);
+    {
+        uint16 mv = adc ? adc->millivolts[smart_helmet_adc_no2] : 0;
+        uint16 ratio = shGasValue(2, mv);
+        n = shAppendX100(line, n, sizeof(line), (int16)shNo2PpmX100(ratio));
+        n = shAppend(line, n, sizeof(line), "ppm");
+    }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\n");
     (void)SmartHelmet_UartSend((const uint8 *)line, n);
