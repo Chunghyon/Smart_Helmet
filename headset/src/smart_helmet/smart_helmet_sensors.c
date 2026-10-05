@@ -958,40 +958,43 @@ void SmartHelmet_SensorsPoll(void)
 #if SMART_HELMET_ENABLE_HDC1080
     if (sh_sensors.hdc1080_ok)
     {
-        uint16 raw_t = 0;
-        uint16 raw_h = 0;
         uint8 reg = HDC1080_REG_TEMP;
+        uint8 sample[4] = {0};
+        uint8 second[4] = {0};
 
-        /* Point at temperature, then wait out the 14-bit conversion. */
+        /* Config 0x1000 measures temp+humidity together. A 2-byte read of
+         * 0x00 does not finish that conversion, so temperature stayed 0. */
         if (SmartHelmet_I2cWrite(smart_helmet_i2c_bus_0,
                                  SMART_HELMET_ADDR_HDC1080, &reg, 1))
         {
             uint32 start = SystemClockGetTimerTime();
-            while ((uint32)(SystemClockGetTimerTime() - start) < 8000u)
+            while ((uint32)(SystemClockGetTimerTime() - start) < 20000u)
             {
             }
             if (SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
-                                    SMART_HELMET_ADDR_HDC1080, buf, 2))
+                                    SMART_HELMET_ADDR_HDC1080, sample, 4))
             {
-                raw_t = ((uint16)buf[0] << 8) | buf[1];
-                sh_sensors.hdc_temp_x100 =
-                    (int16)(((int32)raw_t * 16500) / 65536 - 4000);
-            }
-        }
-        reg = HDC1080_REG_HUMIDITY;
-        if (SmartHelmet_I2cWrite(smart_helmet_i2c_bus_0,
-                                 SMART_HELMET_ADDR_HDC1080, &reg, 1))
-        {
-            uint32 start = SystemClockGetTimerTime();
-            while ((uint32)(SystemClockGetTimerTime() - start) < 8000u)
-            {
-            }
-            if (SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
-                                    SMART_HELMET_ADDR_HDC1080, buf, 2))
-            {
-                raw_h = ((uint16)buf[0] << 8) | buf[1];
-                sh_sensors.hdc_humidity_x100 =
-                    (uint16)(((uint32)raw_h * 10000u) / 65536u);
+                /* Pointer result is one transfer late on this Bitserial path. */
+                if (SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
+                                        SMART_HELMET_ADDR_HDC1080, second, 4))
+                {
+                    sample[0] = second[0];
+                    sample[1] = second[1];
+                    sample[2] = second[2];
+                    sample[3] = second[3];
+                }
+                if (sample[0] || sample[1])
+                {
+                    uint16 raw_t = ((uint16)sample[0] << 8) | sample[1];
+                    sh_sensors.hdc_temp_x100 =
+                        (int16)(((int32)raw_t * 16500) / 65536 - 4000);
+                }
+                if (sample[2] || sample[3])
+                {
+                    uint16 raw_h = ((uint16)sample[2] << 8) | sample[3];
+                    sh_sensors.hdc_humidity_x100 =
+                        (uint16)(((uint32)raw_h * 10000u) / 65536u);
+                }
             }
         }
     }
