@@ -234,9 +234,8 @@ void SmartHelmet_ReportStart(void)
     const smart_helmet_vitals_status_t *v = SmartHelmet_VitalsGetStatus();
     const smart_helmet_adc_sample_t *adc = SmartHelmet_AdcGetLastSample();
 
-    UNUSED(s);
-
-    n = shAppend(line, n, sizeof(line), "motion:");
+    SmartHelmet_SensorsPoll();
+    n = shAppend(line, n, sizeof(line), "\r\nmotion:");
 #if !SMART_HELMET_ENABLE_LIS3DH
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
@@ -276,27 +275,55 @@ void SmartHelmet_ReportStart(void)
     n = shAppend(line, n, sizeof(line), "Disabled");
     UNUSED(shAppendX100);
 #else
-    n = shAppendX100(line, n, sizeof(line), s ? s->object_temp_x100 : 0);
+    if (!s || !s->mlx90614_ok)
+    {
+        n = shAppend(line, n, sizeof(line), "na");
+    }
+    else
+    {
+        n = shAppendX100(line, n, sizeof(line), s->object_temp_x100);
+    }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\namb:");
 #if !SMART_HELMET_ENABLE_HDC1080
     n = shAppend(line, n, sizeof(line), "Disabled");
     UNUSED(shAppendX100);
 #else
-    n = shAppendX100(line, n, sizeof(line), s ? s->hdc_temp_x100 : 0);
+    if (!s || !s->hdc1080_ok)
+    {
+        n = shAppend(line, n, sizeof(line), "na");
+    }
+    else
+    {
+        n = shAppendX100(line, n, sizeof(line), s->hdc_temp_x100);
+    }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nrh:");
 #if !SMART_HELMET_ENABLE_HDC1080
     n = shAppend(line, n, sizeof(line), "Disabled");
     UNUSED(shAppendX100);
 #else
-    n = shAppendX100(line, n, sizeof(line), s ? (int16)s->hdc_humidity_x100 : 0);
+    if (!s || !s->hdc1080_ok)
+    {
+        n = shAppend(line, n, sizeof(line), "na");
+    }
+    else
+    {
+        n = shAppendX100(line, n, sizeof(line), (int16)s->hdc_humidity_x100);
+    }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nvoc:");
 #if !SMART_HELMET_ENABLE_CCS811
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
-    n = shAppendU(line, n, sizeof(line), s ? s->ccs811_tvoc : 0);
+    if (!s || !s->ccs811_ok)
+    {
+        n = shAppend(line, n, sizeof(line), "na");
+    }
+    else
+    {
+        n = shAppendU(line, n, sizeof(line), s->ccs811_tvoc);
+    }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nco:");
 #if !SMART_HELMET_ENABLE_ADC

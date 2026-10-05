@@ -17,6 +17,7 @@ SSD1315     = 128x64 OLED on I2C1 (or I2C0) — probe, init, splash
 
 #include <message.h>
 #include <logging.h>
+#include <system_clock.h>
 
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
@@ -888,6 +889,10 @@ void SmartHelmet_SensorsPoll(void)
     {
         if (SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
                                    SMART_HELMET_ADDR_CCS811,
+                                   CCS811_REG_STATUS, buf, 1) &&
+            (buf[0] & 0x08) &&
+            SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                   SMART_HELMET_ADDR_CCS811,
                                    CCS811_REG_ALG_RESULT, buf, 4))
         {
             sh_sensors.ccs811_eco2 = ((uint16)buf[0] << 8) | buf[1];
@@ -947,6 +952,48 @@ void SmartHelmet_SensorsPoll(void)
             sh_sensors.lis3dh_z = shLis3dhRawToMg(buf[4], buf[5]);
         }
 #endif
+    }
+#endif
+
+#if SMART_HELMET_ENABLE_HDC1080
+    if (sh_sensors.hdc1080_ok)
+    {
+        uint16 raw_t = 0;
+        uint16 raw_h = 0;
+        uint8 reg = HDC1080_REG_TEMP;
+
+        /* Point at temperature, then wait out the 14-bit conversion. */
+        if (SmartHelmet_I2cWrite(smart_helmet_i2c_bus_0,
+                                 SMART_HELMET_ADDR_HDC1080, &reg, 1))
+        {
+            uint32 start = SystemClockGetTimerTime();
+            while ((uint32)(SystemClockGetTimerTime() - start) < 8000u)
+            {
+            }
+            if (SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
+                                    SMART_HELMET_ADDR_HDC1080, buf, 2))
+            {
+                raw_t = ((uint16)buf[0] << 8) | buf[1];
+                sh_sensors.hdc_temp_x100 =
+                    (int16)(((int32)raw_t * 16500) / 65536 - 4000);
+            }
+        }
+        reg = HDC1080_REG_HUMIDITY;
+        if (SmartHelmet_I2cWrite(smart_helmet_i2c_bus_0,
+                                 SMART_HELMET_ADDR_HDC1080, &reg, 1))
+        {
+            uint32 start = SystemClockGetTimerTime();
+            while ((uint32)(SystemClockGetTimerTime() - start) < 8000u)
+            {
+            }
+            if (SmartHelmet_I2cRead(smart_helmet_i2c_bus_0,
+                                    SMART_HELMET_ADDR_HDC1080, buf, 2))
+            {
+                raw_h = ((uint16)buf[0] << 8) | buf[1];
+                sh_sensors.hdc_humidity_x100 =
+                    (uint16)(((uint32)raw_h * 10000u) / 65536u);
+            }
+        }
     }
 #endif
 
