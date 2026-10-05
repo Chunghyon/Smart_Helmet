@@ -37,21 +37,26 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 /* CJMCU-8118 CCS811 (gas) on I2C0 */
 #ifndef SMART_HELMET_ENABLE_CCS811
-#define SMART_HELMET_ENABLE_CCS811         (0)
+#define SMART_HELMET_ENABLE_CCS811         (1)
 #endif
 /* CJMCU-8118 HDC1080 (temp/RH) on I2C0 */
 #ifndef SMART_HELMET_ENABLE_HDC1080
-#define SMART_HELMET_ENABLE_HDC1080        (0)
+#define SMART_HELMET_ENABLE_HDC1080        (1)
 #endif
 /* GY-906-BAA = MLX90614 IR thermometer on I2C0 */
 #ifndef SMART_HELMET_ENABLE_MLX90614
-#define SMART_HELMET_ENABLE_MLX90614       (0)
+#define SMART_HELMET_ENABLE_MLX90614       (1)
 #endif
 /* LIS3DH on I2C0. Set to 0 while the part is depopulated or holding
  * SCL/SDA low; set back to 1 after the accelerometer is remounted. */
 #ifndef SMART_HELMET_ENABLE_LIS3DH
-#define SMART_HELMET_ENABLE_LIS3DH         (0)
+#define SMART_HELMET_ENABLE_LIS3DH         (1)
 #endif
+/* SSD1315 128x64 OLED. 1 = probe + splash on I2C1 (default). */
+#ifndef SMART_HELMET_ENABLE_SSD1315
+#define SMART_HELMET_ENABLE_SSD1315        (0)
+#endif
+
 /*! LIS3DH output data rate selector (CTRL_REG1 ODR field, 0x5 = 100 Hz). */
 #ifndef SMART_HELMET_LIS3DH_ODR_SEL
 #define SMART_HELMET_LIS3DH_ODR_SEL        (0x5)
@@ -59,10 +64,6 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /*! LIS3DH full scale in g: 2, 4, 8 or 16. Sets CTRL_REG4 FS and mg/LSB. */
 #ifndef SMART_HELMET_LIS3DH_FS_G
 #define SMART_HELMET_LIS3DH_FS_G           (2)
-#endif
-/* SSD1315 128x64 OLED. 1 = probe + splash on I2C1 (default). */
-#ifndef SMART_HELMET_ENABLE_SSD1315
-#define SMART_HELMET_ENABLE_SSD1315        (0)
 #endif
 /*! Put SSD1315 on I2C1 when 1, else share I2C0 */
 #ifndef SMART_HELMET_SSD1315_ON_I2C1
@@ -187,6 +188,18 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_TXPOWER_DBM     "20"
 #define SMART_HELMET_WISUN_CCA_DBM         "-83"
 #define SMART_HELMET_WISUN_UDP_PORT        "1234"
+
+/* Passthrough report to the border router. PDF: +++ enters passthrough,
+ * at_dest sets the destination. Multicast is the live network UDP group. */
+#ifndef SMART_HELMET_ENABLE_WISUN_REPORT
+#define SMART_HELMET_ENABLE_WISUN_REPORT    (1)
+#endif
+#ifndef SMART_HELMET_WISUN_REPORT_MS
+#define SMART_HELMET_WISUN_REPORT_MS       (5000)
+#endif
+#define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"
+/* LIS3DH residual RMS above this (mg) counts as a fall / sudden move. */
+#define SMART_HELMET_FALL_RMS_MG           (1200)
 
 /* -------------------------------------------------------------------------- */
 /* Vitals proxy (LIS3DH + PD-V12 / SENS_IN) — trend only, not clinical HR    */

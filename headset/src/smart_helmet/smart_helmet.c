@@ -13,6 +13,7 @@
 
 #include <message.h>
 #include <logging.h>
+#include <string.h>
 
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
@@ -42,6 +43,11 @@ static void smartHelmetTelemetrySink(const char *line, uint16 len, void *ctx)
 
 static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
 {
+    if (id == SMART_HELMET_REPORT_TICK)
+    {
+        SmartHelmet_ReportStart();
+        return;
+    }
     if (SmartHelmet_SensorsHandleMessage(task, id, message))
     {
         return;
@@ -98,6 +104,7 @@ void SmartHelmet_Close(void)
 {
     SmartHelmet_SensorsStopVerify();
     SmartHelmet_UartStopVerify();
+    MessageCancelAll(&sh_task_data, SMART_HELMET_REPORT_TICK);
     SmartHelmet_AdcStop();
     SmartHelmet_UartClose();
     SmartHelmet_I2cClose();
@@ -167,4 +174,153 @@ void SmartHelmet_VitalsTick(void)
 bool SmartHelmet_WisunSend(const uint8 *data, uint16 len)
 {
     return SmartHelmet_UartSend(data, len);
+}
+
+static uint16 shAppend(char *dst, uint16 n, uint16 max, const char *s)
+{
+    while (*s && n + 1 < max)
+    {
+        dst[n++] = *s++;
+    }
+    dst[n] = '\0';
+    return n;
+}
+
+static uint16 shAppendU(char *dst, uint16 n, uint16 max, uint16 v)
+{
+    char tmp[6];
+    uint8 i = 0;
+
+    if (v == 0)
+    {
+        return shAppend(dst, n, max, "0");
+    }
+    while (v && i < sizeof(tmp))
+    {
+        tmp[i++] = (char)('0' + (v % 10));
+        v = (uint16)(v / 10);
+    }
+    while (i && n + 1 < max)
+    {
+        dst[n++] = tmp[--i];
+    }
+    dst[n] = '\0';
+    return n;
+}
+
+static uint16 shAppendX100(char *dst, uint16 n, uint16 max, int16 v)
+{
+    uint16 mag;
+    if (v < 0)
+    {
+        n = shAppend(dst, n, max, "-");
+        mag = (uint16)(-v);
+    }
+    else
+    {
+        mag = (uint16)v;
+    }
+    n = shAppendU(dst, n, max, (uint16)(mag / 100));
+    n = shAppend(dst, n, max, ".");
+    n = shAppendU(dst, n, max, (uint16)((mag / 10) % 10));
+    return shAppendU(dst, n, max, (uint16)(mag % 10));
+}
+
+void SmartHelmet_ReportStart(void)
+{
+    char line[192];
+    uint16 n = 0;
+    const smart_helmet_sensor_data_t *s = SmartHelmet_SensorsGetData();
+    const smart_helmet_vitals_status_t *v = SmartHelmet_VitalsGetStatus();
+    const smart_helmet_adc_sample_t *adc = SmartHelmet_AdcGetLastSample();
+
+    UNUSED(s);
+
+    n = shAppend(line, n, sizeof(line), "motion:");
+#if !SMART_HELMET_ENABLE_LIS3DH
+    n = shAppend(line, n, sizeof(line), "Disabled");
+#else
+    n = shAppend(line, n, sizeof(line),
+                 (v && v->motion == smart_helmet_motion_active) ? "moving" : "still");
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\nfall:");
+#if !SMART_HELMET_ENABLE_LIS3DH
+    n = shAppend(line, n, sizeof(line), "Disabled");
+#else
+    n = shAppend(line, n, sizeof(line),
+                 (v && v->motion_rms_mg >= SMART_HELMET_FALL_RMS_MG) ? "yes" : "no");
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\npulse:");
+#if !SMART_HELMET_ENABLE_VITALS_PROXY
+    n = shAppend(line, n, sizeof(line), "Disabled");
+#else
+    if (!v || !v->valid)
+    {
+        n = shAppend(line, n, sizeof(line), "unknown");
+    }
+    else if (v->trend == smart_helmet_trend_rising)
+    {
+        n = shAppend(line, n, sizeof(line), "rising");
+    }
+    else if (v->trend == smart_helmet_trend_falling)
+    {
+        n = shAppend(line, n, sizeof(line), "falling");
+    }
+    else
+    {
+        n = shAppend(line, n, sizeof(line), "stable");
+    }
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\nbody:");
+#if !SMART_HELMET_ENABLE_MLX90614
+    n = shAppend(line, n, sizeof(line), "Disabled");
+    UNUSED(shAppendX100);
+#else
+    n = shAppendX100(line, n, sizeof(line), s ? s->object_temp_x100 : 0);
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\namb:");
+#if !SMART_HELMET_ENABLE_HDC1080
+    n = shAppend(line, n, sizeof(line), "Disabled");
+    UNUSED(shAppendX100);
+#else
+    n = shAppendX100(line, n, sizeof(line), s ? s->hdc_temp_x100 : 0);
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\nrh:");
+#if !SMART_HELMET_ENABLE_HDC1080
+    n = shAppend(line, n, sizeof(line), "Disabled");
+    UNUSED(shAppendX100);
+#else
+    n = shAppendX100(line, n, sizeof(line), s ? (int16)s->hdc_humidity_x100 : 0);
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\nvoc:");
+#if !SMART_HELMET_ENABLE_CCS811
+    n = shAppend(line, n, sizeof(line), "Disabled");
+#else
+    n = shAppendU(line, n, sizeof(line), s ? s->ccs811_tvoc : 0);
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\nco:");
+#if !SMART_HELMET_ENABLE_ADC
+    n = shAppend(line, n, sizeof(line), "Disabled");
+#else
+    n = shAppendU(line, n, sizeof(line),
+                  adc ? adc->millivolts[smart_helmet_adc_co] : 0);
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\nnh3:");
+#if !SMART_HELMET_ENABLE_ADC
+    n = shAppend(line, n, sizeof(line), "Disabled");
+#else
+    n = shAppendU(line, n, sizeof(line),
+                  adc ? adc->millivolts[smart_helmet_adc_nh3] : 0);
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\nno2:");
+#if !SMART_HELMET_ENABLE_ADC
+    n = shAppend(line, n, sizeof(line), "Disabled");
+#else
+    n = shAppendU(line, n, sizeof(line),
+                  adc ? adc->millivolts[smart_helmet_adc_no2] : 0);
+#endif
+    n = shAppend(line, n, sizeof(line), "\r\n");
+    (void)SmartHelmet_UartSend((const uint8 *)line, n);
+    MessageSendLater(&sh_task_data, SMART_HELMET_REPORT_TICK, NULL,
+                     SMART_HELMET_WISUN_REPORT_MS);
 }

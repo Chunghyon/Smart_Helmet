@@ -41,4 +41,12 @@ bool SmartHelmet_WisunSend(const uint8 *data, uint16 len);
 /*! \brief Run vitals proxy once (after accel/SENS samples were pushed). */
 void SmartHelmet_VitalsTick(void);
 
+/*! \brief Start the 5 s passthrough report. Called after +++ is accepted. */
+void SmartHelmet_ReportStart(void);
+
+enum
+{
+    SMART_HELMET_REPORT_TICK = 0x5300
+};
+
 #endif /* SMART_HELMET_H */

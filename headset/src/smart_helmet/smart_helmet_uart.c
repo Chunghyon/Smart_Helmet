@@ -19,6 +19,8 @@
 #include <string.h>
 #include <logging.h>
 
+void SmartHelmet_ReportStart(void);
+
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
 static void shWisunArm(uint16 delay_ms);
@@ -600,6 +602,13 @@ static void shAtFinish(void)
     {
         MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
     }
+#if SMART_HELMET_ENABLE_WISUN_REPORT
+    sh_wisun_step = 6;
+    sh_rx_asm_len = 0;
+    CC_LOGN("SmartHelmet AT: at_dest then passthrough");
+    shWisunSendProbe("at_dest " SMART_HELMET_WISUN_BR_ADDR);
+    shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+#endif
 }
 
 static void shAtSendCurrent(void)
@@ -884,6 +893,22 @@ static void shWisunOnTimeout(void)
         }
         sh_prov_i++;
         shProvSendCurrent();
+        return;
+    }
+
+    if (sh_wisun_step == 6)
+    {
+        sh_wisun_step = 7;
+        sh_rx_asm_len = 0;
+        CC_LOGN("SmartHelmet AT: enter passthrough");
+        shWisunSendProbe("+++");
+        shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+        return;
+    }
+    if (sh_wisun_step == 7)
+    {
+        sh_wisun_step = SH_STEP_DONE;
+        SmartHelmet_ReportStart();
         return;
     }
 
