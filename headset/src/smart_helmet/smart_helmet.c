@@ -10,6 +10,7 @@
 #include "smart_helmet_config.h"
 #include "smart_helmet_sensors.h"
 #include "smart_helmet_vitals.h"
+#include "smart_helmet_uart.h"
 
 #include <message.h>
 #include <logging.h>
@@ -61,6 +62,12 @@ static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
 
 bool SmartHelmet_Init(Task client_task)
 {
+    /* SystemState_PowerOn runs the init table again. The module is still
+     * up in passthrough; close so the next verify sends exit before reset. */
+    if (sh_ready)
+    {
+        SmartHelmet_Close();
+    }
     sh_client_task = client_task;
     sh_task_data.handler = smartHelmetTaskHandler;
 
@@ -100,12 +107,17 @@ bool SmartHelmet_Init(Task client_task)
     return TRUE;
 }
 
+void SmartHelmet_ReportStop(void)
+{
+    MessageCancelAll(&sh_task_data, SMART_HELMET_REPORT_TICK);
+}
+
 void SmartHelmet_Close(void)
 {
     SmartHelmet_SensorsStopVerify();
-    SmartHelmet_UartStopVerify();
-    MessageCancelAll(&sh_task_data, SMART_HELMET_REPORT_TICK);
+    SmartHelmet_ReportStop();
     SmartHelmet_AdcStop();
+    /* UartClose sends exit while the sink is still open. */
     SmartHelmet_UartClose();
     SmartHelmet_I2cClose();
     sh_ready = FALSE;
@@ -285,16 +297,58 @@ static uint16 shGasValue(uint8 ch, uint16 mv)
     return shGasRatioX100(mv, sh_gas_r0_mv[ch] ? sh_gas_r0_mv[ch] : mv);
 }
 
+static void shSendReportLines(const char *line, uint16 n)
+{
+    uint16 i = 0;
+
+    while (i < n)
+    {
+        char frame[40];
+        uint16 fn = 0;
+
+        while (i < n && (line[i] == '\r' || line[i] == '\n'))
+        {
+            i++;
+        }
+        while (i < n && line[i] != '\r' && line[i] != '\n' &&
+               fn + 3 < sizeof(frame))
+        {
+            frame[fn++] = line[i++];
+        }
+        while (i < n && line[i] != '\r' && line[i] != '\n')
+        {
+            i++;
+        }
+        if (!fn)
+        {
+            continue;
+        }
+        frame[fn++] = '\r';
+        frame[fn++] = '\n';
+        (void)SmartHelmet_UartSend((const uint8 *)frame, fn);
+    }
+}
+
 void SmartHelmet_ReportStart(void)
 {
     char line[192];
     uint16 n = 0;
+#if SMART_HELMET_ENABLE_HDC1080
     const smart_helmet_sensor_data_t *s = SmartHelmet_SensorsGetData();
+#endif
     const smart_helmet_vitals_status_t *v = SmartHelmet_VitalsGetStatus();
     const smart_helmet_adc_sample_t *adc = SmartHelmet_AdcGetLastSample();
 
+    /* Command mode max is below this blob. PowerOn used to send it anyway
+     * and the module answered "format err:cmd too long" every 5 s. */
+    if (!SmartHelmet_UartInPassthrough())
+    {
+        SmartHelmet_ReportStop();
+        CC_LOGN("SmartHelmet report held: not passthrough");
+        return;
+    }
     SmartHelmet_SensorsPoll();
-    n = shAppend(line, n, sizeof(line), "\r\nmotion:");
+    n = shAppend(line, n, sizeof(line), "motion:");
 #if !SMART_HELMET_ENABLE_LIS3DH
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
@@ -422,7 +476,8 @@ void SmartHelmet_ReportStart(void)
     }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\n");
-    (void)SmartHelmet_UartSend((const uint8 *)line, n);
+    shSendReportLines(line, n);
+    MessageCancelAll(&sh_task_data, SMART_HELMET_REPORT_TICK);
     MessageSendLater(&sh_task_data, SMART_HELMET_REPORT_TICK, NULL,
                      SMART_HELMET_WISUN_REPORT_MS);
 }

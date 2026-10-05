@@ -34,6 +34,9 @@ static void *sh_uart_rx_ctx;
 static smart_helmet_wisun_status_t sh_wisun;
 static uint8 sh_wisun_step;          /* 0 idle, 1 reset wait, 2 AT cmd, 3 done */
 static uint8 sh_at_idx;
+static bool sh_passthrough;          /* +++ accepted; report is payload, not CLI */
+static uint8 sh_leave_next;          /* step to enter after exit\r\n */
+static uint8 sh_too_long_retry;
 static uint8 sh_rx_asm[SMART_HELMET_WISUN_RX_BUF_SIZE];
 static uint16 sh_rx_asm_len;
 
@@ -141,6 +144,8 @@ static void shLogAscii(const uint8 *data, uint16 len)
     }
 }
 
+static void shOnCmdTooLong(void);
+
 static void shRxLineFlush(void)
 {
     if (!sh_rx_line_len)
@@ -149,6 +154,12 @@ static void shRxLineFlush(void)
     }
     CC_LOGN("%s", __func__);
     shLogAscii(sh_rx_line, sh_rx_line_len);
+    /* Module CLI rejected a burst. Headset power-on leaves the module in
+     * command mode; the 5 s report was being parsed as one long command. */
+    if (shContainsFold(sh_rx_line, sh_rx_line_len, "cmd too long"))
+    {
+        shOnCmdTooLong();
+    }
     sh_rx_line_len = 0;
 }
 
@@ -431,6 +442,9 @@ static const struct
 #define SH_STEP_DONE     (3)
 #define SH_STEP_PROV_READ (4)
 #define SH_STEP_PROV_SET  (5)
+#define SH_STEP_LEAVE    (8)   /* exit\r\n, then sh_leave_next */
+#define SH_STEP_DEST     (6)   /* at_dest, then +++ */
+#define SH_STEP_PASS     (7)   /* wait for Transparent mode */
 
 static char sh_prov_q[8][40];
 static uint8 sh_prov_n;
@@ -603,11 +617,15 @@ static void shAtFinish(void)
         MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
     }
 #if SMART_HELMET_ENABLE_WISUN_REPORT
-    sh_wisun_step = 6;
+    /* exit again: a PowerOn +++ while already in passthrough drops back
+     * to command mode, and the report is then "cmd too long". */
+    sh_passthrough = FALSE;
+    sh_leave_next = SH_STEP_DEST;
+    sh_wisun_step = SH_STEP_LEAVE;
     sh_rx_asm_len = 0;
-    CC_LOGN("SmartHelmet AT: at_dest then passthrough");
-    shWisunSendProbe("at_dest " SMART_HELMET_WISUN_BR_ADDR);
-    shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+    CC_LOGN("SmartHelmet AT: exit, at_dest, then passthrough");
+    shWisunSendProbe("exit");
+    shWisunArm(400);
 #endif
 }
 
@@ -732,6 +750,13 @@ bool SmartHelmet_UartInit(Task client_task)
 
 void SmartHelmet_UartClose(void)
 {
+    /* Module stays powered across headset power-off. Leave passthrough
+     * before the UART TX pin drops, or the next boot's reset is payload. */
+    if (sh_uart_sink)
+    {
+        shWisunSendProbe("exit");
+    }
+    sh_passthrough = FALSE;
     SmartHelmet_UartStopVerify();
     if (sh_uart_task)
     {
@@ -788,14 +813,16 @@ void SmartHelmet_UartStartVerify(void)
     sh_prov_dirty = 0;
     sh_prov_n = 0;
     sh_prov_i = 0;
-#if SMART_HELMET_WISUN_AT_RESET_FIRST
-    sh_wisun_step = SH_STEP_RESET;
-    CC_LOGN("SmartHelmet AT: reset, then wait for Router start");
-    shWisunArm(200);
-#else
-    CC_LOGN("SmartHelmet AT: skip reset, probe AT_CommandTXT");
-    shAtSendCurrent();
-#endif
+    sh_passthrough = FALSE;
+    sh_too_long_retry = 0;
+    /* PowerOff/PowerOn does not reset WS8856. A previous +++ session would
+     * swallow reset. exit is valid in passthrough (PDF 2.23) and harmless
+     * in command mode. */
+    sh_leave_next = SH_STEP_RESET;
+    sh_wisun_step = SH_STEP_LEAVE;
+    CC_LOGN("SmartHelmet AT: exit passthrough, then reset");
+    shWisunSendProbe("exit");
+    shWisunArm(400);
 #endif
 }
 
@@ -811,6 +838,35 @@ void SmartHelmet_UartStopVerify(void)
 const smart_helmet_wisun_status_t *SmartHelmet_UartGetStatus(void)
 {
     return &sh_wisun;
+}
+
+bool SmartHelmet_UartInPassthrough(void)
+{
+    return sh_passthrough;
+}
+
+/* Report tick lives on the same task. Held here so a CLI reject stops the
+ * 5 s burst without a header cycle. */
+
+static void shOnCmdTooLong(void)
+{
+    sh_passthrough = FALSE;
+    SmartHelmet_ReportStop();
+    if (sh_wisun_step == SH_STEP_DONE || sh_wisun_step == 0)
+    {
+        if (sh_too_long_retry >= 2)
+        {
+            CC_LOGN("SmartHelmet AT: cmd too long, report stopped");
+            return;
+        }
+        sh_too_long_retry++;
+        sh_leave_next = SH_STEP_DEST;
+        sh_wisun_step = SH_STEP_LEAVE;
+        CC_LOGN("SmartHelmet AT: cmd too long, exit and re-enter %u",
+                sh_too_long_retry);
+        shWisunSendProbe("exit");
+        shWisunArm(400);
+    }
 }
 
 static void shWisunOnTimeout(void)
@@ -896,18 +952,61 @@ static void shWisunOnTimeout(void)
         return;
     }
 
-    if (sh_wisun_step == 6)
+    if (sh_wisun_step == SH_STEP_LEAVE)
     {
-        sh_wisun_step = 7;
+        if (sh_leave_next == SH_STEP_RESET)
+        {
+            sh_wisun.tries = 0;
+            sh_wisun.reset_seen = FALSE;
+            sh_rx_asm_len = 0;
+            sh_wisun_step = SH_STEP_RESET;
+            CC_LOGN("SmartHelmet AT: passthrough left, reset");
+            shWisunArm(200);
+            return;
+        }
+        sh_rx_asm_len = 0;
+        sh_wisun_step = SH_STEP_DEST;
+        CC_LOGN("SmartHelmet AT: at_dest");
+        shWisunSendProbe("at_dest " SMART_HELMET_WISUN_BR_ADDR);
+        shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
+        return;
+    }
+    if (sh_wisun_step == SH_STEP_DEST)
+    {
+        sh_wisun_step = SH_STEP_PASS;
+        sh_passthrough = FALSE;
         sh_rx_asm_len = 0;
         CC_LOGN("SmartHelmet AT: enter passthrough");
         shWisunSendProbe("+++");
         shWisunArm(SMART_HELMET_WISUN_LINK_TIMEOUT_MS);
         return;
     }
-    if (sh_wisun_step == 7)
+    if (sh_wisun_step == SH_STEP_PASS)
     {
+        bool entered = shAsmHas("transparent") || shAsmHas("passthrough");
+        bool rejected = shAsmHas("cmd too long") || shAsmHas("format err");
+
+        if (rejected && sh_too_long_retry < 2)
+        {
+            sh_too_long_retry++;
+            sh_passthrough = FALSE;
+            sh_leave_next = SH_STEP_DEST;
+            sh_wisun_step = SH_STEP_LEAVE;
+            sh_rx_asm_len = 0;
+            CC_LOGN("SmartHelmet AT: +++ rejected, exit retry %u",
+                    sh_too_long_retry);
+            shWisunSendProbe("exit");
+            shWisunArm(400);
+            return;
+        }
         sh_wisun_step = SH_STEP_DONE;
+        /* Silent accept is normal. A format-err reply is not. */
+        sh_passthrough = entered || !rejected;
+        if (!sh_passthrough)
+        {
+            CC_LOGN("SmartHelmet AT: stay in command mode, report held");
+            return;
+        }
         SmartHelmet_ReportStart();
         return;
     }

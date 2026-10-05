@@ -54,7 +54,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 /* SSD1315 128x64 OLED. 1 = probe + splash on I2C1 (default). */
 #ifndef SMART_HELMET_ENABLE_SSD1315
-#define SMART_HELMET_ENABLE_SSD1315        (0)
+#define SMART_HELMET_ENABLE_SSD1315        (1)
 #endif
 
 /*! LIS3DH output data rate selector (CTRL_REG1 ODR field, 0x5 = 100 Hz). */
@@ -157,7 +157,9 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /* AT_CommandTXT (repo root): lowercase CLI, CR LF, no AT+ prefix.
  * Bring-up sends reset, waits for "Router start", then probes read commands
  * only (version/role/param/mac/ip/fstat/domain/cca/txpower/pan/chrate/
- * chconfig/neighbor). clear/clrst/save/svrst/exit/udps/ping are not sent. */
+ * chconfig/neighbor). clear/clrst/save/svrst/udps/ping are not sent.
+ * exit is sent before reset and before +++ so a PowerOn does not leave the
+ * module in command mode (format err:cmd too long on the 5 s report). */
 #ifndef SMART_HELMET_WISUN_AT_RESET_FIRST
 #define SMART_HELMET_WISUN_AT_RESET_FIRST  (1)
 #endif

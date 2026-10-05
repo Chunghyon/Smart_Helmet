@@ -31,6 +31,8 @@ void SmartHelmet_UartSetRxCallback(smart_helmet_uart_rx_cb_t cb, void *ctx);
  *  and SMART_HELMET_WISUN_LINK_CHECK. */
 bool SmartHelmet_UartHandleMessage(Task task, MessageId id, Message message);
 
+void SmartHelmet_ReportStop(void);
+
 enum
 {
     /*! WS8856FLS UART identity / link retry. */
@@ -66,8 +68,13 @@ typedef struct
     char   last_line[48];
 } smart_helmet_wisun_status_t;
 
-/*! \brief reset, wait for "Router start", then probe read commands from AT_CommandTXT. */
+/*! \brief reset, wait for "Router start", then probe read commands from AT_CommandTXT.
+ *  Headset power-off does not reset the module. StartVerify sends exit first
+ *  so a leftover passthrough session cannot swallow reset. */
 void SmartHelmet_UartStartVerify(void);
+
+/*! \brief True only after +++ was accepted. Report must not be sent otherwise. */
+bool SmartHelmet_UartInPassthrough(void);
 
 /*! \brief Cancel a pending link-check timer. */
 void SmartHelmet_UartStopVerify(void);
