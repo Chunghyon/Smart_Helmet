@@ -11,11 +11,11 @@ SSD1315     = 128x64 OLED on I2C1 (or I2C0) — probe, init, splash
 #define PP_DEBUG_LOG_ON
 #endif
 
+#include "smart_helmet.h"
 #include "smart_helmet_config.h"
 #include "smart_helmet_i2c.h"
 #include "smart_helmet_sensors.h"
 #include "smart_helmet_uart.h"
-#include "headset_sm.h"
 
 #include <message.h>
 #include <logging.h>
@@ -575,27 +575,27 @@ static bool shInitSsd1315(void)
     return TRUE;
 }
 
-static const char *shStateText(headsetState state)
+static const char *shStateText(unsigned state)
 {
     switch (state)
     {
-        case HEADSET_STATE_LIMBO:        return "STATE LIMBO";
-        case HEADSET_STATE_POWERING_ON:  return "STATE PWR ON";
-        case HEADSET_STATE_PAIRING:      return "STATE PAIR";
-        case HEADSET_STATE_IDLE:         return "STATE IDLE";
-        case HEADSET_STATE_BUSY:         return "STATE BUSY";
-        case HEADSET_STATE_POWERING_OFF: return "STATE PWR OFF";
-        case HEADSET_STATE_TERMINATING:  return "STATE TERM";
+        case 2u:        return "STATE LIMBO";
+        case 3u:  return "STATE PWR ON";
+        case 4u:      return "STATE PAIR";
+        case 5u:         return "STATE IDLE";
+        case 6u:         return "STATE BUSY";
+        case 8u: return "STATE PWR OFF";
+        case 7u:  return "STATE TERM";
         default:                         return "STATE OFF";
     }
 }
 
-static bool shStateIsOn(headsetState state)
+static bool shStateIsOn(unsigned state)
 {
-    return state == HEADSET_STATE_POWERING_ON ||
-           state == HEADSET_STATE_PAIRING ||
-           state == HEADSET_STATE_IDLE ||
-           state == HEADSET_STATE_BUSY;
+    return state == 3u ||
+           state == 4u ||
+           state == 5u ||
+           state == 6u;
 }
 
 static const char *shBrText(void)
@@ -712,7 +712,7 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
     char line[16];
     uint16 mv;
     uint8 pct;
-    headsetState state = appHeadsetGetState();
+    unsigned state = SmartHelmet_UiState();
 
     UNUSED(sens_mv);
     UNUSED(co_mv);
@@ -722,7 +722,7 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
     {
         return;
     }
-    if (!shStateIsOn(state) && state != HEADSET_STATE_LIMBO)
+    if (!shStateIsOn(state) && state != 2u)
     {
         SmartHelmet_SensorsDisplayOff();
         return;
@@ -737,7 +737,7 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
     pct = Soc_ConvertLevelToPercentage(mv);
     shFmtPct(line, pct);
     (void)shSsdDrawText(2, 4, line);
-    if (state == HEADSET_STATE_LIMBO)
+    if (state == 2u)
     {
         return;
     }

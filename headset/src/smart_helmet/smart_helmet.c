@@ -7,7 +7,6 @@
 #endif
 
 #include "smart_helmet.h"
-#include "headset_sm.h"
 #include "smart_helmet_config.h"
 #include "smart_helmet_sensors.h"
 #include "smart_helmet_vitals.h"
@@ -133,14 +132,23 @@ void SmartHelmet_PowerOff(void)
     SmartHelmet_AdcStop();
 }
 
-void SmartHelmet_UiRefresh(void)
-{
-    headsetState state = appHeadsetGetState();
+/* Keep in step with headsetState in headset_sm.h. Do not include that
+ * header here: it makes kalcc treat Task/Message as a different type. */
+#define SH_STATE_LIMBO        2u
+#define SH_STATE_POWERING_ON  3u
+#define SH_STATE_PAIRING      4u
+#define SH_STATE_IDLE         5u
+#define SH_STATE_BUSY         6u
 
-    if (state == HEADSET_STATE_POWERING_ON ||
-        state == HEADSET_STATE_PAIRING ||
-        state == HEADSET_STATE_IDLE ||
-        state == HEADSET_STATE_BUSY)
+static unsigned sh_ui_state;
+
+void SmartHelmet_UiRefresh(unsigned state)
+{
+    sh_ui_state = state;
+    if (state == SH_STATE_POWERING_ON ||
+        state == SH_STATE_PAIRING ||
+        state == SH_STATE_IDLE ||
+        state == SH_STATE_BUSY)
     {
         SmartHelmet_PowerOn();
     }
@@ -149,6 +157,11 @@ void SmartHelmet_UiRefresh(void)
         SmartHelmet_PowerOff();
     }
     SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
+}
+
+unsigned SmartHelmet_UiState(void)
+{
+    return sh_ui_state;
 }
 
 void SmartHelmet_ReportStop(void)

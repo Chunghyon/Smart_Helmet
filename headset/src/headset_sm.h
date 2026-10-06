@@ -11,7 +11,6 @@
 #define HEADSET_SM_H_
 
 #include "headset_sm_config.h"
-#include <message.h>
 
 /*!
 @startuml
@@ -136,7 +135,6 @@ bool headsetSmDisconnectLink(void);
 /*! \brief Method to handle topology stop confirmation. */
 bool headetSmHandleTopologyStopCfm(Message message);
 
-headsetState appHeadsetGetState(void);
 
 #endif /* HEADSET_SM_H_ */
 

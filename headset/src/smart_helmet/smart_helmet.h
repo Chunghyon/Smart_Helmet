@@ -33,7 +33,8 @@ void SmartHelmet_PowerOn(void);
 void SmartHelmet_PowerOff(void);
 
 /*! \brief Redraw OLED for the current headset state. */
-void SmartHelmet_UiRefresh(void);
+void SmartHelmet_UiRefresh(unsigned state);
+unsigned SmartHelmet_UiState(void);
 
 /*!
  * \brief Message pump — call from the owner task handler.

@@ -15,7 +15,9 @@
 
 /* local includes */
 #include "headset_sm.h"
-#include "smart_helmet.h"
+void SmartHelmet_PowerOn(void);
+void SmartHelmet_PowerOff(void);
+void SmartHelmet_UiRefresh(unsigned state);
 #include "headset_sm_private.h"
 #include "adk_log.h"
 #include "headset_led.h"
@@ -948,7 +950,7 @@ static void headsetSetState(headsetState new_state)
     /* Set new state */
     SmGetTaskData()->state = new_state;
 #ifdef INCLUDE_SMART_HELMET
-    SmartHelmet_UiRefresh();
+    SmartHelmet_UiRefresh((unsigned)new_state);
 #endif
     /* Handle state entry functions */
     switch (new_state)
@@ -998,11 +1000,6 @@ static void headsetSetState(headsetState new_state)
 static headsetState headsetGetState(void)
 {
     return SmGetTaskData()->state;
-}
-
-headsetState appHeadsetGetState(void)
-{
-    return headsetGetState();
 }
 
 /*! \brief Handle request to start factory reset. */
