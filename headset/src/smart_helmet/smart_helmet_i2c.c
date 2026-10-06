@@ -366,7 +366,7 @@ bool SmartHelmet_I2cTransfer(smart_helmet_i2c_bus_t bus,
         result = shI2cRunXfer(bus, tx, tx_len, rx, rx_len);
         if ((result == BITSERIAL_RESULT_I2C_NACK) && switched)
         {
-            CC_LOGN("SmartHelmet I2C%u: NACK after 0x%02x->0x%02x, retry once",
+            DEBUG_LOG_WARN("SmartHelmet I2C%u: NACK after 0x%02x->0x%02x, retry once",
                     (unsigned)bus, prev_addr, addr7);
             result = shI2cRunXfer(bus, tx, tx_len, rx, rx_len);
         }

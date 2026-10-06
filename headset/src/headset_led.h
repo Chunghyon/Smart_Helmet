@@ -67,6 +67,8 @@ extern const led_pattern_t app_led_pattern_pairing[];
 extern const led_pattern_t app_led_pattern_pairing_deleted[];
 extern const led_pattern_t app_led_pattern_sco[];
 extern const led_pattern_t app_led_pattern_call_incoming[];
+extern const led_pattern_t app_led_pattern_limbo_charging[];
+extern const led_pattern_t app_led_pattern_limbo_charged[];
 
 #ifdef INCLUDE_AV
 extern const led_pattern_t app_led_pattern_streaming[];

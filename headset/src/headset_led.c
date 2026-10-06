@@ -74,7 +74,8 @@ const led_manager_hw_config_t headset_led_config =
 uint16 app_led_filter_charging_low(uint16 led_state)
 {
     UNUSED(led_state);
-    return LED_RED;
+    /* LIMBO charge indication treats any active charge as yellow. */
+    return LED_YELLOW;
 }
 
 /*! \brief An LED filter used for charging level OK
@@ -100,6 +101,24 @@ uint16 app_led_filter_charging_complete(uint16 led_state)
     UNUSED(led_state);
     return LED_GREEN;
 }
+
+/* Solid indication used only while HEADSET_STATE_LIMBO is charging or full.
+   LED_ON is held across the repeat, so the LED stays on rather than blinking. */
+const led_pattern_t app_led_pattern_limbo_charging[] =
+{
+    LED_LOCK,
+    LED_ON(LED_YELLOW), LED_WAIT(1000),
+    LED_UNLOCK,
+    LED_REPEAT(0, 0)
+};
+
+const led_pattern_t app_led_pattern_limbo_charged[] =
+{
+    LED_LOCK,
+    LED_ON(LED_GREEN), LED_WAIT(1000),
+    LED_UNLOCK,
+    LED_REPEAT(0, 0)
+};
 
 /*! \cond led_patterns_well_named
     No need to document these. The public interface is

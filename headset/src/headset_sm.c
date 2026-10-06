@@ -34,6 +34,8 @@
 #include <power_manager.h>
 #include <power_manager_conditions.h>
 #include <charger_monitor.h>
+#include <led_manager.h>
+#include <ui_indicator_leds.h>
 #include <stereo_topology.h>
 #include <pairing.h>
 #include <device.h>
@@ -405,14 +407,63 @@ static void headsetSmStopLimboTimer(void)
     MessageCancelAll(headsetSmGetTask(), SM_INTERNAL_TIMEOUT_LIMBO);
 }
 
+/* Last charger indication. Applied again on entry to LIMBO, because the
+   charger message may already have been delivered before the state change. */
+static MessageId headset_limbo_charge_event = CHARGER_MESSAGE_DETACHED;
+static MessageId headset_limbo_charge_led_applied = 0;
+
+/*! \brief Solid charge LED while in LIMBO: yellow while charging, green when full.
+    Holds LIMBO across the charge session by stopping the limbo timer.
+    Periodic CHARGING_OK/LOW messages do not restart the pattern. */
+static void headsetSmApplyLimboChargeLed(void)
+{
+    if (HEADSET_STATE_LIMBO != headsetGetState())
+    {
+        return;
+    }
+
+    if (headset_limbo_charge_led_applied == headset_limbo_charge_event)
+    {
+        return;
+    }
+    headset_limbo_charge_led_applied = headset_limbo_charge_event;
+
+    switch (headset_limbo_charge_event)
+    {
+        case CHARGER_MESSAGE_CHARGING_OK:
+        case CHARGER_MESSAGE_CHARGING_LOW:
+            DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : charging, LED_YELLOW");
+            headsetSmStopLimboTimer();
+            LedManager_SetPattern(app_led_pattern_limbo_charging, LED_PRI_MEDIUM, NULL, 0);
+            break;
+
+        case CHARGER_MESSAGE_COMPLETED:
+            DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : complete, LED_GREEN");
+            headsetSmStopLimboTimer();
+            LedManager_SetPattern(app_led_pattern_limbo_charged, LED_PRI_MEDIUM, NULL, 0);
+            break;
+
+        case CHARGER_MESSAGE_DETACHED:
+        case CHARGER_MESSAGE_DISABLED:
+        default:
+            DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : off, event 0x%x", headset_limbo_charge_event);
+            LedManager_StopPattern(LED_PRI_MEDIUM);
+            headsetSmStartLimboTimer();
+            break;
+    }
+}
+
+static void headsetSmNoteChargerEvent(MessageId id)
+{
+    headset_limbo_charge_event = id;
+    headsetSmApplyLimboChargeLed();
+}
+
 /*! \brief Take action following chargers indication of charger disconnect */
 static void headsetSmHandleChargerMessageDetached(void)
 {
-	DEBUG_LOG_ALWAYS("headsetSmHandleChargerMessageDetached , state %d", headsetGetState());
-    if(HEADSET_STATE_LIMBO ==  headsetGetState())
-    {
-        headsetSmStartLimboTimer();
-    }
+    DEBUG_LOG_ALWAYS("headsetSmHandleChargerMessageDetached , state %d", headsetGetState());
+    headsetSmNoteChargerEvent(CHARGER_MESSAGE_DETACHED);
 }
 
 /*! \brief Take action following power's indication of imminent shutdown.
@@ -629,7 +680,7 @@ static void headsetCheckDfu(void)
 static void headsetEnterLimbo(void)
 {
 	DEBUG_LOG_ALWAYS("headsetEnterLimbo : HEADSET_STATE_LIMBO");
-    headsetSmStartLimboTimer();
+    headsetSmApplyLimboChargeLed();
 #ifdef INCLUDE_DFU
     headsetCheckDfu();
     
@@ -654,6 +705,8 @@ static void headsetExitLimbo(void)
 {
 	DEBUG_LOG_ALWAYS("headsetExitLimbo");
     headsetSmStopLimboTimer();
+    headset_limbo_charge_led_applied = 0;
+    LedManager_StopPattern(LED_PRI_MEDIUM);
 }
 
 /*! \brief Enter powering on state.
@@ -1401,9 +1454,15 @@ void headsetSmHandleMessage(Task task, MessageId id, Message message)
         case CHARGER_MESSAGE_DETACHED:
             headsetSmHandleChargerMessageDetached();
             break;
+        case CHARGER_MESSAGE_DISABLED:
+            headsetSmNoteChargerEvent(CHARGER_MESSAGE_DISABLED);
+            break;
+        case CHARGER_MESSAGE_COMPLETED:
+            headsetSmNoteChargerEvent(CHARGER_MESSAGE_COMPLETED);
+            break;
         case CHARGER_MESSAGE_CHARGING_OK:
         case CHARGER_MESSAGE_CHARGING_LOW:
-            /* Consume frequently occuring charger messages with no operation required. */
+            headsetSmNoteChargerEvent(id);
             break;
 
         /* Power indications */
