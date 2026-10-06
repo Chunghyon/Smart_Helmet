@@ -440,6 +440,7 @@ static void headsetSmApplyLimboChargeLed(void)
             DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : charging, LED_YELLOW");
             headsetSmStopLimboTimer();
             SmartHelmet_SensorsDisplayResume();
+            SmartHelmet_UiRefresh(2u);
             LedManager_SetPattern(app_led_pattern_limbo_charging, LED_PRI_MEDIUM, NULL, 0);
             break;
 
@@ -447,6 +448,7 @@ static void headsetSmApplyLimboChargeLed(void)
             DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : complete, LED_GREEN");
             headsetSmStopLimboTimer();
             SmartHelmet_SensorsDisplayResume();
+            SmartHelmet_UiRefresh(2u);
             LedManager_SetPattern(app_led_pattern_limbo_charged, LED_PRI_MEDIUM, NULL, 0);
             break;
 

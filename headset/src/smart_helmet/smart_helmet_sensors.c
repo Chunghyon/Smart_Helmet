@@ -686,16 +686,19 @@ void SmartHelmet_SensorsDisplayBlank(void)
 
 void SmartHelmet_SensorsDisplayResume(void)
 {
-    sh_display_blanked = FALSE;
+    SmartHelmet_SensorsDisplayOn();
 }
 
 void SmartHelmet_SensorsDisplayOn(void)
 {
+    static const uint8 pump_on[] = {0x8D, 0x14, 0xAF};
+
     if (!sh_sensors.ssd1315_ok)
     {
         return;
     }
-    (void)shSsdCmd(0xAF);
+    sh_display_blanked = FALSE;
+    (void)shSsdCmdList(pump_on, (uint16)sizeof(pump_on));
 }
 
 void SmartHelmet_SensorsSleep(void)
