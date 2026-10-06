@@ -149,10 +149,19 @@ static bool shI2cOpenHandle(sh_i2c_bus_state_t *st, uint8 addr7)
     return TRUE;
 }
 
+static void shI2cBusIdle(void)
+{
+    volatile uint16 n;
+
+    /* Previous slave must release SDA before the next address is opened. */
+    for (n = 0; n < 800; n++)
+    {
+    }
+}
+
 static bool shI2cSetAddr(smart_helmet_i2c_bus_t bus, uint8 addr7)
 {
     sh_i2c_bus_state_t *st = &sh_i2c[bus];
-    bitserial_result result;
 
     if (!st->open)
     {
@@ -163,45 +172,22 @@ static bool shI2cSetAddr(smart_helmet_i2c_bus_t bus, uint8 addr7)
 
     if (st->addr7 == addr7)
     {
-		CC_LOGN("SmartHelmet I2C%u: addr already 0x%02x",
+        CC_LOGN("SmartHelmet I2C%u: addr already 0x%02x",
                        (unsigned)bus, addr7);
         return TRUE;
     }
 
-	CC_LOGN("SmartHelmet I2C%u: set-addr 0x%02x -> 0x%02x",
+    CC_LOGN("SmartHelmet I2C%u: set-addr 0x%02x -> 0x%02x reopen",
                    (unsigned)bus, st->addr7, addr7);
-
-#if defined(BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS)
-    result = BitserialChangeParam(st->handle,
-                                  BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS,
-                                  addr7);
-	CC_LOGN("SmartHelmet I2C%u: ChangeParam I2C_DEVICE_ADDRESS enum:bitserial_result:%d",
-                   (unsigned)bus, (int)result);
-    if (result == BITSERIAL_RESULT_SUCCESS)
-    {
-        st->addr7 = addr7;
-        return TRUE;
-    }
-    DEBUG_LOG_WARN("SmartHelmet I2C%u: ChangeParam failed, reopen", (unsigned)bus);
-#elif defined(BITSERIAL_PARAM_I2C_ADDRESS)
-    result = BitserialChangeParam(st->handle, BITSERIAL_PARAM_I2C_ADDRESS, addr7);
-	CC_LOGN("SmartHelmet I2C%u: ChangeParam I2C_ADDRESS enum:bitserial_result:%d",
-                   (unsigned)bus, (int)result);
-    if (result == BITSERIAL_RESULT_SUCCESS)
-    {
-        st->addr7 = addr7;
-        return TRUE;
-    }
-    DEBUG_LOG_WARN("SmartHelmet I2C%u: ChangeParam failed, reopen", (unsigned)bus);
-#else
-    UNUSED(result);
-	CC_LOGN("SmartHelmet I2C%u: no ChangeParam symbol, reopen", (unsigned)bus);
-#endif
-
+    /* BitserialChangeParam latches the 7-bit address one transfer late.
+     * The first START after 0x18->0x40 is still addressed to LIS3DH, so
+     * HDC1080 NACKs and only the retry reaches 0x40. Reopen programs the
+     * new address before any START. */
     BitserialClose(st->handle);
     st->handle = BITSERIAL_HANDLE_ERROR;
     st->open = FALSE;
     st->addr7 = 0;
+    shI2cBusIdle();
     return shI2cOpenHandle(st, addr7);
 }
 
@@ -362,14 +348,9 @@ bool SmartHelmet_I2cTransfer(smart_helmet_i2c_bus_t bus,
             return FALSE;
         }
         switched = (prev_addr != addr7);
+        UNUSED(switched);
 
         result = shI2cRunXfer(bus, tx, tx_len, rx, rx_len);
-        if ((result == BITSERIAL_RESULT_I2C_NACK) && switched)
-        {
-            DEBUG_LOG_WARN("SmartHelmet I2C%u: NACK after 0x%02x->0x%02x, retry once",
-                    (unsigned)bus, prev_addr, addr7);
-            result = shI2cRunXfer(bus, tx, tx_len, rx, rx_len);
-        }
         if (result != BITSERIAL_RESULT_SUCCESS)
         {
             DEBUG_LOG_WARN("SmartHelmet I2C%u: xfer FAIL addr=0x%02x enum:bitserial_result:%d tx=%u rx=%u",
