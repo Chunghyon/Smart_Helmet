@@ -11,6 +11,7 @@
 #define HEADSET_SM_H_
 
 #include "headset_sm_config.h"
+#include <message.h>
 
 /*!
 @startuml

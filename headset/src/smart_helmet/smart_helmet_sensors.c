@@ -575,36 +575,6 @@ static bool shInitSsd1315(void)
     return TRUE;
 }
 
-static void shFmtPct(char *line, uint8 pct)
-{
-    /* "BAT  100%" fits the 5x7 font (percent glyph is present). */
-    line[0] = 'B';
-    line[1] = 'A';
-    line[2] = 'T';
-    line[3] = ' ';
-    line[4] = ' ';
-    if (pct > 99)
-    {
-        line[5] = '1';
-        line[6] = '0';
-        line[7] = '0';
-    }
-    else if (pct > 9)
-    {
-        line[5] = ' ';
-        line[6] = (char)('0' + (pct / 10u));
-        line[7] = (char)('0' + (pct % 10u));
-    }
-    else
-    {
-        line[5] = ' ';
-        line[6] = ' ';
-        line[7] = (char)('0' + pct);
-    }
-    line[8] = '%';
-    line[9] = '\0';
-}
-
 static const char *shStateText(headsetState state)
 {
     switch (state)
@@ -774,6 +744,8 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
     (void)shSsdDrawText(4, 4, shBrText());
     (void)shSsdDrawText(6, 4, shAudioText());
 }
+#endif /* SMART_HELMET_ENABLE_SSD1315 */
+
 #if !SMART_HELMET_ENABLE_SSD1315
 void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
                                  uint16 nh3_mv, uint16 no2_mv)
