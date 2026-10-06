@@ -602,7 +602,7 @@ static const char *shBrText(void)
 {
     const smart_helmet_wisun_status_t *st = SmartHelmet_UartGetStatus();
 
-    /* online is set only after a passthrough report frame is written. */
+    /* online is set only after the module RX line "send OK". */
     if (st && st->online)
     {
         return "BR    ONLINE";

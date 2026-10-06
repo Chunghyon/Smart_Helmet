@@ -9,6 +9,7 @@
 
 #include "smart_helmet_config.h"
 #include "smart_helmet_uart.h"
+#include "smart_helmet_sensors.h"
 
 #include <stream.h>
 #include <source.h>
@@ -137,7 +138,7 @@ static void shLogAscii(const uint8 *data, uint16 len)
 #ifdef PP_DEBUG_LOG_ON
         //CC_LOGN("str len : %d", strlen(rx_str));
         //CC_LOGDATA((uint8*)rx_str, n);
-        DEBUG_PRINT("UART : %s\n", rx_str);
+        //DEBUG_PRINT("UART : %s\n", rx_str);
 #endif
 
         off = (uint16)(off + n);
@@ -323,10 +324,6 @@ static void shNoteStatus(const uint8 *data, uint16 len)
             if (j < len && data[j] >= '0' && data[j] <= '9')
             {
                 sh_wisun.status_code = (uint8)(data[j] - '0');
-                if (sh_wisun.status_code == 5)
-                {
-                    sh_wisun.online = TRUE;
-                }
             }
             return;
         }
@@ -361,6 +358,20 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
     {
         CC_LOGN("SmartHelmet WS8856: udpr data");
         shLogAscii((const uint8 *)sh_wisun.last_line, 24);
+    }
+    /* Module confirms the UDP send. Local UART write is not enough:
+     * "send fail" can follow "report sent ok". */
+    if (shContainsFold(data, len, "send fail"))
+    {
+        sh_wisun.online = FALSE;
+        CC_LOGN("SmartHelmet AT: BR send fail");
+        SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
+    }
+    else if (shContainsFold(data, len, "send ok"))
+    {
+        sh_wisun.online = TRUE;
+        CC_LOGN("SmartHelmet AT: BR send OK");
+        SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
     }
 }
 
@@ -847,8 +858,12 @@ bool SmartHelmet_UartInPassthrough(void)
 
 void SmartHelmet_UartNoteReportSent(bool ok)
 {
-    sh_wisun.online = ok ? TRUE : FALSE;
-    CC_LOGN("SmartHelmet AT: report %s", ok ? "sent ok" : "sent failed");
+    /* Local write only. online waits for the module "send OK" line. */
+    if (!ok)
+    {
+        sh_wisun.online = FALSE;
+    }
+    CC_LOGN("SmartHelmet AT: report %s", ok ? "queued" : "write failed");
 }
 
 void SmartHelmet_UartSleep(void)
