@@ -370,7 +370,7 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
     else if (shContainsFold(data, len, "send ok"))
     {
         sh_wisun.online = TRUE;
-        CC_LOGN("SmartHelmet AT: BR send OK");
+        //CC_LOGN("SmartHelmet AT: BR send OK");
         SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
     }
 }
@@ -863,7 +863,7 @@ void SmartHelmet_UartNoteReportSent(bool ok)
     {
         sh_wisun.online = FALSE;
     }
-    CC_LOGN("SmartHelmet AT: report %s", ok ? "queued" : "write failed");
+    //CC_LOGN("SmartHelmet AT: report %s", ok ? "queued" : "write failed");
 }
 
 void SmartHelmet_UartSleep(void)

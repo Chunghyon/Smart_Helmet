@@ -204,8 +204,13 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_REPORT_MS       (5000)
 #endif
 #define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"
-/* LIS3DH residual RMS above this (mg) counts as a fall / sudden move. */
-#define SMART_HELMET_FALL_RMS_MG           (1200)
+/* Fall: window RMS alone missed short drops (one sample in 25).
+ * Also treat near-0 g as free-fall and a high peak as impact. */
+#define SMART_HELMET_FALL_RMS_MG           (500)
+#define SMART_HELMET_FALL_FREEFALL_MG      (350)
+#define SMART_HELMET_FALL_IMPACT_MG        (1800)
+/* Test offset: faulty AMB (HDC1080) reads high. Subtract 10.00 C. */
+#define SMART_HELMET_AMB_OFFSET_X100       (-1000)
 
 /* -------------------------------------------------------------------------- */
 /* Vitals proxy (LIS3DH + PD-V12 / SENS_IN) — trend only, not clinical HR    */

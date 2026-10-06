@@ -2380,6 +2380,30 @@ void SmartHelmet_VitalsProcess(void)
     have_accel = (motion_count >= (MOTION_WIN / 2));
     rms = have_accel ? shRmsDevU16(motion_mag, motion_count) : 0;
     sh_vitals.motion_rms_mg = rms;
+    if (have_accel && motion_count)
+    {
+        uint8 i;
+        uint16 mn = motion_mag[0];
+        uint16 pk = motion_mag[0];
+        for (i = 1; i < motion_count; i++)
+        {
+            if (motion_mag[i] < mn)
+            {
+                mn = motion_mag[i];
+            }
+            if (motion_mag[i] > pk)
+            {
+                pk = motion_mag[i];
+            }
+        }
+        sh_vitals.motion_min_mg = mn;
+        sh_vitals.motion_peak_mg = pk;
+    }
+    else
+    {
+        sh_vitals.motion_min_mg = 0;
+        sh_vitals.motion_peak_mg = 0;
+    }
     sh_vitals.pir_events_win = pir_events;
     sh_vitals.sens_dropped = sens_dropped;
     sens_dropped = 0;

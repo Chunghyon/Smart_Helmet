@@ -61,6 +61,8 @@ typedef struct
     smart_helmet_motion_gate_t motion;
     smart_helmet_trend_flag_t  trend;
     uint16                     motion_rms_mg;
+    uint16                     motion_min_mg;
+    uint16                     motion_peak_mg;
     uint16                     band_energy;
     uint16                     baseline_energy;
     uint16                     pir_events_win;
