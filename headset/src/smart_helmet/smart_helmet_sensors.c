@@ -602,11 +602,14 @@ static const char *shBrText(void)
 {
     const smart_helmet_wisun_status_t *st = SmartHelmet_UartGetStatus();
 
-    /* Passthrough means the 5 s report is being sent to the border router.
-     * status==5 is only one of the ways the module reports that. */
-    if (SmartHelmet_UartInPassthrough() || (st && st->online))
+    /* online is set only after a passthrough report frame is written. */
+    if (st && st->online)
     {
         return "BR    ONLINE";
+    }
+    if (SmartHelmet_UartInPassthrough())
+    {
+        return "BR    JOIN";
     }
     if (st && (st->module_seen || st->ip_seen || st->reset_seen))
     {
@@ -657,6 +660,8 @@ static void shFmtPct(char *line, uint8 pct)
     line[9] = '\0';
 }
 
+static bool sh_display_blanked;
+
 void SmartHelmet_SensorsDisplayOff(void)
 {
     if (!sh_sensors.ssd1315_ok)
@@ -664,6 +669,24 @@ void SmartHelmet_SensorsDisplayOff(void)
         return;
     }
     (void)shSsdCmd(0xAE);
+}
+
+void SmartHelmet_SensorsDisplayBlank(void)
+{
+    static const uint8 pump_off[] = {0x8D, 0x10, 0xAE};
+
+    sh_display_blanked = TRUE;
+    if (!sh_sensors.ssd1315_ok)
+    {
+        return;
+    }
+    (void)shSsdClear();
+    (void)shSsdCmdList(pump_off, (uint16)sizeof(pump_off));
+}
+
+void SmartHelmet_SensorsDisplayResume(void)
+{
+    sh_display_blanked = FALSE;
 }
 
 void SmartHelmet_SensorsDisplayOn(void)
@@ -722,9 +745,9 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
     {
         return;
     }
-    if (!shStateIsOn(state) && state != 2u)
+    if (sh_display_blanked || (!shStateIsOn(state) && state != 2u))
     {
-        SmartHelmet_SensorsDisplayOff();
+        SmartHelmet_SensorsDisplayBlank();
         return;
     }
     SmartHelmet_SensorsDisplayOn();

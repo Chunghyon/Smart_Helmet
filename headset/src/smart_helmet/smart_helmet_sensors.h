@@ -77,5 +77,7 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
 
 void SmartHelmet_SensorsSleep(void);
 void SmartHelmet_SensorsDisplayOff(void);
+void SmartHelmet_SensorsDisplayBlank(void);
+void SmartHelmet_SensorsDisplayResume(void);
 void SmartHelmet_SensorsDisplayOn(void);
 

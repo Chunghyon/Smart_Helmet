@@ -845,6 +845,12 @@ bool SmartHelmet_UartInPassthrough(void)
     return sh_passthrough;
 }
 
+void SmartHelmet_UartNoteReportSent(bool ok)
+{
+    sh_wisun.online = ok ? TRUE : FALSE;
+    CC_LOGN("SmartHelmet AT: report %s", ok ? "sent" : "failed");
+}
+
 void SmartHelmet_UartSleep(void)
 {
     SmartHelmet_UartStopVerify();
@@ -1019,9 +1025,7 @@ static void shWisunOnTimeout(void)
             CC_LOGN("SmartHelmet AT: stay in command mode, report held");
             return;
         }
-        /* Payload is going to the border router. status digit 5 is not
-         * always present once +++ has been accepted. */
-        sh_wisun.online = TRUE;
+        sh_wisun.online = FALSE;
         SmartHelmet_ReportStart();
         return;
     }

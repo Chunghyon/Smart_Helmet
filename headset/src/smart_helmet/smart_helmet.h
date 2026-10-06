@@ -31,6 +31,7 @@ void SmartHelmet_PowerOn(void);
 
 /*! \brief Sleep sensors, stop border-router reports. */
 void SmartHelmet_PowerOff(void);
+void SmartHelmet_PowerSave(void);
 
 /*! \brief Redraw OLED for the current headset state. */
 void SmartHelmet_UiRefresh(unsigned state);

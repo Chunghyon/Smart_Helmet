@@ -105,6 +105,7 @@ void SmartHelmet_PowerOn(void)
         return;
     }
     sh_powered = TRUE;
+    SmartHelmet_SensorsDisplayResume();
     CC_LOGN("SmartHelmet: power on, start sensors and Wi-SUN");
     SmartHelmet_AdcInit(&sh_task_data);
     SmartHelmet_SensorsInit();
@@ -121,6 +122,7 @@ void SmartHelmet_PowerOff(void)
 {
     if (!sh_powered)
     {
+        SmartHelmet_SensorsDisplayBlank();
         return;
     }
     sh_powered = FALSE;
@@ -130,6 +132,13 @@ void SmartHelmet_PowerOff(void)
     SmartHelmet_SensorsSleep();
     SmartHelmet_UartSleep();
     SmartHelmet_AdcStop();
+    SmartHelmet_SensorsDisplayBlank();
+}
+
+void SmartHelmet_PowerSave(void)
+{
+    CC_LOGN("SmartHelmet: power save, blank OLED");
+    SmartHelmet_PowerOff();
 }
 
 /* Keep in step with headsetState in headset_sm.h. Do not include that
@@ -383,8 +392,13 @@ static void shSendReportLines(const char *line, uint16 n)
         }
         frame[fn++] = '\r';
         frame[fn++] = '\n';
-        (void)SmartHelmet_UartSend((const uint8 *)frame, fn);
+        if (!SmartHelmet_UartSend((const uint8 *)frame, fn))
+        {
+            SmartHelmet_UartNoteReportSent(FALSE);
+            return;
+        }
     }
+    SmartHelmet_UartNoteReportSent(TRUE);
 }
 
 void SmartHelmet_ReportStart(void)

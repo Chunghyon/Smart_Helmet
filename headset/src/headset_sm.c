@@ -18,6 +18,8 @@
 void SmartHelmet_PowerOn(void);
 void SmartHelmet_PowerOff(void);
 void SmartHelmet_UiRefresh(unsigned state);
+void SmartHelmet_PowerSave(void);
+void SmartHelmet_SensorsDisplayResume(void);
 #include "headset_sm_private.h"
 #include "adk_log.h"
 #include "headset_led.h"
@@ -437,12 +439,14 @@ static void headsetSmApplyLimboChargeLed(void)
         case CHARGER_MESSAGE_CHARGING_LOW:
             DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : charging, LED_YELLOW");
             headsetSmStopLimboTimer();
+            SmartHelmet_SensorsDisplayResume();
             LedManager_SetPattern(app_led_pattern_limbo_charging, LED_PRI_MEDIUM, NULL, 0);
             break;
 
         case CHARGER_MESSAGE_COMPLETED:
             DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : complete, LED_GREEN");
             headsetSmStopLimboTimer();
+            SmartHelmet_SensorsDisplayResume();
             LedManager_SetPattern(app_led_pattern_limbo_charged, LED_PRI_MEDIUM, NULL, 0);
             break;
 
@@ -634,6 +638,7 @@ static void headsetSmHandleTimeoutLimbo(void)
 	DEBUG_LOG_ALWAYS("headsetSmHandleTimeoutLimbo, state %d", headsetGetState());
     if((HEADSET_STATE_LIMBO == headsetGetState()))
     {
+        SmartHelmet_PowerSave();
         appPowerOffRequest();
     }
 }
@@ -737,6 +742,7 @@ static void headsetEnterPoweringOff(void)
 #ifdef INCLUDE_SMART_HELMET
     SmartHelmet_PowerOff();
 #endif
+    SmartHelmet_PowerSave();
 }
 
 /*! \brief Exit powering off state.
