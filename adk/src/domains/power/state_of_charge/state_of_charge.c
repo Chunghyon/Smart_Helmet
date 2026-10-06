@@ -7,7 +7,7 @@
 \brief      
 */
 #ifdef DEBUG
-#define PP_DEBUG_LOG_ONx
+#define PP_DEBUG_LOG_ON
 #endif
 
 #ifndef HAVE_NO_BATTERY
@@ -122,7 +122,7 @@ static unsigned appSocCurrentContext(void)
         context = context + context_charging_battery_low;
     }
 
-	CC_LOGN("SoC: battery = %d%%, current context = %d", soc_data->state_of_charge, context);
+    DEBUG_LOG("SoC: battery = %d%%, enum:battery_provider_context_t:%d", soc_data->state_of_charge, context);
     
     return (unsigned) context;
 }
@@ -224,12 +224,12 @@ static void soc_HandleMessage(Task task, MessageId id, Message message)
                 
         case CHARGER_MESSAGE_ATTACHED:
             soc_data->charger_connected = TRUE;
-            DEBUG_LOG("soc_HandleMessage, charger attached message received.");
+            CC_LOGN("soc_HandleMessage, charger attached message received.");
             break;
 
         case CHARGER_MESSAGE_DETACHED:
             soc_data->charger_connected = FALSE;
-            DEBUG_LOG("soc_HandleMessage, charger detached message received.");
+            CC_LOGN("soc_HandleMessage, charger detached message received.");
             break;
 
         default:            
@@ -286,8 +286,7 @@ static void soc_HandleMessage(Task task, MessageId id, Message message)
         }
         else
         {
-			CC_LOGN("soc_StateOfChargeUpdate, In charger disconnect state "
-                    "battery charge going up.");
+            DEBUG_LOG("soc_StateOfChargeUpdate, In charger disconnect state battery charge going up.");
         }
     }
 
@@ -334,7 +333,7 @@ void Soc_Init(void)
     batteryRegistrationForm form;
     uint16 soc;
 
-    DEBUG_LOG("SoC_Init");
+    CC_LOGN("SoC_Init");
     memset(soc_data, 0, sizeof(*soc_data));
 
     /* Set defaults for low/full battery */
@@ -346,12 +345,12 @@ void Soc_Init(void)
     /* read PS Key */
     if(PsRetrieve(BATTERY_STATE_OF_CHARGE_KEY, &soc, 1) != 0)
     {
-        DEBUG_LOG("SoC_Init: PSRetrieve returned last value of Battery Charge: %u%%", soc);
+        CC_LOGN("SoC_Init: PSRetrieve returned last value of Battery Charge: %u%%", soc);
         soc_data->state_of_charge = soc; 
     }
     else
     {
-        DEBUG_LOG("SoC_Init: PSRetrieve Failed");
+        CC_LOGN("SoC_Init: PSRetrieve Failed");
 		
 		/* If SOC is not recorded previously, then the default value of 100
 		   is required in order to get the correct values of SOC when the
@@ -402,7 +401,7 @@ uint8 Soc_GetBatterySoc(void)
 void Soc_SetConfigurationTable(const soc_lookup_t* config_table,
                               unsigned config_size)
 {
-    DEBUG_LOG("SoC_SetConfigurationTable, set voltage->percentage lookup configuration table");
+    CC_LOGN("SoC_SetConfigurationTable, set voltage->percentage lookup configuration table");
 
     soc_ctx.soc_config_table = config_table;
     soc_ctx.soc_config_size = config_size;

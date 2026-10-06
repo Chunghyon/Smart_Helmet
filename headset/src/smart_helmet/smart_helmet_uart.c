@@ -3,7 +3,7 @@
 \brief      Wi-SUN UART transport (QCC Stream UART) and WS8856FLS link check
 */
 #ifdef DEBUG
-#define PP_DEBUG_LOG_ON
+#define PP_DEBUG_LOG_ONx
 #include "stdio.h"
 #endif
 
@@ -134,7 +134,7 @@ static void shLogAscii(const uint8 *data, uint16 len)
         }
         rx_str[n] = '\0';
 
-#ifdef DEBUG
+#ifdef PP_DEBUG_LOG_ON
         CC_LOGN("str len : %d", strlen(rx_str));
         CC_LOGDATA((uint8*)rx_str, n);
         DEBUG_PRINT("UART : %s\n", rx_str);

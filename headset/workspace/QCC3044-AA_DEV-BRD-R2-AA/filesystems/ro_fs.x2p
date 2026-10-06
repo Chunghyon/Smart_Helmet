@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project path="" type="list">
-    <file path="../../../prompts/sbc/pairing.sbc"/>
-    <file path="../../../prompts/sbc/pairing_failed.sbc"/>
-    <file path="../../../prompts/sbc/pairing_successful.sbc"/>
+    <file path="../../../prompts/korean/Connected.aac"/>
+    <file path="../../../prompts/korean/Disconnected.aac"/>
+    <file path="../../../prompts/korean/PairingFailed.aac"/>
+    <file path="../../../prompts/korean/PairingSuccessful.aac"/>
+    <file path="../../../prompts/korean/PhonePairing.aac"/>
+    <file path="../../../prompts/korean/PowerOff.aac"/>
+    <file path="../../../prompts/korean/PowerOn.aac"/>
     <file path="../../../src/usb_msc/usb_data"/>
     <file path="../../../src/usb_msc/usb_fat"/>
     <file path="../../../src/usb_msc/usb_root"/>

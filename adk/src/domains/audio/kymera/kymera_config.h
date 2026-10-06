@@ -305,8 +305,10 @@
 #ifdef INCLUDE_SMART_HELMET
 #define appConfigExternalAmpControlRequired()    (TRUE)
 #define appConfigExternalAmpControlPio()         (21)
-#define appConfigExternalAmpControlEnableMask()  (0) // active on LOW AMP_EN
-#define appConfigExternalAmpControlDisableMask() (1 << (appConfigExternalAmpControlPio() % 32))                                       // shutdown on LOW sdb
+//#define appConfigExternalAmpControlEnableMask()  (0) // active on LOW AMP_EN
+//#define appConfigExternalAmpControlDisableMask() (1 << (appConfigExternalAmpControlPio() % 32))                                       // shutdown on LOW sdb
+#define appConfigExternalAmpControlDisableMask()  (0) // no TR, Direct AMP_EN, active on HIGH AMP_EN
+#define appConfigExternalAmpControlEnableMask() (1 << (appConfigExternalAmpControlPio() % 32))                                       // shutdown on LOW sdb
 #else
 #define appConfigExternalAmpControlRequired()    (FALSE)
 #define appConfigExternalAmpControlPio()         (0)
