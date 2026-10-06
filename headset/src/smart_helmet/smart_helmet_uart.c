@@ -3,7 +3,7 @@
 \brief      Wi-SUN UART transport (QCC Stream UART) and WS8856FLS link check
 */
 #ifdef DEBUG
-#define PP_DEBUG_LOG_ONx
+#define PP_DEBUG_LOG_ON
 #include "stdio.h"
 #endif
 
@@ -135,8 +135,8 @@ static void shLogAscii(const uint8 *data, uint16 len)
         rx_str[n] = '\0';
 
 #ifdef PP_DEBUG_LOG_ON
-        CC_LOGN("str len : %d", strlen(rx_str));
-        CC_LOGDATA((uint8*)rx_str, n);
+        //CC_LOGN("str len : %d", strlen(rx_str));
+        //CC_LOGDATA((uint8*)rx_str, n);
         DEBUG_PRINT("UART : %s\n", rx_str);
 #endif
 
@@ -152,7 +152,7 @@ static void shRxLineFlush(void)
     {
         return;
     }
-    CC_LOGN("%s", __func__);
+
     shLogAscii(sh_rx_line, sh_rx_line_len);
     /* Module CLI rejected a burst. Headset power-on leaves the module in
      * command mode; the 5 s report was being parsed as one long command. */
@@ -848,7 +848,7 @@ bool SmartHelmet_UartInPassthrough(void)
 void SmartHelmet_UartNoteReportSent(bool ok)
 {
     sh_wisun.online = ok ? TRUE : FALSE;
-    CC_LOGN("SmartHelmet AT: report %s", ok ? "sent" : "failed");
+    CC_LOGN("SmartHelmet AT: report %s", ok ? "sent ok" : "sent failed");
 }
 
 void SmartHelmet_UartSleep(void)
