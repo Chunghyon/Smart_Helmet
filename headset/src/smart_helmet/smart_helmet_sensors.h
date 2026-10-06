@@ -68,6 +68,7 @@ void SmartHelmet_SensorsStopVerify(void);
 bool SmartHelmet_SensorsHandleMessage(Task task, MessageId id, Message message);
 
 /*! rief Draw CO/NH3/NO2/SENS_IN millivolts on the SSD1315. No-op if OLED off. */
+/*! Draw battery %, border-router link, and call/music. ADC args unused. */
 void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
                                  uint16 nh3_mv, uint16 no2_mv);
 

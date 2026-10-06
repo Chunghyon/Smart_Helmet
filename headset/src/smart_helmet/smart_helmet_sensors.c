@@ -14,10 +14,15 @@ SSD1315     = 128x64 OLED on I2C1 (or I2C0) — probe, init, splash
 #include "smart_helmet_config.h"
 #include "smart_helmet_i2c.h"
 #include "smart_helmet_sensors.h"
+#include "smart_helmet_uart.h"
 
 #include <message.h>
 #include <logging.h>
 #include <system_clock.h>
+#include "battery_monitor.h"
+#include "state_of_charge.h"
+#include <av.h>
+#include <hfp_profile.h>
 
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
@@ -569,26 +574,80 @@ static bool shInitSsd1315(void)
     return TRUE;
 }
 
-static void shFmtAdcLine(char *line, const char *tag, uint16 mv)
+static void shFmtPct(char *line, uint8 pct)
 {
-    uint16 i;
-    for (i = 0; i < 5; i++)
+    /* "BAT  100%" fits the 5x7 font (percent glyph is present). */
+    line[0] = 'B';
+    line[1] = 'A';
+    line[2] = 'T';
+    line[3] = ' ';
+    line[4] = ' ';
+    if (pct > 99)
     {
-        line[i] = tag[i] ? tag[i] : ' ';
+        line[5] = '1';
+        line[6] = '0';
+        line[7] = '0';
     }
-    line[5] = (char)('0' + ((mv / 1000u) % 10u));
-    line[6] = (char)('0' + ((mv / 100u) % 10u));
-    line[7] = (char)('0' + ((mv / 10u) % 10u));
-    line[8] = (char)('0' + (mv % 10u));
-    line[9] = 'M';
-    line[10] = 'V';
-    line[11] = '\0';
+    else if (pct > 9)
+    {
+        line[5] = ' ';
+        line[6] = (char)('0' + (pct / 10u));
+        line[7] = (char)('0' + (pct % 10u));
+    }
+    else
+    {
+        line[5] = ' ';
+        line[6] = ' ';
+        line[7] = (char)('0' + pct);
+    }
+    line[8] = '%';
+    line[9] = '\0';
+}
+
+static const char *shBrText(void)
+{
+    const smart_helmet_wisun_status_t *st = SmartHelmet_UartGetStatus();
+
+    if (!st)
+    {
+        return "BR    WAIT";
+    }
+    /* status 5: routing node is up on the border-router network. */
+    if (st->online)
+    {
+        return "BR    ONLINE";
+    }
+    if (st->module_seen || st->ip_seen || st->reset_seen)
+    {
+        return "BR    JOIN";
+    }
+    return "BR    WAIT";
+}
+
+static const char *shAudioText(void)
+{
+    if (HfpProfile_IsScoActive())
+    {
+        return "AUDIO CALL";
+    }
+    if (Av_IsA2dpSinkStreaming())
+    {
+        return "AUDIO MUSIC";
+    }
+    return "AUDIO IDLE";
 }
 
 void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
                                  uint16 nh3_mv, uint16 no2_mv)
 {
     char line[12];
+    uint16 mv;
+    uint8 pct;
+
+    UNUSED(sens_mv);
+    UNUSED(co_mv);
+    UNUSED(nh3_mv);
+    UNUSED(no2_mv);
     if (!sh_sensors.ssd1315_ok)
     {
         return;
@@ -597,14 +656,12 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
     {
         return;
     }
-    shFmtAdcLine(line, "CO   ", co_mv);
+    mv = appBatteryGetVoltageInstantaneous();
+    pct = Soc_ConvertLevelToPercentage(mv);
+    shFmtPct(line, pct);
     (void)shSsdDrawText(0, 4, line);
-    shFmtAdcLine(line, "NH3  ", nh3_mv);
-    (void)shSsdDrawText(2, 4, line);
-    shFmtAdcLine(line, "NO2  ", no2_mv);
-    (void)shSsdDrawText(4, 4, line);
-    shFmtAdcLine(line, "SENS ", sens_mv);
-    (void)shSsdDrawText(6, 4, line);
+    (void)shSsdDrawText(2, 4, shBrText());
+    (void)shSsdDrawText(4, 4, shAudioText());
 }
 #endif
 
