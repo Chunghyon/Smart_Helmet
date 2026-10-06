@@ -605,17 +605,17 @@ static const char *shBrText(void)
     /* online is set only after the module RX line "send OK". */
     if (st && st->online)
     {
-        return "BR    ONLINE";
+        return "WISUN ONLINE";
     }
     if (SmartHelmet_UartInPassthrough())
     {
-        return "BR    JOIN";
+        return "WISUN JOIN";
     }
     if (st && (st->module_seen || st->ip_seen || st->reset_seen))
     {
-        return "BR    JOIN";
+        return "WISUN JOIN";
     }
-    return "BR    WAIT";
+    return "WISUN WAIT";
 }
 
 static const char *shAudioText(void)

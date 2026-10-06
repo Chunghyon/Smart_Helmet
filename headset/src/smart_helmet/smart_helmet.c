@@ -432,9 +432,10 @@ void SmartHelmet_ReportStart(void)
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
     n = shAppend(line, n, sizeof(line),
-                 (v && (v->motion_rms_mg >= SMART_HELMET_FALL_RMS_MG ||
-                        v->motion_min_mg <= SMART_HELMET_FALL_FREEFALL_MG ||
-                        v->motion_peak_mg >= SMART_HELMET_FALL_IMPACT_MG)) ? "yes" : "no");
+                 (v && v->motion_min_mg > 0 &&
+                  (v->motion_rms_mg >= SMART_HELMET_FALL_RMS_MG ||
+                   (v->motion_min_mg <= SMART_HELMET_FALL_FREEFALL_MG) ||
+                   v->motion_peak_mg >= SMART_HELMET_FALL_IMPACT_MG)) ? "yes" : "no");
 #endif
     n = shAppend(line, n, sizeof(line), "\r\npulse:");
 #if !SMART_HELMET_ENABLE_VITALS_PROXY
