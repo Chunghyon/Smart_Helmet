@@ -845,6 +845,18 @@ bool SmartHelmet_UartInPassthrough(void)
     return sh_passthrough;
 }
 
+void SmartHelmet_UartSleep(void)
+{
+    SmartHelmet_UartStopVerify();
+    if (sh_passthrough)
+    {
+        sh_passthrough = FALSE;
+        (void)SmartHelmet_UartSend((const uint8 *)"exit\r\n", 6);
+    }
+    sh_wisun.online = FALSE;
+    CC_LOGN("SmartHelmet AT: sleep, exit passthrough");
+}
+
 /* Report tick lives on the same task. Held here so a CLI reject stops the
  * 5 s burst without a header cycle. */
 
@@ -1007,6 +1019,9 @@ static void shWisunOnTimeout(void)
             CC_LOGN("SmartHelmet AT: stay in command mode, report held");
             return;
         }
+        /* Payload is going to the border router. status digit 5 is not
+         * always present once +++ has been accepted. */
+        sh_wisun.online = TRUE;
         SmartHelmet_ReportStart();
         return;
     }

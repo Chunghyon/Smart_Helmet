@@ -76,6 +76,9 @@ void SmartHelmet_UartStartVerify(void);
 /*! \brief True only after +++ was accepted. Report must not be sent otherwise. */
 bool SmartHelmet_UartInPassthrough(void);
 
+/*! \brief Leave passthrough and stop the link check. Module stays powered. */
+void SmartHelmet_UartSleep(void);
+
 /*! \brief Cancel a pending link-check timer. */
 void SmartHelmet_UartStopVerify(void);
 

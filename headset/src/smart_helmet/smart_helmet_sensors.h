@@ -43,6 +43,7 @@ typedef struct
 } smart_helmet_accel_sample_t;
 
 void SmartHelmet_SensorsInit(void);
+void SmartHelmet_SensorsInitDisplay(void);
 void SmartHelmet_SensorsPoll(void);
 const smart_helmet_sensor_data_t *SmartHelmet_SensorsGetData(void);
 
@@ -73,3 +74,8 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
                                  uint16 nh3_mv, uint16 no2_mv);
 
 #endif /* SMART_HELMET_SENSORS_H */
+
+void SmartHelmet_SensorsSleep(void);
+void SmartHelmet_SensorsDisplayOff(void);
+void SmartHelmet_SensorsDisplayOn(void);
+

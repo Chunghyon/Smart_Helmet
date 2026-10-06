@@ -15,6 +15,7 @@
 
 /* local includes */
 #include "headset_sm.h"
+#include "smart_helmet.h"
 #include "headset_sm_private.h"
 #include "adk_log.h"
 #include "headset_led.h"
@@ -714,6 +715,9 @@ static void headsetExitLimbo(void)
 static void headsetEnterPoweringOn(void)
 {
     DEBUG_LOG_ALWAYS("headsetEnterPoweringOn : HEADSET_STATE_POWERING_ON");
+#ifdef INCLUDE_SMART_HELMET
+    SmartHelmet_PowerOn();
+#endif
 }
 
 /*! \brief Exit powering on state.
@@ -728,6 +732,9 @@ static void headsetExitPoweringOn(void)
 static void headsetEnterPoweringOff(void)
 {
     DEBUG_LOG_ALWAYS("headsetEnterPoweringOff : HEADSET_STATE_POWERING_OFF");
+#ifdef INCLUDE_SMART_HELMET
+    SmartHelmet_PowerOff();
+#endif
 }
 
 /*! \brief Exit powering off state.
@@ -940,6 +947,9 @@ static void headsetSetState(headsetState new_state)
     }
     /* Set new state */
     SmGetTaskData()->state = new_state;
+#ifdef INCLUDE_SMART_HELMET
+    SmartHelmet_UiRefresh();
+#endif
     /* Handle state entry functions */
     switch (new_state)
     {
@@ -988,6 +998,11 @@ static void headsetSetState(headsetState new_state)
 static headsetState headsetGetState(void)
 {
     return SmGetTaskData()->state;
+}
+
+headsetState appHeadsetGetState(void)
+{
+    return headsetGetState();
 }
 
 /*! \brief Handle request to start factory reset. */

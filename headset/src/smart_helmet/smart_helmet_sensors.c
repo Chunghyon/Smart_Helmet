@@ -15,6 +15,7 @@ SSD1315     = 128x64 OLED on I2C1 (or I2C0) — probe, init, splash
 #include "smart_helmet_i2c.h"
 #include "smart_helmet_sensors.h"
 #include "smart_helmet_uart.h"
+#include "headset_sm.h"
 
 #include <message.h>
 #include <logging.h>
@@ -604,20 +605,40 @@ static void shFmtPct(char *line, uint8 pct)
     line[9] = '\0';
 }
 
+static const char *shStateText(headsetState state)
+{
+    switch (state)
+    {
+        case HEADSET_STATE_LIMBO:        return "STATE LIMBO";
+        case HEADSET_STATE_POWERING_ON:  return "STATE PWR ON";
+        case HEADSET_STATE_PAIRING:      return "STATE PAIR";
+        case HEADSET_STATE_IDLE:         return "STATE IDLE";
+        case HEADSET_STATE_BUSY:         return "STATE BUSY";
+        case HEADSET_STATE_POWERING_OFF: return "STATE PWR OFF";
+        case HEADSET_STATE_TERMINATING:  return "STATE TERM";
+        default:                         return "STATE OFF";
+    }
+}
+
+static bool shStateIsOn(headsetState state)
+{
+    return state == HEADSET_STATE_POWERING_ON ||
+           state == HEADSET_STATE_PAIRING ||
+           state == HEADSET_STATE_IDLE ||
+           state == HEADSET_STATE_BUSY;
+}
+
 static const char *shBrText(void)
 {
     const smart_helmet_wisun_status_t *st = SmartHelmet_UartGetStatus();
 
-    if (!st)
-    {
-        return "BR    WAIT";
-    }
-    /* status 5: routing node is up on the border-router network. */
-    if (st->online)
+    /* Passthrough means the 5 s report is being sent to the border router.
+     * status==5 is only one of the ways the module reports that. */
+    if (SmartHelmet_UartInPassthrough() || (st && st->online))
     {
         return "BR    ONLINE";
     }
-    if (st->module_seen || st->ip_seen || st->reset_seen)
+    if (st && (st->module_seen || st->ip_seen || st->reset_seen))
     {
         return "BR    JOIN";
     }
@@ -637,12 +658,91 @@ static const char *shAudioText(void)
     return "AUDIO IDLE";
 }
 
+static void shFmtPct(char *line, uint8 pct)
+{
+    line[0] = 'B';
+    line[1] = 'A';
+    line[2] = 'T';
+    line[3] = ' ';
+    line[4] = ' ';
+    if (pct > 99)
+    {
+        line[5] = '1';
+        line[6] = '0';
+        line[7] = '0';
+    }
+    else if (pct > 9)
+    {
+        line[5] = ' ';
+        line[6] = (char)('0' + (pct / 10u));
+        line[7] = (char)('0' + (pct % 10u));
+    }
+    else
+    {
+        line[5] = ' ';
+        line[6] = ' ';
+        line[7] = (char)('0' + pct);
+    }
+    line[8] = '%';
+    line[9] = '\0';
+}
+
+void SmartHelmet_SensorsDisplayOff(void)
+{
+    if (!sh_sensors.ssd1315_ok)
+    {
+        return;
+    }
+    (void)shSsdCmd(0xAE);
+}
+
+void SmartHelmet_SensorsDisplayOn(void)
+{
+    if (!sh_sensors.ssd1315_ok)
+    {
+        return;
+    }
+    (void)shSsdCmd(0xAF);
+}
+
+void SmartHelmet_SensorsSleep(void)
+{
+#if SMART_HELMET_ENABLE_CCS811
+    if (sh_sensors.ccs811_ok)
+    {
+        uint8 mode = 0;
+        (void)SmartHelmet_I2cWriteReg(smart_helmet_i2c_bus_0,
+                                      SMART_HELMET_ADDR_CCS811,
+                                      CCS811_REG_MEAS_MODE, &mode, 1);
+        sh_sensors.ccs811_ok = FALSE;
+    }
+#endif
+#if SMART_HELMET_ENABLE_LIS3DH
+    if (sh_sensors.lis3dh_ok)
+    {
+        uint8 ctrl1 = 0; /* power-down */
+        (void)SmartHelmet_I2cWriteReg(smart_helmet_i2c_bus_0,
+                                      SMART_HELMET_ADDR_LIS3DH,
+                                      LIS3DH_REG_CTRL_REG1, &ctrl1, 1);
+        sh_sensors.lis3dh_ok = FALSE;
+    }
+#endif
+#if SMART_HELMET_ENABLE_HDC1080
+    sh_sensors.hdc1080_ok = FALSE;
+#endif
+#if SMART_HELMET_ENABLE_MLX90614
+    sh_sensors.mlx90614_ok = FALSE;
+#endif
+    CC_LOGN("SmartHelmet: sensors sleep");
+}
+
 void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
                                  uint16 nh3_mv, uint16 no2_mv)
 {
-    char line[12];
+    char line[16];
     uint16 mv;
     uint8 pct;
+    headsetState state = appHeadsetGetState();
 
     UNUSED(sens_mv);
     UNUSED(co_mv);
@@ -652,19 +752,28 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
     {
         return;
     }
+    if (!shStateIsOn(state) && state != HEADSET_STATE_LIMBO)
+    {
+        SmartHelmet_SensorsDisplayOff();
+        return;
+    }
+    SmartHelmet_SensorsDisplayOn();
     if (!shSsdClear())
     {
         return;
     }
+    (void)shSsdDrawText(0, 4, shStateText(state));
     mv = appBatteryGetVoltageInstantaneous();
     pct = Soc_ConvertLevelToPercentage(mv);
     shFmtPct(line, pct);
-    (void)shSsdDrawText(0, 4, line);
-    (void)shSsdDrawText(2, 4, shBrText());
-    (void)shSsdDrawText(4, 4, shAudioText());
+    (void)shSsdDrawText(2, 4, line);
+    if (state == HEADSET_STATE_LIMBO)
+    {
+        return;
+    }
+    (void)shSsdDrawText(4, 4, shBrText());
+    (void)shSsdDrawText(6, 4, shAudioText());
 }
-#endif
-
 #if !SMART_HELMET_ENABLE_SSD1315
 void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
                                  uint16 nh3_mv, uint16 no2_mv)
@@ -831,6 +940,18 @@ static void shSensorsVerifyPass(void)
 	CC_LOGN("SmartHelmet I2C verify retry in %u ms",
                    SMART_HELMET_I2C_PROBE_RETRY_MS);
     shSensorsScheduleRetry();
+}
+
+void SmartHelmet_SensorsInitDisplay(void)
+{
+    sh_sensors.ssd1315_ok = FALSE;
+#if SMART_HELMET_ENABLE_SSD1315
+    CC_LOGN("SmartHelmet: OLED init only");
+    if (shProbeSsd1315() && shInitSsd1315())
+    {
+        sh_sensors.ssd1315_ok = TRUE;
+    }
+#endif
 }
 
 void SmartHelmet_SensorsInit(void)

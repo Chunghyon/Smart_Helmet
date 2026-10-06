@@ -7,6 +7,7 @@
 #endif
 
 #include "smart_helmet.h"
+#include "headset_sm.h"
 #include "smart_helmet_config.h"
 #include "smart_helmet_sensors.h"
 #include "smart_helmet_vitals.h"
@@ -88,23 +89,66 @@ bool SmartHelmet_Init(Task client_task)
         DEBUG_LOG_ERROR("SmartHelmet: UART init failed");
         /* Non-fatal for sensor-only bring-up */
     }
-    else
-    {
-        SmartHelmet_UartStartVerify();
-    }
+    /* Sensors and Wi-SUN stay down until headset power-on.
+     * OLED comes up so LIMBO can show battery percent. */
+    SmartHelmet_SensorsInitDisplay();
+    sh_ready = TRUE;
+    CC_LOGN("SmartHelmet: buses ready, sensors and Wi-SUN held until power-on");
+    return TRUE;
+}
 
+static bool sh_powered;
+
+void SmartHelmet_PowerOn(void)
+{
+    if (!sh_ready || sh_powered)
+    {
+        return;
+    }
+    sh_powered = TRUE;
+    CC_LOGN("SmartHelmet: power on, start sensors and Wi-SUN");
+    SmartHelmet_AdcInit(&sh_task_data);
     SmartHelmet_SensorsInit();
     SmartHelmet_SensorsStartVerify(&sh_task_data);
     SmartHelmet_VitalsInit();
 #if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
     SmartHelmet_VitalsSetSink(smartHelmetTelemetrySink, NULL);
 #endif
+    SmartHelmet_UartStartVerify();
     SmartHelmet_AdcRequestScan();
+}
 
-    sh_ready = TRUE;
-    CC_LOGN("SmartHelmet: interfaces ready (vitals=SENS_IN@%uHz, no PIR PIO)",
-            (unsigned)SMART_HELMET_VITALS_FS_HZ);
-    return TRUE;
+void SmartHelmet_PowerOff(void)
+{
+    if (!sh_powered)
+    {
+        return;
+    }
+    sh_powered = FALSE;
+    CC_LOGN("SmartHelmet: power off, sleep sensors and Wi-SUN");
+    SmartHelmet_ReportStop();
+    SmartHelmet_SensorsStopVerify();
+    SmartHelmet_SensorsSleep();
+    SmartHelmet_UartSleep();
+    SmartHelmet_AdcStop();
+}
+
+void SmartHelmet_UiRefresh(void)
+{
+    headsetState state = appHeadsetGetState();
+
+    if (state == HEADSET_STATE_POWERING_ON ||
+        state == HEADSET_STATE_PAIRING ||
+        state == HEADSET_STATE_IDLE ||
+        state == HEADSET_STATE_BUSY)
+    {
+        SmartHelmet_PowerOn();
+    }
+    else if (sh_powered)
+    {
+        SmartHelmet_PowerOff();
+    }
+    SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
 }
 
 void SmartHelmet_ReportStop(void)
@@ -121,6 +165,7 @@ void SmartHelmet_Close(void)
     SmartHelmet_UartClose();
     SmartHelmet_I2cClose();
     sh_ready = FALSE;
+    sh_powered = FALSE;
 }
 
 bool SmartHelmet_HandleMessage(Task task, MessageId id, Message message)

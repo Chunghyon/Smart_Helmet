@@ -26,6 +26,15 @@ bool SmartHelmet_Init(Task client_task);
 /*! \brief Tear down interfaces. */
 void SmartHelmet_Close(void);
 
+/*! \brief Start Wi-SUN and sensor polling. Headset power-on. */
+void SmartHelmet_PowerOn(void);
+
+/*! \brief Sleep sensors, stop border-router reports. */
+void SmartHelmet_PowerOff(void);
+
+/*! \brief Redraw OLED for the current headset state. */
+void SmartHelmet_UiRefresh(void);
+
 /*!
  * \brief Message pump — call from the owner task handler.
  * Consumes ADC + UART messages when they belong to this module.

@@ -135,5 +135,7 @@ bool headsetSmDisconnectLink(void);
 /*! \brief Method to handle topology stop confirmation. */
 bool headetSmHandleTopologyStopCfm(Message message);
 
+headsetState appHeadsetGetState(void);
+
 #endif /* HEADSET_SM_H_ */
 
