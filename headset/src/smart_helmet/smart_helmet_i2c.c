@@ -152,18 +152,16 @@ static bool shI2cOpenHandle(sh_i2c_bus_state_t *st, uint8 addr7)
 
 static bool shI2cChangeAddr(sh_i2c_bus_state_t *st, uint8 addr7)
 {
-    bitserial_result result = BITSERIAL_RESULT_SUCCESS;
+    bitserial_result result;
 
-#if defined(BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS)
+    /* BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS is an enum value in
+     * bitserial_changeable_params, not a preprocessor macro, so
+     * #if defined() is always false and must not be used here.
+     * BitserialChangeParam(handle, key, value, flags). */
     result = BitserialChangeParam(st->handle,
                                   BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS,
-                                  addr7);
-#elif defined(BITSERIAL_PARAM_I2C_ADDRESS)
-    result = BitserialChangeParam(st->handle, BITSERIAL_PARAM_I2C_ADDRESS, addr7);
-#else
-    UNUSED(result);
-    return FALSE;
-#endif
+                                  addr7,
+                                  0);
     return result == BITSERIAL_RESULT_SUCCESS;
 }
 
