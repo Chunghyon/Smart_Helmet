@@ -32,6 +32,7 @@ typedef struct
     uint16                 speed_khz;
     uint8                  addr7;
     bool                   open;
+    bool                   addr_ready;
 } sh_i2c_bus_state_t;
 
 static sh_i2c_bus_state_t sh_i2c[smart_helmet_i2c_bus_count];
@@ -149,14 +150,21 @@ static bool shI2cOpenHandle(sh_i2c_bus_state_t *st, uint8 addr7)
     return TRUE;
 }
 
-static void shI2cBusIdle(void)
+static bool shI2cChangeAddr(sh_i2c_bus_state_t *st, uint8 addr7)
 {
-    volatile uint16 n;
+    bitserial_result result = BITSERIAL_RESULT_SUCCESS;
 
-    /* Previous slave must release SDA before the next address is opened. */
-    for (n = 0; n < 800; n++)
-    {
-    }
+#if defined(BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS)
+    result = BitserialChangeParam(st->handle,
+                                  BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS,
+                                  addr7);
+#elif defined(BITSERIAL_PARAM_I2C_ADDRESS)
+    result = BitserialChangeParam(st->handle, BITSERIAL_PARAM_I2C_ADDRESS, addr7);
+#else
+    UNUSED(result);
+    return FALSE;
+#endif
+    return result == BITSERIAL_RESULT_SUCCESS;
 }
 
 static bool shI2cSetAddr(smart_helmet_i2c_bus_t bus, uint8 addr7)
@@ -177,18 +185,31 @@ static bool shI2cSetAddr(smart_helmet_i2c_bus_t bus, uint8 addr7)
         return TRUE;
     }
 
-    CC_LOGN("SmartHelmet I2C%u: set-addr 0x%02x -> 0x%02x reopen",
+    CC_LOGN("SmartHelmet I2C%u: set-addr 0x%02x -> 0x%02x",
                    (unsigned)bus, st->addr7, addr7);
-    /* BitserialChangeParam latches the 7-bit address one transfer late.
-     * The first START after 0x18->0x40 is still addressed to LIS3DH, so
-     * HDC1080 NACKs and only the retry reaches 0x40. Reopen programs the
-     * new address before any START. */
-    BitserialClose(st->handle);
-    st->handle = BITSERIAL_HANDLE_ERROR;
-    st->open = FALSE;
-    st->addr7 = 0;
-    shI2cBusIdle();
-    return shI2cOpenHandle(st, addr7);
+    /* Keep the open handle. Close/reopen drops the PIO mux and every
+     * following 0x40 write NACKs. ChangeParam keeps the pins, but the new
+     * 7-bit address is used only from the next transfer. */
+    if (!shI2cChangeAddr(st, addr7))
+    {
+        DEBUG_LOG_WARN("SmartHelmet I2C%u: ChangeParam failed, reopen", (unsigned)bus);
+        BitserialClose(st->handle);
+        st->handle = BITSERIAL_HANDLE_ERROR;
+        st->open = FALSE;
+        st->addr7 = 0;
+        st->addr_ready = FALSE;
+        if (!shI2cConfigurePios(st->scl, st->sda, st->block) ||
+            !shI2cOpenHandle(st, addr7))
+        {
+            return FALSE;
+        }
+    }
+    else
+    {
+        st->addr7 = addr7;
+    }
+    st->addr_ready = FALSE;
+    return TRUE;
 }
 
 static bool shI2cOpenBus(smart_helmet_i2c_bus_t bus,
@@ -348,9 +369,15 @@ bool SmartHelmet_I2cTransfer(smart_helmet_i2c_bus_t bus,
             return FALSE;
         }
         switched = (prev_addr != addr7);
-        UNUSED(switched);
 
         result = shI2cRunXfer(bus, tx, tx_len, rx, rx_len);
+        if ((result == BITSERIAL_RESULT_I2C_NACK) &&
+            (switched || !sh_i2c[bus].addr_ready))
+        {
+            /* Discard the cycle that still carries the previous address. */
+            result = shI2cRunXfer(bus, tx, tx_len, rx, rx_len);
+        }
+        sh_i2c[bus].addr_ready = TRUE;
         if (result != BITSERIAL_RESULT_SUCCESS)
         {
             DEBUG_LOG_WARN("SmartHelmet I2C%u: xfer FAIL addr=0x%02x enum:bitserial_result:%d tx=%u rx=%u",
