@@ -154,10 +154,6 @@ static bool shI2cChangeAddr(sh_i2c_bus_state_t *st, uint8 addr7)
 {
     bitserial_result result;
 
-    /* BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS is an enum value in
-     * bitserial_changeable_params, not a preprocessor macro, so
-     * #if defined() is always false and must not be used here.
-     * BitserialChangeParam(handle, key, value, flags). */
     result = BitserialChangeParam(st->handle,
                                   BITSERIAL_PARAMS_I2C_DEVICE_ADDRESS,
                                   addr7,
