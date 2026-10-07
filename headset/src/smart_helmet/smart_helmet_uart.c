@@ -22,6 +22,16 @@
 #include <logging.h>
 #include <system_clock.h>
 
+#define SH_AT_CMD_COUNT  ((uint8)(sizeof(sh_at_cmds) / sizeof(sh_at_cmds[0])))
+#define SH_STEP_RESET    (1)
+#define SH_STEP_CMD      (2)
+#define SH_STEP_DONE     (3)
+#define SH_STEP_PROV_READ (4)
+#define SH_STEP_PROV_SET  (5)
+#define SH_STEP_LEAVE    (8)   /* exit\r\n, then sh_leave_next */
+#define SH_STEP_DEST     (6)   /* at_dest, then +++ */
+#define SH_STEP_PASS     (7)   /* wait for Transparent mode */
+
 void SmartHelmet_ReportStart(void);
 
 DEBUG_LOG_DEFINE_LEVEL_VAR
@@ -40,7 +50,8 @@ static uint8 sh_at_idx;
 static bool sh_passthrough;
 static bool sh_restart_seen;
 static bool sh_send_ok_wait;
-static bool sh_rejoining;          /* +++ accepted; report is payload, not CLI */
+static bool sh_rejoining;
+static uint8 sh_missed_ok;          /* +++ accepted; report is payload, not CLI */
 static uint8 sh_leave_next;          /* step to enter after exit\r\n */
 static uint8 sh_too_long_retry;
 static uint8 sh_rx_asm[SMART_HELMET_WISUN_RX_BUF_SIZE];
@@ -385,9 +396,20 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
     {
         sh_wisun.online = TRUE;
         sh_send_ok_wait = FALSE;
+        sh_missed_ok = 0;
         sh_rejoining = FALSE;
         sh_too_long_retry = 0;
-        CC_LOGN("SmartHelmet AT: BR send OK");
+        if (sh_wisun_step == SH_STEP_LEAVE || sh_wisun_step == SH_STEP_DEST ||
+            sh_wisun_step == SH_STEP_PASS)
+        {
+            sh_wisun_step = SH_STEP_DONE;
+            sh_passthrough = TRUE;
+            CC_LOGN("SmartHelmet AT: BR send OK, rejoin cancelled");
+        }
+        else
+        {
+            CC_LOGN("SmartHelmet AT: BR send OK");
+        }
         SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
     }
     if (shContainsFold(data, len, "RESTART_SENSOR"))
@@ -470,16 +492,6 @@ static const struct
     { "chconfig", 0 },
     { "neighbor", 0 }
 };
-
-#define SH_AT_CMD_COUNT  ((uint8)(sizeof(sh_at_cmds) / sizeof(sh_at_cmds[0])))
-#define SH_STEP_RESET    (1)
-#define SH_STEP_CMD      (2)
-#define SH_STEP_DONE     (3)
-#define SH_STEP_PROV_READ (4)
-#define SH_STEP_PROV_SET  (5)
-#define SH_STEP_LEAVE    (8)   /* exit\r\n, then sh_leave_next */
-#define SH_STEP_DEST     (6)   /* at_dest, then +++ */
-#define SH_STEP_PASS     (7)   /* wait for Transparent mode */
 
 static char sh_prov_q[8][40];
 static uint8 sh_prov_n;
@@ -898,7 +910,14 @@ void SmartHelmet_UartNoteReportSent(bool ok)
     }
     if (sh_send_ok_wait)
     {
-        SmartHelmet_UartRejoin("no send OK");
+        if (sh_missed_ok < 3)
+        {
+            sh_missed_ok++;
+        }
+        if (sh_missed_ok >= 3)
+        {
+            SmartHelmet_UartRejoin("no send OK");
+        }
         return;
     }
     sh_send_ok_wait = TRUE;
