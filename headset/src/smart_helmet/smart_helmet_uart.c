@@ -20,6 +20,7 @@
 #include <panic.h>
 #include <string.h>
 #include <logging.h>
+#include <system_clock.h>
 
 void SmartHelmet_ReportStart(void);
 
@@ -905,11 +906,19 @@ void SmartHelmet_UartNoteReportSent(bool ok)
 
 void SmartHelmet_UartRejoin(const char *why)
 {
+    static uint32 sh_rejoin_ms;
+    uint32 now = SystemClockGetTimerTime() / 1000u;
+
     if (sh_wisun_step == SH_STEP_LEAVE || sh_wisun_step == SH_STEP_DEST ||
         sh_wisun_step == SH_STEP_PASS)
     {
         return;
     }
+    if (sh_rejoin_ms && (now - sh_rejoin_ms) < 15000u)
+    {
+        return;
+    }
+    sh_rejoin_ms = now;
     sh_rejoining = TRUE;
     sh_passthrough = FALSE;
     sh_wisun.online = FALSE;
@@ -1103,7 +1112,6 @@ static void shWisunOnTimeout(void)
             return;
         }
         sh_wisun.online = FALSE;
-        sh_rejoining = FALSE;
         SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
         SmartHelmet_ReportStart();
         return;
