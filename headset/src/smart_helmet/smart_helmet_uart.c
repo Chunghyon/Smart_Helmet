@@ -22,7 +22,8 @@
 #include <logging.h>
 #include <system_clock.h>
 
-void SmartHelmet_ReportStart(void);
+DEBUG_LOG_DEFINE_LEVEL_VAR
+
 #define SH_AT_CMD_COUNT  ((uint8)(sizeof(sh_at_cmds) / sizeof(sh_at_cmds[0])))
 #define SH_STEP_RESET    (1)
 #define SH_STEP_CMD      (2)
@@ -33,9 +34,7 @@ void SmartHelmet_ReportStart(void);
 #define SH_STEP_DEST     (6)   /* at_dest, then +++ */
 #define SH_STEP_PASS     (7)   /* wait for Transparent mode */
 
-
-DEBUG_LOG_DEFINE_LEVEL_VAR
-
+void SmartHelmet_ReportStart(void);
 static void shWisunArm(uint16 delay_ms);
 
 static Sink sh_uart_sink;
