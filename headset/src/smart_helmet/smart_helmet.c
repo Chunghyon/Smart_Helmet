@@ -427,6 +427,8 @@ void SmartHelmet_ReportStart(void)
     n = shAppend(line, n, sizeof(line),
                  (v && v->motion == smart_helmet_motion_active) ? "moving" : "still");
 #endif
+    n = shAppend(line, n, sizeof(line), "\r\nrestart:");
+    n = shAppend(line, n, sizeof(line), SmartHelmet_UartTakeRestart() ? "yes" : "no");
     n = shAppend(line, n, sizeof(line), "\r\nfall:");
 #if !SMART_HELMET_ENABLE_LIS3DH
     n = shAppend(line, n, sizeof(line), "Disabled");

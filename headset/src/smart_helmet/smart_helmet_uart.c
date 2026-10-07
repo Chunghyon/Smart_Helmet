@@ -36,7 +36,8 @@ static void *sh_uart_rx_ctx;
 static smart_helmet_wisun_status_t sh_wisun;
 static uint8 sh_wisun_step;          /* 0 idle, 1 reset wait, 2 AT cmd, 3 done */
 static uint8 sh_at_idx;
-static bool sh_passthrough;          /* +++ accepted; report is payload, not CLI */
+static bool sh_passthrough;
+static bool sh_restart_seen;          /* +++ accepted; report is payload, not CLI */
 static uint8 sh_leave_next;          /* step to enter after exit\r\n */
 static uint8 sh_too_long_retry;
 static uint8 sh_rx_asm[SMART_HELMET_WISUN_RX_BUF_SIZE];
@@ -179,6 +180,13 @@ static void shRxLinePush(const uint8 *data, uint16 len)
 
         if (b == '\n')
         {
+            if (shContainsFold(sh_rx_line, sh_rx_line_len, "RESTART_SENSOR"))
+            {
+                sh_restart_seen = TRUE;
+                CC_LOGN("SmartHelmet AT: RESTART_SENSOR, vitals restart");
+                DEBUG_LOG_ALWAYS("SmartHelmet AT: RESTART_SENSOR, vitals restart");
+                SmartHelmet_VitalsInit();
+            }
             shRxLineFlush();
             continue;
         }
@@ -376,7 +384,9 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
     }
     if (shContainsFold(data, len, "RESTART_SENSOR"))
     {
+        sh_restart_seen = TRUE;
         CC_LOGN("SmartHelmet AT: RESTART_SENSOR, vitals restart");
+        DEBUG_LOG_ALWAYS("SmartHelmet AT: RESTART_SENSOR, vitals restart");
         SmartHelmet_VitalsInit();
     }
 }
@@ -860,6 +870,13 @@ const smart_helmet_wisun_status_t *SmartHelmet_UartGetStatus(void)
 bool SmartHelmet_UartInPassthrough(void)
 {
     return sh_passthrough;
+}
+
+bool SmartHelmet_UartTakeRestart(void)
+{
+    bool seen = sh_restart_seen;
+    sh_restart_seen = FALSE;
+    return seen;
 }
 
 void SmartHelmet_UartNoteReportSent(bool ok)

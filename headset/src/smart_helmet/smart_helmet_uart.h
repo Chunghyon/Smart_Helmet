@@ -75,6 +75,7 @@ void SmartHelmet_UartStartVerify(void);
 
 /*! \brief True only after +++ was accepted. Report must not be sent otherwise. */
 bool SmartHelmet_UartInPassthrough(void);
+bool SmartHelmet_UartTakeRestart(void);
 
 /*! \brief Set after a passthrough report frame is written. */
 void SmartHelmet_UartNoteReportSent(bool ok);
