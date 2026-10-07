@@ -22,6 +22,7 @@
 #include <logging.h>
 #include <system_clock.h>
 
+void SmartHelmet_ReportStart(void);
 #define SH_AT_CMD_COUNT  ((uint8)(sizeof(sh_at_cmds) / sizeof(sh_at_cmds[0])))
 #define SH_STEP_RESET    (1)
 #define SH_STEP_CMD      (2)
@@ -32,7 +33,6 @@
 #define SH_STEP_DEST     (6)   /* at_dest, then +++ */
 #define SH_STEP_PASS     (7)   /* wait for Transparent mode */
 
-void SmartHelmet_ReportStart(void);
 
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
@@ -910,11 +910,13 @@ void SmartHelmet_UartNoteReportSent(bool ok)
     }
     if (sh_send_ok_wait)
     {
-        if (sh_missed_ok < 3)
+        if (sh_missed_ok < 12)
         {
             sh_missed_ok++;
         }
-        if (sh_missed_ok >= 3)
+        /* Three misses is one late reply. Rejoin only after about a minute
+         * without send OK, otherwise exit/at_dest drops the live reports. */
+        if (sh_missed_ok >= 12)
         {
             SmartHelmet_UartRejoin("no send OK");
         }
@@ -933,7 +935,7 @@ void SmartHelmet_UartRejoin(const char *why)
     {
         return;
     }
-    if (sh_rejoin_ms && (now - sh_rejoin_ms) < 15000u)
+    if (sh_rejoin_ms && (now - sh_rejoin_ms) < 60000u)
     {
         return;
     }
