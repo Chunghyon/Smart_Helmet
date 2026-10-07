@@ -515,8 +515,8 @@ static bool shSsdInitPanel(void)
         0x40,             /* start line 0 */
         0x8D, 0x14,       /* charge pump on */
         0x20, 0x02,       /* page addressing */
-        0xA1,             /* segment remap */
-        0xC8,             /* COM scan remap */
+        0xA0,             /* segment remap off: 180 deg from A1/C8 */
+        0xC0,             /* COM scan normal: panel is mounted upside down */
         0xDA, 0x12,       /* COM pins */
         0x81, 0xCF,       /* contrast */
         0xD9, 0xF1,       /* precharge */
