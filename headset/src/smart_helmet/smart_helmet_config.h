@@ -210,7 +210,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_FALL_FREEFALL_MG      (350)
 #define SMART_HELMET_FALL_IMPACT_MG        (1800)
 /* Test offset: faulty AMB (HDC1080) reads high. Subtract 10.00 C. */
-#define SMART_HELMET_AMB_OFFSET_X100       (-1000)
+#define SMART_HELMET_AMB_OFFSET_X100       (-500)
 
 /* -------------------------------------------------------------------------- */
 /* Vitals proxy (LIS3DH + PD-V12 / SENS_IN) — trend only, not clinical HR    */
@@ -228,7 +228,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  * Motion gate: RMS of the accel magnitude around its own mean (i.e. with the
  * ~1000 mg gravity component removed) above this (mg) => ACTIVITY.
  */
-#define SMART_HELMET_MOTION_RMS_MG         (80)
+#define SMART_HELMET_MOTION_RMS_MG         (350)
 
 /*!
  * When LIS3DH is absent: SENS residual energy (mean |hp|) above this
@@ -637,7 +637,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  * forces ACTIVITY. Only used when SMART_HELMET_ENABLE_HR_MOTION_ADAPT is 1.
  */
 #ifndef SMART_HELMET_MOTION_RMS_MG_ADAPT
-#define SMART_HELMET_MOTION_RMS_MG_ADAPT   (250)
+#define SMART_HELMET_MOTION_RMS_MG_ADAPT   (500)
 #endif
 
 /* -------------------------------------------------------------------------
