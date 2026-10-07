@@ -37,7 +37,9 @@ static smart_helmet_wisun_status_t sh_wisun;
 static uint8 sh_wisun_step;          /* 0 idle, 1 reset wait, 2 AT cmd, 3 done */
 static uint8 sh_at_idx;
 static bool sh_passthrough;
-static bool sh_restart_seen;          /* +++ accepted; report is payload, not CLI */
+static bool sh_restart_seen;
+static bool sh_send_ok_wait;
+static bool sh_rejoining;          /* +++ accepted; report is payload, not CLI */
 static uint8 sh_leave_next;          /* step to enter after exit\r\n */
 static uint8 sh_too_long_retry;
 static uint8 sh_rx_asm[SMART_HELMET_WISUN_RX_BUF_SIZE];
@@ -373,12 +375,17 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
     if (shContainsFold(data, len, "send fail"))
     {
         sh_wisun.online = FALSE;
+        sh_send_ok_wait = FALSE;
         CC_LOGN("SmartHelmet AT: BR send fail");
         SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
+        SmartHelmet_UartRejoin("send fail");
     }
     else if (shContainsFold(data, len, "send ok"))
     {
         sh_wisun.online = TRUE;
+        sh_send_ok_wait = FALSE;
+        sh_rejoining = FALSE;
+        sh_too_long_retry = 0;
         CC_LOGN("SmartHelmet AT: BR send OK");
         SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
     }
@@ -885,8 +892,40 @@ void SmartHelmet_UartNoteReportSent(bool ok)
     if (!ok)
     {
         sh_wisun.online = FALSE;
+        SmartHelmet_UartRejoin("report write fail");
+        return;
     }
-    //CC_LOGN("SmartHelmet AT: report %s", ok ? "queued" : "write failed");
+    if (sh_send_ok_wait)
+    {
+        SmartHelmet_UartRejoin("no send OK");
+        return;
+    }
+    sh_send_ok_wait = TRUE;
+}
+
+void SmartHelmet_UartRejoin(const char *why)
+{
+    if (sh_wisun_step == SH_STEP_LEAVE || sh_wisun_step == SH_STEP_DEST ||
+        sh_wisun_step == SH_STEP_PASS)
+    {
+        return;
+    }
+    sh_rejoining = TRUE;
+    sh_passthrough = FALSE;
+    sh_wisun.online = FALSE;
+    sh_send_ok_wait = FALSE;
+    SmartHelmet_ReportStop();
+    SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
+    sh_leave_next = SH_STEP_DEST;
+    sh_wisun_step = SH_STEP_LEAVE;
+    CC_LOGN("SmartHelmet AT: %s, exit and re-enter", why ? why : "rejoin");
+    shWisunSendProbe("exit");
+    shWisunArm(400);
+}
+
+bool SmartHelmet_UartIsRejoining(void)
+{
+    return sh_rejoining;
 }
 
 void SmartHelmet_UartSleep(void)
@@ -1064,6 +1103,8 @@ static void shWisunOnTimeout(void)
             return;
         }
         sh_wisun.online = FALSE;
+        sh_rejoining = FALSE;
+        SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
         SmartHelmet_ReportStart();
         return;
     }

@@ -602,6 +602,10 @@ static const char *shBrText(void)
 {
     const smart_helmet_wisun_status_t *st = SmartHelmet_UartGetStatus();
 
+    if (SmartHelmet_UartIsRejoining())
+    {
+        return "WISUN REJOIN";
+    }
     /* online is set only after the module RX line "send OK". */
     if (st && st->online)
     {
