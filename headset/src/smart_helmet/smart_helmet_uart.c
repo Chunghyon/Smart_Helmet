@@ -10,6 +10,7 @@
 #include "smart_helmet_config.h"
 #include "smart_helmet_uart.h"
 #include "smart_helmet_sensors.h"
+#include "smart_helmet_vitals.h"
 
 #include <stream.h>
 #include <source.h>
@@ -372,6 +373,11 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
         sh_wisun.online = TRUE;
         //CC_LOGN("SmartHelmet AT: BR send OK");
         SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
+    }
+    if (shContainsFold(data, len, "RESTART_SENSOR"))
+    {
+        CC_LOGN("SmartHelmet AT: RESTART_SENSOR, vitals restart");
+        SmartHelmet_VitalsInit();
     }
 }
 
