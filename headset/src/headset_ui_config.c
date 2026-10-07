@@ -52,8 +52,9 @@ const ui_config_table_content_t headset_ui_config_table[] =
 //	{PP_INACTIVE_REQ_SHIPPING_MODE, ui_provider_app_sm,         context_app_sm_inactive,              ui_input_sm_shipping_mode     },
 //	{PP_ACTIVE_REQ_SHIPPING_MODE,   ui_provider_app_sm,         context_app_sm_active,                ui_input_sm_shipping_mode     },
 
-    {TP_ENTER,						ui_provider_app_sm,         context_app_sm_inactive,              ui_input_sm_power_on          },
-    {TP_HELD_1SEC,					ui_provider_app_sm,         context_app_sm_active,                ui_input_sm_power_off         },
+//    {TP_ENTER,						ui_provider_app_sm,         context_app_sm_inactive,              ui_input_sm_power_on          },
+    {TAB_SINGLE_CLICK,						ui_provider_app_sm,         context_app_sm_inactive,              ui_input_sm_power_on          },
+    {TAB_HELD_3SEC,					ui_provider_app_sm,         context_app_sm_active,                ui_input_sm_power_off         },
 
     {TAB_SINGLE_CLICK,              ui_provider_telephony,      context_voice_ringing_incoming,       ui_input_voice_call_accept    },
     {TAB_SINGLE_CLICK,              ui_provider_telephony,      context_voice_in_call_with_incoming,  ui_input_voice_call_accept    },
@@ -212,7 +213,8 @@ bool HeadsetUi_IsLogicalInputScreenedInLimboState(unsigned logical_input)
 {
     switch (logical_input)
     {
-	case TP_ENTER:
+    //case TP_ENTER:
+    case TAB_SINGLE_CLICK:
         /* Power On button press is not screened. */
         return FALSE;
     default:
