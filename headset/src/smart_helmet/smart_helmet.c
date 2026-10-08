@@ -443,8 +443,16 @@ void SmartHelmet_ReportStart(void)
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
     /* Ear-site skin micro-motion (pulse/resp band). LIS3DH motion stays in
-     * motion:. unknown = moving, no contact, or jaw/speech artifact. */
-    if (!v || !v->valid)
+     * motion:. unknown = moving or not ready. none = calm, no pulse and no resp. */
+    if (!v)
+    {
+        n = shAppend(line, n, sizeof(line), "unknown");
+    }
+    else if (v->trend == smart_helmet_trend_absent)
+    {
+        n = shAppend(line, n, sizeof(line), "none");
+    }
+    else if (!v->valid)
     {
         n = shAppend(line, n, sizeof(line), "unknown");
     }

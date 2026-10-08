@@ -2591,8 +2591,9 @@ void SmartHelmet_VitalsProcess(void)
         if (bio_pulse_abs < SMART_HELMET_BIO_PULSE_ABS_MIN &&
             bio_resp_abs < SMART_HELMET_BIO_RESP_ABS_MIN)
         {
-            trend = smart_helmet_trend_unknown;
-            sh_vitals.valid = FALSE;
+            /* Calm and measured, but neither pulse nor respiration band. */
+            trend = smart_helmet_trend_absent;
+            sh_vitals.valid = TRUE;
         }
         else if (sens_abs > (uint16)(bio_pulse_abs * SMART_HELMET_BIO_ARTIFACT_RATIO + 40u))
         {

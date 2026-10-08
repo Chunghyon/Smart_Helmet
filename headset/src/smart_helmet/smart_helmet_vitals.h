@@ -26,7 +26,8 @@ typedef enum
     smart_helmet_trend_unknown = 0,
     smart_helmet_trend_stable,
     smart_helmet_trend_rising,
-    smart_helmet_trend_falling
+    smart_helmet_trend_falling,
+    smart_helmet_trend_absent
 } smart_helmet_trend_flag_t;
 
 /*!
