@@ -45,15 +45,7 @@ const focus_select_voice_tie_break_t voice_source_focus_priority[] =
 const ui_config_table_content_t headset_ui_config_table[] =
 {
 #ifdef INCLUDE_SMART_HELMET
-//	{PM_SINGLE_CLICK,				ui_provider_app_sm,         context_app_sm_inactive,              ui_input_micspk_test_start          },
-//	{BMS_RESET_ENTER,				ui_provider_app_sm,         context_app_sm_inactive,              ui_input_factory_reset_request     },
-//	{BMS_RESET_ENTER,				ui_provider_app_sm,         context_app_sm_active,                ui_input_factory_reset_request     },
-
-//	{PP_INACTIVE_REQ_SHIPPING_MODE, ui_provider_app_sm,         context_app_sm_inactive,              ui_input_sm_shipping_mode     },
-//	{PP_ACTIVE_REQ_SHIPPING_MODE,   ui_provider_app_sm,         context_app_sm_active,                ui_input_sm_shipping_mode     },
-
-//    {TP_ENTER,						ui_provider_app_sm,         context_app_sm_inactive,              ui_input_sm_power_on          },
-    {TAB_SINGLE_CLICK,						ui_provider_app_sm,         context_app_sm_inactive,              ui_input_sm_power_on          },
+    {TAB_SINGLE_CLICK,				ui_provider_app_sm,         context_app_sm_inactive,              ui_input_sm_power_on          },
     {TAB_HELD_3SEC,					ui_provider_app_sm,         context_app_sm_active,                ui_input_sm_power_off         },
 
     {TAB_SINGLE_CLICK,              ui_provider_telephony,      context_voice_ringing_incoming,       ui_input_voice_call_accept    },
@@ -65,21 +57,12 @@ const ui_config_table_content_t headset_ui_config_table[] =
     {TAB_SINGLE_CLICK,              ui_provider_telephony,      context_voice_in_call_with_outgoing,  ui_input_no_action    },
     {TAB_SINGLE_CLICK,              ui_provider_telephony,      context_voice_in_call_with_held,      ui_input_no_action    },
 
-    {TAB_DOUBLE_CLICK,              ui_provider_telephony,      context_voice_ringing_incoming,       ui_input_voice_call_reject    },
-    {TAB_DOUBLE_CLICK,              ui_provider_telephony,      context_voice_in_call_with_incoming,  ui_input_voice_call_reject    },
-    {TAB_DOUBLE_CLICK,              ui_provider_telephony,      context_voice_in_call,                ui_input_voice_call_hang_up   },
-    {TAB_DOUBLE_CLICK,              ui_provider_telephony,      context_voice_ringing_outgoing,       ui_input_voice_call_hang_up   },
-    {TAB_DOUBLE_CLICK,              ui_provider_telephony,      context_voice_in_call_with_outgoing,  ui_input_voice_call_hang_up   },
-    {TAB_DOUBLE_CLICK,              ui_provider_telephony,      context_voice_in_call_with_held,      ui_input_voice_call_hang_up   },
-
-    {TAB_SINGLE_CLICK,              ui_provider_telephony,      context_voice_call_held,              ui_input_voice_call_cycle     },
-    {TAB_SINGLE_CLICK,              ui_provider_telephony,      context_voice_in_multiparty_call,     ui_input_voice_call_hang_up   },
-
-    {TAB_HELD_RELEASE_1SEC,         ui_provider_telephony,      context_voice_in_call,                ui_input_voice_transfer       },
-    {TAB_HELD_RELEASE_1SEC,         ui_provider_telephony,      context_voice_in_call_with_outgoing,  ui_input_voice_transfer       },
-    {TAB_HELD_RELEASE_1SEC,         ui_provider_telephony,      context_voice_in_call_with_held,      ui_input_voice_transfer       },
-    {TAB_HELD_RELEASE_1SEC,         ui_provider_telephony,      context_voice_call_held,              ui_input_voice_transfer       },
-    {TAB_HELD_RELEASE_1SEC,         ui_provider_telephony,      context_voice_in_multiparty_call,     ui_input_voice_transfer       },
+    {TAB_HELD_RELEASE_1SEC,              ui_provider_telephony,      context_voice_ringing_incoming,       ui_input_voice_call_reject    },
+    {TAB_HELD_RELEASE_1SEC,              ui_provider_telephony,      context_voice_in_call_with_incoming,  ui_input_voice_call_reject    },
+    {TAB_HELD_RELEASE_1SEC,              ui_provider_telephony,      context_voice_in_call,                ui_input_voice_call_hang_up   },
+    {TAB_HELD_RELEASE_1SEC,              ui_provider_telephony,      context_voice_ringing_outgoing,       ui_input_voice_call_hang_up   },
+    {TAB_HELD_RELEASE_1SEC,              ui_provider_telephony,      context_voice_in_call_with_outgoing,  ui_input_voice_call_hang_up   },
+    {TAB_HELD_RELEASE_1SEC,              ui_provider_telephony,      context_voice_in_call_with_held,      ui_input_voice_call_hang_up   },
 
     {TAB_HELD_RELEASE_1SEC,         ui_provider_media_player,   context_media_player_idle,            ui_input_play                 },
     {TAB_HELD_RELEASE_1SEC,         ui_provider_media_player,   context_media_player_streaming,       ui_input_pause                },
@@ -87,6 +70,8 @@ const ui_config_table_content_t headset_ui_config_table[] =
     {PLUS_HELD_RELEASE_1SEC,        ui_provider_media_player,   context_media_player_streaming,       ui_input_av_forward           },
     {MINUS_HELD_RELEASE_1SEC,       ui_provider_media_player,   context_media_player_streaming,       ui_input_av_backward          },
 
+    {MINUS_HELD_RELEASE_1SEC,       ui_provider_app_sm,          context_app_sm_active,                ui_input_sm_pair_handset              },
+    {MINUS_HELD_RELEASE_3SEC,       ui_provider_app_sm,          context_app_sm_active,                ui_input_sm_pair_handset              },
 
 #if 0
     {MINUS_DOUBLE_CLICK,            ui_provider_handset_pairing,  context_handset_pairing_active,     ui_input_sm_pair_handset_stop },
