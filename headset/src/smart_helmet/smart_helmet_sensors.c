@@ -765,6 +765,7 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
     (void)shSsdDrawText(0, 4, shStateText(state));
     mv = appBatteryGetVoltageInstantaneous();
     pct = Soc_ConvertLevelToPercentage(mv);
+    if(pct>=99) pct = 100;
     shFmtPct(line, pct);
     (void)shSsdDrawText(2, 4, line);
     if (state == 2u)

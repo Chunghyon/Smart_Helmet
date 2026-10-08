@@ -39,6 +39,7 @@ void SmartHelmet_SensorsDisplayResume(void);
 #include <power_manager.h>
 #include <power_manager_conditions.h>
 #include <charger_monitor.h>
+#include <state_of_charge.h>
 #include <led_manager.h>
 #include <ui_indicator_leds.h>
 #include <stereo_topology.h>
@@ -415,50 +416,84 @@ static void headsetSmStopLimboTimer(void)
 /* Last charger indication. Applied again on entry to LIMBO, because the
    charger message may already have been delivered before the state change. */
 static MessageId headset_limbo_charge_event = CHARGER_MESSAGE_DETACHED;
-static MessageId headset_limbo_charge_led_applied = 0;
+static uint8 headset_limbo_charge_led = 0;
+static bool headset_limbo_charge_high = FALSE;
+static bool headset_limbo_soc_registered = FALSE;
 
-/*! \brief Solid charge LED while in LIMBO: yellow while charging, green when full.
-    Holds LIMBO across the charge session by stopping the limbo timer.
-    Periodic CHARGING_OK/LOW messages do not restart the pattern. */
+/*! Green from 95% while charging. Stay green through 93-94%. Yellow again at 92% or below. */
+static uint8 headsetSmLimboChargeLedChoice(void)
+{
+    uint8 soc = Soc_GetBatterySoc();
+
+    if (headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED)
+    {
+        headset_limbo_charge_high = TRUE;
+        return 2;
+    }
+    if (headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_OK ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_LOW)
+    {
+        if (soc >= 95)
+        {
+            headset_limbo_charge_high = TRUE;
+        }
+        else if (soc <= 92)
+        {
+            headset_limbo_charge_high = FALSE;
+        }
+        return headset_limbo_charge_high ? 2 : 1;
+    }
+    if (headset_limbo_charge_event == CHARGER_MESSAGE_ATTACHED)
+    {
+        return 3;
+    }
+    headset_limbo_charge_high = FALSE;
+    return 0;
+}
+
+/*! \brief Solid charge LED while in LIMBO. Cable removal powers off immediately. */
 static void headsetSmApplyLimboChargeLed(void)
 {
+    uint8 choice;
+
     if (HEADSET_STATE_LIMBO != headsetGetState())
     {
         return;
     }
+    if (!headset_limbo_soc_registered)
+    {
+        soc_registration_form_t form = { headsetSmGetTask(), 1 };
+        headset_limbo_soc_registered = Soc_Register(&form);
+    }
 
-    if (headset_limbo_charge_led_applied == headset_limbo_charge_event)
+    choice = headsetSmLimboChargeLedChoice();
+    if (choice == 3 || choice == headset_limbo_charge_led)
     {
         return;
     }
-    headset_limbo_charge_led_applied = headset_limbo_charge_event;
+    headset_limbo_charge_led = choice;
 
-    switch (headset_limbo_charge_event)
+    if (choice == 1)
     {
-        case CHARGER_MESSAGE_CHARGING_OK:
-        case CHARGER_MESSAGE_CHARGING_LOW:
-            DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : charging, LED_YELLOW");
-            headsetSmStopLimboTimer();
-            SmartHelmet_SensorsDisplayResume();
-            SmartHelmet_UiRefresh(2u);
-            LedManager_SetPattern(app_led_pattern_limbo_charging, LED_PRI_MEDIUM, NULL, 0);
-            break;
-
-        case CHARGER_MESSAGE_COMPLETED:
-            DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : complete, LED_GREEN");
-            headsetSmStopLimboTimer();
-            SmartHelmet_SensorsDisplayResume();
-            SmartHelmet_UiRefresh(2u);
-            LedManager_SetPattern(app_led_pattern_limbo_charged, LED_PRI_MEDIUM, NULL, 0);
-            break;
-
-        case CHARGER_MESSAGE_DETACHED:
-        case CHARGER_MESSAGE_DISABLED:
-        default:
-            DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : off, event 0x%x", headset_limbo_charge_event);
-            LedManager_StopPattern(LED_PRI_MEDIUM);
-            headsetSmStartLimboTimer();
-            break;
+        DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : charging %u%%, LED_YELLOW", Soc_GetBatterySoc());
+        headsetSmStopLimboTimer();
+        SmartHelmet_SensorsDisplayResume();
+        SmartHelmet_UiRefresh(2u);
+        LedManager_SetPattern(app_led_pattern_limbo_charging, LED_PRI_MEDIUM, NULL, 0);
+    }
+    else if (choice == 2)
+    {
+        DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : charging %u%%, LED_GREEN", Soc_GetBatterySoc());
+        headsetSmStopLimboTimer();
+        SmartHelmet_SensorsDisplayResume();
+        SmartHelmet_UiRefresh(2u);
+        LedManager_SetPattern(app_led_pattern_limbo_charged, LED_PRI_MEDIUM, NULL, 0);
+    }
+    else
+    {
+        DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : cable out, limbo timer");
+        LedManager_StopPattern(LED_PRI_MEDIUM);
+        headsetSmStartLimboTimer();
     }
 }
 
@@ -690,6 +725,7 @@ static void headsetCheckDfu(void)
 static void headsetEnterLimbo(void)
 {
 	DEBUG_LOG_ALWAYS("headsetEnterLimbo : HEADSET_STATE_LIMBO");
+    headsetSmStartLimboTimer();
     headsetSmApplyLimboChargeLed();
 #ifdef INCLUDE_DFU
     headsetCheckDfu();
@@ -715,7 +751,7 @@ static void headsetExitLimbo(void)
 {
 	DEBUG_LOG_ALWAYS("headsetExitLimbo");
     headsetSmStopLimboTimer();
-    headset_limbo_charge_led_applied = 0;
+    headset_limbo_charge_led = 0;
     LedManager_StopPattern(LED_PRI_MEDIUM);
 }
 
@@ -1471,6 +1507,14 @@ void headsetSmHandleMessage(Task task, MessageId id, Message message)
             break;
 
         /* Charger indications */
+        case CHARGER_MESSAGE_ATTACHED:
+            if (headsetGetState() == HEADSET_STATE_POWERING_OFF)
+            {
+                headsetSetState(HEADSET_STATE_LIMBO);
+            }
+            headset_limbo_charge_event = id;
+            headsetSmApplyLimboChargeLed();
+            break;
         case CHARGER_MESSAGE_DETACHED:
             headsetSmHandleChargerMessageDetached();
             break;
@@ -1482,7 +1526,14 @@ void headsetSmHandleMessage(Task task, MessageId id, Message message)
             break;
         case CHARGER_MESSAGE_CHARGING_OK:
         case CHARGER_MESSAGE_CHARGING_LOW:
+            if (headsetGetState() == HEADSET_STATE_POWERING_OFF)
+            {
+                headsetSetState(HEADSET_STATE_LIMBO);
+            }
             headsetSmNoteChargerEvent(id);
+            break;
+        case SOC_UPDATE_IND:
+            headsetSmApplyLimboChargeLed();
             break;
 
         /* Power indications */
