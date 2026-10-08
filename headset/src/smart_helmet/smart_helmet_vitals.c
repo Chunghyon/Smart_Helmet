@@ -30,6 +30,7 @@ static smart_helmet_vitals_status_t sh_vitals;
 static uint16 motion_mag[MOTION_WIN];
 static uint8  motion_idx;
 static uint8  motion_count;
+static bool   sh_fall_pending;
 
 static int16  band_hp[BAND_WIN];
 static uint8  band_idx;
@@ -1889,6 +1890,7 @@ void SmartHelmet_VitalsInit(void)
     memset(band_hp, 0, sizeof(band_hp));
     memset(sens_hp, 0, sizeof(sens_hp));
     motion_idx = motion_count = 0;
+    sh_fall_pending = FALSE;
     band_idx = band_count = 0;
     sens_idx = sens_count = 0;
     hp_prev_x = hp_prev_y = 0;
@@ -1965,6 +1967,32 @@ void SmartHelmet_VitalsInit(void)
             (unsigned)SMART_HELMET_ENABLE_HR_MOTION_ADAPT);
 }
 
+static void shNoteFallMag(uint16 mag)
+{
+    if (mag == 0)
+    {
+        return;
+    }
+    if (mag >= SMART_HELMET_FALL_IMPACT_MG ||
+        mag <= SMART_HELMET_FALL_FREEFALL_MG)
+    {
+        sh_fall_pending = TRUE;
+    }
+}
+
+static void shNoteFallWindow(uint16 rms, uint16 mn, uint16 pk)
+{
+    uint16 swing = (pk > mn) ? (uint16)(pk - mn) : 0;
+
+    if (rms >= SMART_HELMET_FALL_RMS_MG ||
+        pk >= SMART_HELMET_FALL_IMPACT_MG ||
+        (mn > 0 && mn <= SMART_HELMET_FALL_FREEFALL_MG) ||
+        swing >= SMART_HELMET_FALL_SWING_MG)
+    {
+        sh_fall_pending = TRUE;
+    }
+}
+
 void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
 {
     int32 ax = x_mg;
@@ -1980,6 +2008,7 @@ void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
     {
         motion_count++;
     }
+    shNoteFallMag(mag);
 
     hp = shHighPass((int32)mag, &hp_prev_x, &hp_prev_y);
 #if SMART_HELMET_ENABLE_HR_MOTION_ADAPT
@@ -2398,12 +2427,14 @@ void SmartHelmet_VitalsProcess(void)
         }
         sh_vitals.motion_min_mg = mn;
         sh_vitals.motion_peak_mg = pk;
+        shNoteFallWindow(rms, mn, pk);
     }
     else
     {
         sh_vitals.motion_min_mg = 0;
         sh_vitals.motion_peak_mg = 0;
     }
+    sh_vitals.fall_pending = sh_fall_pending;
     sh_vitals.pir_events_win = pir_events;
     sh_vitals.sens_dropped = sens_dropped;
     sens_dropped = 0;
@@ -2638,6 +2669,15 @@ const smart_helmet_vitals_status_t *SmartHelmet_VitalsGetStatus(void)
     return &sh_vitals;
 }
 
+bool SmartHelmet_VitalsTakeFall(void)
+{
+    bool hit = sh_fall_pending;
+
+    sh_fall_pending = FALSE;
+    sh_vitals.fall_pending = FALSE;
+    return hit;
+}
+
 #else /* !SMART_HELMET_ENABLE_VITALS_PROXY */
 
 void SmartHelmet_VitalsInit(void) {}
@@ -2662,6 +2702,10 @@ const smart_helmet_vitals_status_t *SmartHelmet_VitalsGetStatus(void)
 {
     static smart_helmet_vitals_status_t empty;
     return &empty;
+}
+bool SmartHelmet_VitalsTakeFall(void)
+{
+    return FALSE;
 }
 
 #endif /* SMART_HELMET_ENABLE_VITALS_PROXY */

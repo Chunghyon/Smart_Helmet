@@ -204,11 +204,13 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_REPORT_MS       (5000)
 #endif
 #define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"
-/* Fall: window RMS alone missed short drops (one sample in 25).
- * Also treat near-0 g as free-fall and a high peak as impact. */
-#define SMART_HELMET_FALL_RMS_MG           (500)
-#define SMART_HELMET_FALL_FREEFALL_MG      (350)
-#define SMART_HELMET_FALL_IMPACT_MG        (1800)
+/* Fall: a 25-sample window aged out before the 5 s report, and a vertical
+ * shake often stays under 1.8 g / above 0.35 g. Latch any hit until reported,
+ * and treat a moderate peak, dip, RMS, or peak-min swing as a fall. */
+#define SMART_HELMET_FALL_RMS_MG           (220)
+#define SMART_HELMET_FALL_FREEFALL_MG      (700)
+#define SMART_HELMET_FALL_IMPACT_MG        (1300)
+#define SMART_HELMET_FALL_SWING_MG         (400)
 /* Test offset: faulty AMB (HDC1080) reads high. Subtract 10.00 C. */
 #define SMART_HELMET_AMB_OFFSET_X100       (-500)
 

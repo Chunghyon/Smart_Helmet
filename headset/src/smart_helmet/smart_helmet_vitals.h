@@ -63,6 +63,8 @@ typedef struct
     uint16                     motion_rms_mg;
     uint16                     motion_min_mg;
     uint16                     motion_peak_mg;
+    /*! Set when a fall condition was seen since the last TakeFall(). */
+    bool                       fall_pending;
     uint16                     band_energy;
     uint16                     baseline_energy;
     uint16                     pir_events_win;
@@ -153,5 +155,7 @@ void SmartHelmet_VitalsPirEvent(void);
 void SmartHelmet_VitalsOnSensSample(void);
 void SmartHelmet_VitalsProcess(void);
 const smart_helmet_vitals_status_t *SmartHelmet_VitalsGetStatus(void);
+/*! \brief Return and clear a fall seen since the previous call. */
+bool SmartHelmet_VitalsTakeFall(void);
 
 #endif /* SMART_HELMET_VITALS_H */
