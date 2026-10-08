@@ -43,6 +43,13 @@ static uint8  sens_idx;
 static uint8  sens_count;
 static int32  sens_prev_x;
 static int32  sens_prev_y;
+/* Ear-site skin motion: pulse 0.8-3 Hz, respiration 0.12-0.45 Hz at 25 Hz. */
+static int32  bio_lp_fast;
+static int32  bio_lp_slow;
+static int32  bio_resp_fast;
+static int32  bio_resp_slow;
+static uint16 bio_pulse_abs;
+static uint16 bio_resp_abs;
 static uint16 pir_events;
 static bool   sens_edge_armed;
 static uint8  sens_since_process;
@@ -1895,6 +1902,9 @@ void SmartHelmet_VitalsInit(void)
     sens_idx = sens_count = 0;
     hp_prev_x = hp_prev_y = 0;
     sens_prev_x = sens_prev_y = 0;
+    bio_lp_fast = bio_lp_slow = 0;
+    bio_resp_fast = bio_resp_slow = 0;
+    bio_pulse_abs = bio_resp_abs = 0;
     pir_events = 0;
     sens_edge_armed = TRUE;
     sens_since_process = 0;
@@ -2037,6 +2047,37 @@ void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
     }
 }
 
+static void shBioPush(int16 hp)
+{
+    int32 x = hp;
+    int32 pulse;
+    int32 resp;
+    int32 ap;
+    int32 ar;
+
+    /* One-pole difference bands. Alphas are Q8 at 25 Hz. */
+    bio_lp_fast += ((x - bio_lp_fast) * 136) / 256;     /* ~3.0 Hz */
+    bio_lp_slow += ((x - bio_lp_slow) * 47) / 256;      /* ~0.8 Hz */
+    bio_resp_fast += ((x - bio_resp_fast) * 27) / 256;  /* ~0.45 Hz */
+    bio_resp_slow += ((x - bio_resp_slow) * 8) / 256;   /* ~0.12 Hz */
+    pulse = bio_lp_fast - bio_lp_slow;
+    resp = bio_resp_fast - bio_resp_slow;
+    ap = (pulse < 0) ? -pulse : pulse;
+    ar = (resp < 0) ? -resp : resp;
+    if (ap > 32767)
+    {
+        ap = 32767;
+    }
+    if (ar > 32767)
+    {
+        ar = 32767;
+    }
+    bio_pulse_abs = (uint16)(bio_pulse_abs +
+        ((ap - (int32)bio_pulse_abs) * 32) / 256);
+    bio_resp_abs = (uint16)(bio_resp_abs +
+        ((ar - (int32)bio_resp_abs) * 16) / 256);
+}
+
 void SmartHelmet_VitalsPushSensInMv(uint16 mv)
 {
     SmartHelmet_VitalsPushSensInMvAt(mv, 0);
@@ -2129,6 +2170,7 @@ void SmartHelmet_VitalsPushSensInMvAt(uint16 mv, uint32 time_us)
     {
         sens_count++;
     }
+    shBioPush(hp);
 
     a = hp;
     if (a < 0)
@@ -2509,17 +2551,9 @@ void SmartHelmet_VitalsProcess(void)
     energy = (uint16)(energy + pir_events * 8u);
     sh_vitals.band_energy = energy;
 
-    baseline = sh_vitals.baseline_energy;
-    if (baseline == 0)
-    {
-        baseline = energy ? energy : 1;
-    }
-    else
-    {
-        baseline = (uint16)(baseline +
-            (((int32)energy - (int32)baseline) * SMART_HELMET_BASELINE_ALPHA_Q8) / 256);
-    }
-    sh_vitals.baseline_energy = baseline;
+    /* Broadband energy stays in band_energy for the HR proxy. The reported
+     * micro-motion baseline is updated only from the pulse band below. */
+    baseline = sh_vitals.baseline_energy ? sh_vitals.baseline_energy : 1;
 
     if (calm_windows < 0xff)
     {
@@ -2550,20 +2584,51 @@ void SmartHelmet_VitalsProcess(void)
 		smart_helmet_hr_reason_t pre = hr_ok;
         smart_helmet_hr_reason_t sig;
 
-        delta_pct = (((int32)energy - (int32)baseline) * 100) / (int32)baseline;
-        if (delta_pct >= (int32)SMART_HELMET_TREND_UP_PCT)
+        delta_pct = (((int32)bio_pulse_abs - (int32)baseline) * 100) /
+            (int32)(baseline ? baseline : 1);
+        /* Skin micro-motion only. Rigid motion already returned above.
+         * Baseline tracks the pulse band, not broadband IF or accel. */
+        if (bio_pulse_abs < SMART_HELMET_BIO_PULSE_ABS_MIN &&
+            bio_resp_abs < SMART_HELMET_BIO_RESP_ABS_MIN)
         {
-            trend = smart_helmet_trend_rising;
+            trend = smart_helmet_trend_unknown;
+            sh_vitals.valid = FALSE;
         }
-        else if (delta_pct <= -(int32)SMART_HELMET_TREND_DOWN_PCT)
+        else if (sens_abs > (uint16)(bio_pulse_abs * SMART_HELMET_BIO_ARTIFACT_RATIO + 40u))
         {
-            trend = smart_helmet_trend_falling;
+            /* Jaw, speech, cable: broadband IF, not a temporal-artery band. */
+            trend = smart_helmet_trend_unknown;
+            sh_vitals.valid = FALSE;
         }
         else
         {
-            trend = smart_helmet_trend_stable;
+            if (sh_vitals.baseline_energy == 0)
+            {
+                baseline = bio_pulse_abs ? bio_pulse_abs : 1;
+            }
+            else
+            {
+                baseline = (uint16)(sh_vitals.baseline_energy +
+                    (((int32)bio_pulse_abs - (int32)sh_vitals.baseline_energy) *
+                     SMART_HELMET_BASELINE_ALPHA_Q8) / 256);
+            }
+            sh_vitals.baseline_energy = baseline;
+            delta_pct = (((int32)bio_pulse_abs - (int32)baseline) * 100) /
+                (int32)baseline;
+            if (delta_pct >= (int32)SMART_HELMET_TREND_UP_PCT)
+            {
+                trend = smart_helmet_trend_rising;
+            }
+            else if (delta_pct <= -(int32)SMART_HELMET_TREND_DOWN_PCT)
+            {
+                trend = smart_helmet_trend_falling;
+            }
+            else
+            {
+                trend = smart_helmet_trend_stable;
+            }
+            sh_vitals.valid = TRUE;
         }
-        sh_vitals.valid = TRUE;
 
 		allow_hr_valid = (hr_win_left == 0) ? TRUE : FALSE;
 		if (hr_win_left > 0)

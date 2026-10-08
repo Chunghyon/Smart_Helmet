@@ -442,6 +442,8 @@ void SmartHelmet_ReportStart(void)
 #if !SMART_HELMET_ENABLE_VITALS_PROXY
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
+    /* Ear-site skin micro-motion (pulse/resp band). LIS3DH motion stays in
+     * motion:. unknown = moving, no contact, or jaw/speech artifact. */
     if (!v || !v->valid)
     {
         n = shAppend(line, n, sizeof(line), "unknown");

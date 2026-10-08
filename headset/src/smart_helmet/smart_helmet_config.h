@@ -251,6 +251,17 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_TREND_UP_PCT          (25)
 #define SMART_HELMET_TREND_DOWN_PCT        (20)
 
+/*!
+ * Ear / temple site (PD-V12 moved off the occiput). Superficial temporal
+ * artery is the pulse target; respiration is a weaker head-coupled component.
+ * LIS3DH still owns rigid helmet motion (활동감지). These floors are on the
+ * band-limited |IF| after the existing high-pass, in the same units as SENS HP.
+ */
+#define SMART_HELMET_BIO_PULSE_ABS_MIN     (8)
+#define SMART_HELMET_BIO_RESP_ABS_MIN      (10)
+/*! Broadband |HP| above this multiple of the pulse band is jaw/speech, not skin. */
+#define SMART_HELMET_BIO_ARTIFACT_RATIO    (6)
+
 /*! Consecutive calm windows required before trend is trusted */
 #define SMART_HELMET_CALM_WINDOWS_MIN      (3)
 
