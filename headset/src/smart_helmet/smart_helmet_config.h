@@ -212,7 +212,8 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_FALL_IMPACT_MG        (1300)
 #define SMART_HELMET_FALL_SWING_MG         (400)
 /* Test offset: faulty AMB (HDC1080) reads high. Subtract 10.00 C. */
-#define SMART_HELMET_AMB_OFFSET_X100       (-500)
+//#define SMART_HELMET_AMB_OFFSET_X100       (-500)
+#define SMART_HELMET_AMB_OFFSET_X100       (0)
 
 /* -------------------------------------------------------------------------- */
 /* Vitals proxy (LIS3DH + PD-V12 / SENS_IN) — trend only, not clinical HR    */
