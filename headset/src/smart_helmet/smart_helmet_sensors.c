@@ -29,6 +29,7 @@ DEBUG_LOG_DEFINE_LEVEL_VAR
 
 static smart_helmet_sensor_data_t sh_sensors;
 static Task sh_probe_task;
+static Task sh_log_task;
 static uint16 sh_probe_try;
 
 /* CCS811 registers */
@@ -979,7 +980,8 @@ void SmartHelmet_SensorsInitDisplay(void)
 #endif
 }
 
-#if SMART_HELMET_LIS3DH_BOOT_LOG
+static void shLis3dhLogArm(void);
+
 static void shLis3dhLogSample(void)
 {
 #if SMART_HELMET_ENABLE_LIS3DH
@@ -1007,6 +1009,18 @@ static void shLis3dhLogSample(void)
         sh_sensors.lis3dh_x = x;
         sh_sensors.lis3dh_y = y;
         sh_sensors.lis3dh_z = z;
+        /* The 1 s log used to read the chip without feeding activity. */
+        SmartHelmet_VitalsPushAccel(x, y, z);
+        SmartHelmet_VitalsProcess();
+        {
+            const smart_helmet_vitals_status_t *st = SmartHelmet_VitalsGetStatus();
+            static smart_helmet_motion_gate_t last = smart_helmet_motion_calm;
+            if (st && st->motion != last)
+            {
+                last = st->motion;
+                SmartHelmet_ReportStart();
+            }
+        }
     }
 #if SMART_HELMET_LIS3DH_USE_FIFO
     (void)SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
@@ -1028,19 +1042,44 @@ static void shLis3dhLogSample(void)
 
 static void shLis3dhLogArm(void)
 {
-    if (!sh_probe_task)
+    if (!sh_log_task)
     {
         return;
     }
-    MessageCancelAll(sh_probe_task, SMART_HELMET_LIS3DH_LOG_TICK);
-    MessageSendLater(sh_probe_task, SMART_HELMET_LIS3DH_LOG_TICK, NULL, 1000);
+    MessageCancelAll(sh_log_task, SMART_HELMET_LIS3DH_LOG_TICK);
+    MessageSendLater(sh_log_task, SMART_HELMET_LIS3DH_LOG_TICK, NULL, 1000);
 }
-#endif
+
+void SmartHelmet_SensorsSetLogTask(Task task)
+{
+    sh_log_task = task;
+    /* Keep lis3dh_chk linked for pydbg fw.call. 0 leaves the log off. */
+    (void)lis3dh_chk(0);
+}
+
+int lis3dh_chk(int enable)
+{
+    if (!sh_log_task)
+    {
+        CC_LOGN("lis3dh_chk: log task not set");
+        return 0;
+    }
+    if (enable)
+    {
+        CC_LOGN("lis3dh_chk(1): 1s log on");
+        shLis3dhLogSample();
+        shLis3dhLogArm();
+        return 1;
+    }
+    MessageCancelAll(sh_log_task, SMART_HELMET_LIS3DH_LOG_TICK);
+    CC_LOGN("lis3dh_chk(0): 1s log off");
+    return 0;
+}
 
 void SmartHelmet_SensorsBootLis3dhTest(Task task)
 {
+    sh_log_task = task;
 #if SMART_HELMET_LIS3DH_BOOT_LOG
-    sh_probe_task = task;
     CC_LOGN("LIS3DH boot test: init now, then 1s log");
 #if SMART_HELMET_ENABLE_LIS3DH
     sh_sensors.lis3dh_ok = FALSE;
@@ -1310,7 +1349,6 @@ void SmartHelmet_SensorsStopVerify(void)
     if (sh_probe_task)
     {
         MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
-        MessageCancelAll(sh_probe_task, SMART_HELMET_LIS3DH_LOG_TICK);
     }
     sh_probe_task = NULL;
 }
@@ -1321,10 +1359,8 @@ bool SmartHelmet_SensorsHandleMessage(Task task, MessageId id, Message message)
     UNUSED(message);
     if (id == SMART_HELMET_LIS3DH_LOG_TICK)
     {
-#if SMART_HELMET_LIS3DH_BOOT_LOG
         shLis3dhLogSample();
         shLis3dhLogArm();
-#endif
         return TRUE;
     }
     if (id != SMART_HELMET_I2C_PROBE_RETRY)

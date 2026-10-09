@@ -83,7 +83,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  * x/y/z every 1 s. 0 = normal power-on init only, no extra log.
  */
 #ifndef SMART_HELMET_LIS3DH_BOOT_LOG
-#define SMART_HELMET_LIS3DH_BOOT_LOG       (1)
+#define SMART_HELMET_LIS3DH_BOOT_LOG       (0)
 #endif
 
 /* -------------------------------------------------------------------------- */
@@ -241,7 +241,12 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  * Motion gate: RMS of the LIS3DH magnitude around its own mean (gravity
  * removed) above this (mg) => ACTIVITY. PD-V12 must not feed this gate.
  */
-#define SMART_HELMET_MOTION_RMS_MG         (350)
+#define SMART_HELMET_MOTION_RMS_MG         (80)
+
+/*! Consecutive below-threshold samples before ACTIVITY returns to still. */
+#ifndef SMART_HELMET_MOTION_STILL_SAMPLES
+#define SMART_HELMET_MOTION_STILL_SAMPLES  (3)
+#endif
 
 /*!
  * When LIS3DH is absent: SENS residual energy (mean |hp|) above this
@@ -661,7 +666,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  * forces ACTIVITY. Only used when SMART_HELMET_ENABLE_HR_MOTION_ADAPT is 1.
  */
 #ifndef SMART_HELMET_MOTION_RMS_MG_ADAPT
-#define SMART_HELMET_MOTION_RMS_MG_ADAPT   (500)
+#define SMART_HELMET_MOTION_RMS_MG_ADAPT   (200)
 #endif
 
 /* -------------------------------------------------------------------------

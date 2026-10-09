@@ -28,6 +28,9 @@ DEBUG_LOG_DEFINE_LEVEL_VAR
 static smart_helmet_vitals_status_t sh_vitals;
 
 static uint16 motion_mag[MOTION_WIN];
+static int16  motion_ax[MOTION_WIN];
+static int16  motion_ay[MOTION_WIN];
+static int16  motion_az[MOTION_WIN];
 static uint8  motion_idx;
 static uint8  motion_count;
 static bool   sh_fall_pending;
@@ -1894,6 +1897,9 @@ void SmartHelmet_VitalsInit(void)
 {
     memset(&sh_vitals, 0, sizeof(sh_vitals));
     memset(motion_mag, 0, sizeof(motion_mag));
+    memset(motion_ax, 0, sizeof(motion_ax));
+    memset(motion_ay, 0, sizeof(motion_ay));
+    memset(motion_az, 0, sizeof(motion_az));
     memset(band_hp, 0, sizeof(band_hp));
     memset(sens_hp, 0, sizeof(sens_hp));
     motion_idx = motion_count = 0;
@@ -2013,6 +2019,9 @@ void SmartHelmet_VitalsPushAccel(int16 x_mg, int16 y_mg, int16 z_mg)
     int16 hp;
 
     motion_mag[motion_idx] = mag;
+    motion_ax[motion_idx] = x_mg;
+    motion_ay[motion_idx] = y_mg;
+    motion_az[motion_idx] = z_mg;
     motion_idx = (uint8)((motion_idx + 1) % MOTION_WIN);
     if (motion_count < MOTION_WIN)
     {
@@ -2448,7 +2457,7 @@ void SmartHelmet_VitalsProcess(void)
     }
 #endif
 
-    have_accel = (motion_count >= (MOTION_WIN / 2));
+    have_accel = (motion_count >= 2);
     rms = have_accel ? shRmsDevU16(motion_mag, motion_count) : 0;
     sh_vitals.motion_rms_mg = rms;
     if (have_accel && motion_count)
@@ -2469,7 +2478,26 @@ void SmartHelmet_VitalsProcess(void)
         }
         sh_vitals.motion_min_mg = mn;
         sh_vitals.motion_peak_mg = pk;
-        shNoteFallWindow(rms, mn, pk);
+        shNoteFallWindow(shRmsDevU16(motion_mag, motion_count), mn, pk);
+        /* Activity uses the latest step only. A full-window span kept
+         * "moving" until the shake sample aged out, up to 25 samples. */
+        {
+            uint8 last = (uint8)((motion_idx + MOTION_WIN - 1) % MOTION_WIN);
+            uint8 prev = (uint8)((motion_idx + MOTION_WIN - 2) % MOTION_WIN);
+            uint16 dx = (uint16)(motion_ax[last] > motion_ax[prev]
+                                 ? motion_ax[last] - motion_ax[prev]
+                                 : motion_ax[prev] - motion_ax[last]);
+            uint16 dy = (uint16)(motion_ay[last] > motion_ay[prev]
+                                 ? motion_ay[last] - motion_ay[prev]
+                                 : motion_ay[prev] - motion_ay[last]);
+            uint16 dz = (uint16)(motion_az[last] > motion_az[prev]
+                                 ? motion_az[last] - motion_az[prev]
+                                 : motion_az[prev] - motion_az[last]);
+            rms = dx;
+            if (dy > rms) rms = dy;
+            if (dz > rms) rms = dz;
+            sh_vitals.motion_rms_mg = rms;
+        }
     }
     else
     {
@@ -2487,11 +2515,30 @@ void SmartHelmet_VitalsProcess(void)
 
     active = FALSE;
 #if SMART_HELMET_ENABLE_LIS3DH
-    /* Fixed board + PD-V12 residual used to set ACTIVITY when the accel
-     * window was not yet half full. Activity is LIS3DH RMS only. */
-    if (have_accel && rms >= motion_thresh)
+    /* One quiet sample used to drop straight to still. Require a few
+     * consecutive quiet samples so a pause inside a movement does not flap. */
     {
-        active = TRUE;
+        static uint8 still_run;
+        if (have_accel && rms >= motion_thresh)
+        {
+            still_run = 0;
+            active = TRUE;
+        }
+        else if (sh_vitals.motion == smart_helmet_motion_active)
+        {
+            if (still_run < 255)
+            {
+                still_run++;
+            }
+            if (still_run < SMART_HELMET_MOTION_STILL_SAMPLES)
+            {
+                active = TRUE;
+            }
+        }
+        else
+        {
+            still_run = 0;
+        }
     }
 #else
     if (sens_count > (BAND_WIN / 4) &&

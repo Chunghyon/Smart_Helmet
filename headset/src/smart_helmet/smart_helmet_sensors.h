@@ -48,6 +48,10 @@ void SmartHelmet_SensorsInit(void);
 void SmartHelmet_SensorsInitDisplay(void);
 /*! \brief Boot-only LIS3DH init + 1 s log. No-op unless BOOT_LOG is 1. */
 void SmartHelmet_SensorsBootLis3dhTest(Task task);
+/*! \brief Task that receives lis3dh_chk log ticks. Independent of BOOT_LOG. */
+void SmartHelmet_SensorsSetLogTask(Task task);
+/*! \brief pydbg: apps1.fw.call.lis3dh_chk(1) on, lis3dh_chk(0) off. */
+int lis3dh_chk(int enable);
 void SmartHelmet_SensorsPoll(void);
 const smart_helmet_sensor_data_t *SmartHelmet_SensorsGetData(void);
 

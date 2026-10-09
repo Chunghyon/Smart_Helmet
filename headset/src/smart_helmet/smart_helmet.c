@@ -97,6 +97,7 @@ bool SmartHelmet_Init(Task client_task)
      * OLED comes up so LIMBO can show battery percent.
      * LIS3DH boot test is separate and preprocessor-gated. */
     SmartHelmet_SensorsInitDisplay();
+    SmartHelmet_SensorsSetLogTask(&sh_task_data);
 #if SMART_HELMET_LIS3DH_BOOT_LOG
     SmartHelmet_SensorsBootLis3dhTest(&sh_task_data);
 #endif
@@ -435,6 +436,14 @@ void SmartHelmet_ReportStart(void)
         return;
     }
     SmartHelmet_SensorsPoll();
+    {
+        const smart_helmet_sensor_data_t *accel = SmartHelmet_SensorsGetData();
+        if (accel && accel->lis3dh_ok)
+        {
+            SmartHelmet_VitalsPushAccel(accel->lis3dh_x, accel->lis3dh_y, accel->lis3dh_z);
+            SmartHelmet_VitalsProcess();
+        }
+    }
     n = shAppend(line, n, sizeof(line), "motion:");
 #if !SMART_HELMET_ENABLE_LIS3DH
     n = shAppend(line, n, sizeof(line), "Disabled");
