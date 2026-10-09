@@ -74,6 +74,17 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #ifndef SMART_HELMET_I2C_PROBE_RETRY_MS
 #define SMART_HELMET_I2C_PROBE_RETRY_MS    (1000)
 #endif
+#ifndef SMART_HELMET_I2C_PROBE_RETRY_MAX
+#define SMART_HELMET_I2C_PROBE_RETRY_MAX   (5)
+#endif
+
+/*!
+ * LIS3DH bring-up test. 1 = init at boot as well as power-on, and log
+ * x/y/z every 1 s. 0 = normal power-on init only, no extra log.
+ */
+#ifndef SMART_HELMET_LIS3DH_BOOT_LOG
+#define SMART_HELMET_LIS3DH_BOOT_LOG       (0)
+#endif
 
 /* -------------------------------------------------------------------------- */
 /* I2C0 — SCL / SDA (bitserial block 0)                                       */
@@ -212,7 +223,6 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_FALL_IMPACT_MG        (1300)
 #define SMART_HELMET_FALL_SWING_MG         (400)
 /* Test offset: faulty AMB (HDC1080) reads high. Subtract 10.00 C. */
-//#define SMART_HELMET_AMB_OFFSET_X100       (-500)
 #define SMART_HELMET_AMB_OFFSET_X100       (0)
 
 /* -------------------------------------------------------------------------- */
@@ -228,8 +238,8 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_VITALS_FS_HZ          (25)
 
 /*!
- * Motion gate: RMS of the accel magnitude around its own mean (i.e. with the
- * ~1000 mg gravity component removed) above this (mg) => ACTIVITY.
+ * Motion gate: RMS of the LIS3DH magnitude around its own mean (gravity
+ * removed) above this (mg) => ACTIVITY. PD-V12 must not feed this gate.
  */
 #define SMART_HELMET_MOTION_RMS_MG         (350)
 

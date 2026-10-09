@@ -13,7 +13,9 @@
 enum
 {
     /*! Periodic I2C identity retry (scope-friendly 1 s cadence). */
-    SMART_HELMET_I2C_PROBE_RETRY = 0x5100
+    SMART_HELMET_I2C_PROBE_RETRY = 0x5100,
+    /*! Boot-test LIS3DH sample log. Only scheduled when BOOT_LOG is 1. */
+    SMART_HELMET_LIS3DH_LOG_TICK = 0x5101
 };
 
 typedef struct
@@ -44,6 +46,8 @@ typedef struct
 
 void SmartHelmet_SensorsInit(void);
 void SmartHelmet_SensorsInitDisplay(void);
+/*! \brief Boot-only LIS3DH init + 1 s log. No-op unless BOOT_LOG is 1. */
+void SmartHelmet_SensorsBootLis3dhTest(Task task);
 void SmartHelmet_SensorsPoll(void);
 const smart_helmet_sensor_data_t *SmartHelmet_SensorsGetData(void);
 
@@ -61,6 +65,8 @@ const smart_helmet_accel_sample_t *SmartHelmet_SensorsAccelBurst(void);
 
 /*! \brief First probe + start 1 s retry on \a retry_task until expected IDs. */
 void SmartHelmet_SensorsStartVerify(Task retry_task);
+/*! \brief TRUE when every enabled I2C device has initialized. */
+bool SmartHelmet_SensorsReady(void);
 
 /*! \brief Cancel pending probe-retry timer. */
 void SmartHelmet_SensorsStopVerify(void);

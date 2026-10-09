@@ -814,7 +814,18 @@ static bool shSensorsRequiredOk(void)
         return FALSE;
     }
 #endif
+#if SMART_HELMET_ENABLE_SSD1315
+    if (!sh_sensors.ssd1315_ok)
+    {
+        return FALSE;
+    }
+#endif
     return TRUE;
+}
+
+bool SmartHelmet_SensorsReady(void)
+{
+    return shSensorsRequiredOk();
 }
 
 static void shSensorsScheduleRetry(void)
@@ -940,6 +951,17 @@ static void shSensorsVerifyPass(void)
         return;
     }
 
+    if (sh_probe_try >= SMART_HELMET_I2C_PROBE_RETRY_MAX)
+    {
+        CC_LOGN("SmartHelmet I2C verify GIVE UP after %u tries; BR report held",
+                sh_probe_try);
+        if (sh_probe_task)
+        {
+            MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
+        }
+        return;
+    }
+
 	CC_LOGN("SmartHelmet I2C verify retry in %u ms",
                    SMART_HELMET_I2C_PROBE_RETRY_MS);
     shSensorsScheduleRetry();
@@ -954,6 +976,84 @@ void SmartHelmet_SensorsInitDisplay(void)
     {
         sh_sensors.ssd1315_ok = TRUE;
     }
+#endif
+}
+
+#if SMART_HELMET_LIS3DH_BOOT_LOG
+static void shLis3dhLogSample(void)
+{
+#if SMART_HELMET_ENABLE_LIS3DH
+    uint8 who = 0;
+    uint8 buf[6] = {0};
+    uint8 fifo_src = 0;
+    bool id_ok;
+    bool data_ok;
+    int16 x = 0;
+    int16 y = 0;
+    int16 z = 0;
+
+    id_ok = SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                   SMART_HELMET_ADDR_LIS3DH,
+                                   LIS3DH_REG_WHO_AM_I, &who, 1);
+    data_ok = SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                     SMART_HELMET_ADDR_LIS3DH,
+                                     (uint8)(LIS3DH_REG_OUT_X_L | 0x80),
+                                     buf, 6);
+    if (data_ok)
+    {
+        x = shLis3dhRawToMg(buf[0], buf[1]);
+        y = shLis3dhRawToMg(buf[2], buf[3]);
+        z = shLis3dhRawToMg(buf[4], buf[5]);
+        sh_sensors.lis3dh_x = x;
+        sh_sensors.lis3dh_y = y;
+        sh_sensors.lis3dh_z = z;
+    }
+#if SMART_HELMET_LIS3DH_USE_FIFO
+    (void)SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                                 SMART_HELMET_ADDR_LIS3DH,
+                                 LIS3DH_REG_FIFO_SRC, &fifo_src, 1);
+#else
+    UNUSED(fifo_src);
+#endif
+    CC_LOGN("LIS3DH 1s ok=%u who=%02x data=%u x=%d y=%d z=%d mg fifo=%u",
+            sh_sensors.lis3dh_ok ? 1u : 0u,
+            id_ok ? who : 0u,
+            data_ok ? 1u : 0u,
+            (int)x, (int)y, (int)z,
+            (unsigned)(fifo_src & LIS3DH_FIFO_SRC_FSS_MASK));
+#else
+    CC_LOGN("LIS3DH 1s skipped ENABLE_LIS3DH=0");
+#endif
+}
+
+static void shLis3dhLogArm(void)
+{
+    if (!sh_probe_task)
+    {
+        return;
+    }
+    MessageCancelAll(sh_probe_task, SMART_HELMET_LIS3DH_LOG_TICK);
+    MessageSendLater(sh_probe_task, SMART_HELMET_LIS3DH_LOG_TICK, NULL, 1000);
+}
+#endif
+
+void SmartHelmet_SensorsBootLis3dhTest(Task task)
+{
+#if SMART_HELMET_LIS3DH_BOOT_LOG
+    sh_probe_task = task;
+    CC_LOGN("LIS3DH boot test: init now, then 1s log");
+#if SMART_HELMET_ENABLE_LIS3DH
+    sh_sensors.lis3dh_ok = FALSE;
+    if (shProbeLis3dh())
+    {
+        sh_sensors.lis3dh_ok = shInitLis3dh();
+    }
+    CC_LOGN("LIS3DH boot init %s", sh_sensors.lis3dh_ok ? "ok" : "fail");
+#endif
+    shLis3dhLogSample();
+    shLis3dhLogArm();
+#else
+    UNUSED(task);
 #endif
 }
 
@@ -1210,6 +1310,7 @@ void SmartHelmet_SensorsStopVerify(void)
     if (sh_probe_task)
     {
         MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
+        MessageCancelAll(sh_probe_task, SMART_HELMET_LIS3DH_LOG_TICK);
     }
     sh_probe_task = NULL;
 }
@@ -1218,6 +1319,14 @@ bool SmartHelmet_SensorsHandleMessage(Task task, MessageId id, Message message)
 {
     UNUSED(task);
     UNUSED(message);
+    if (id == SMART_HELMET_LIS3DH_LOG_TICK)
+    {
+#if SMART_HELMET_LIS3DH_BOOT_LOG
+        shLis3dhLogSample();
+        shLis3dhLogArm();
+#endif
+        return TRUE;
+    }
     if (id != SMART_HELMET_I2C_PROBE_RETRY)
     {
         return FALSE;

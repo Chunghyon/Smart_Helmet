@@ -51,6 +51,11 @@ static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
     }
     if (SmartHelmet_SensorsHandleMessage(task, id, message))
     {
+        /* BR payload starts only after every enabled I2C device is up. */
+        if (SmartHelmet_SensorsReady() && SmartHelmet_UartInPassthrough())
+        {
+            SmartHelmet_ReportStart();
+        }
         return;
     }
     if (SmartHelmet_HandleMessage(task, id, message))
@@ -89,8 +94,12 @@ bool SmartHelmet_Init(Task client_task)
         /* Non-fatal for sensor-only bring-up */
     }
     /* Sensors and Wi-SUN stay down until headset power-on.
-     * OLED comes up so LIMBO can show battery percent. */
+     * OLED comes up so LIMBO can show battery percent.
+     * LIS3DH boot test is separate and preprocessor-gated. */
     SmartHelmet_SensorsInitDisplay();
+#if SMART_HELMET_LIS3DH_BOOT_LOG
+    SmartHelmet_SensorsBootLis3dhTest(&sh_task_data);
+#endif
     sh_ready = TRUE;
     CC_LOGN("SmartHelmet: buses ready, sensors and Wi-SUN held until power-on");
     return TRUE;
@@ -417,6 +426,12 @@ void SmartHelmet_ReportStart(void)
     {
         SmartHelmet_ReportStop();
         CC_LOGN("SmartHelmet report held: not passthrough");
+        return;
+    }
+    if (!SmartHelmet_SensorsReady())
+    {
+        SmartHelmet_ReportStop();
+        CC_LOGN("SmartHelmet report held: I2C devices not ready");
         return;
     }
     SmartHelmet_SensorsPoll();
