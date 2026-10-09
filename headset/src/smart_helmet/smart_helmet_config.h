@@ -83,7 +83,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  * x/y/z every 1 s. 0 = normal power-on init only, no extra log.
  */
 #ifndef SMART_HELMET_LIS3DH_BOOT_LOG
-#define SMART_HELMET_LIS3DH_BOOT_LOG       (0)
+#define SMART_HELMET_LIS3DH_BOOT_LOG       (1)
 #endif
 
 /* -------------------------------------------------------------------------- */
