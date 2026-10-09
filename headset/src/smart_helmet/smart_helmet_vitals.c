@@ -1958,7 +1958,7 @@ void SmartHelmet_VitalsInit(void)
     shFftSmoothReset();
 #endif
     sh_vitals.trend = smart_helmet_trend_unknown;
-    sh_vitals.motion = smart_helmet_motion_active;
+    sh_vitals.motion = smart_helmet_motion_calm;
     CC_LOGN("SmartHelmet Vitals: SENS peak=%u FFT=%u ac=%u bp=%u win=%u interp=%u fuse=%u",
             (unsigned)SMART_HELMET_ENABLE_HR_PEAK,
             (unsigned)SMART_HELMET_ENABLE_HR_FFT,
@@ -2486,15 +2486,20 @@ void SmartHelmet_VitalsProcess(void)
     e_accel = have_accel ? shEnergyI16(band_hp, band_count) : 0;
 
     active = FALSE;
+#if SMART_HELMET_ENABLE_LIS3DH
+    /* Fixed board + PD-V12 residual used to set ACTIVITY when the accel
+     * window was not yet half full. Activity is LIS3DH RMS only. */
     if (have_accel && rms >= motion_thresh)
     {
         active = TRUE;
     }
-    if (!have_accel && sens_count > (BAND_WIN / 4) &&
+#else
+    if (sens_count > (BAND_WIN / 4) &&
         sens_abs >= SMART_HELMET_SENS_MOTION_ABS_MV)
     {
         active = TRUE;
     }
+#endif
 
     if (active)
     {
