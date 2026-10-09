@@ -814,7 +814,18 @@ static bool shSensorsRequiredOk(void)
         return FALSE;
     }
 #endif
+#if SMART_HELMET_ENABLE_SSD1315
+    if (!sh_sensors.ssd1315_ok)
+    {
+        return FALSE;
+    }
+#endif
     return TRUE;
+}
+
+bool SmartHelmet_SensorsReady(void)
+{
+    return shSensorsRequiredOk();
 }
 
 static void shSensorsScheduleRetry(void)
@@ -933,6 +944,17 @@ static void shSensorsVerifyPass(void)
     if (shSensorsRequiredOk())
     {
 		CC_LOGN("SmartHelmet I2C verify DONE try=%u", sh_probe_try);
+        if (sh_probe_task)
+        {
+            MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
+        }
+        return;
+    }
+
+    if (sh_probe_try >= SMART_HELMET_I2C_PROBE_RETRY_MAX)
+    {
+        CC_LOGN("SmartHelmet I2C verify GIVE UP after %u tries; BR report held",
+                sh_probe_try);
         if (sh_probe_task)
         {
             MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);

@@ -2486,15 +2486,20 @@ void SmartHelmet_VitalsProcess(void)
     e_accel = have_accel ? shEnergyI16(band_hp, band_count) : 0;
 
     active = FALSE;
+#if SMART_HELMET_ENABLE_LIS3DH
+    /* Activity is helmet motion only. A hand in front of PD-V12 used to
+     * set this when the accel window was not yet half full. */
     if (have_accel && rms >= motion_thresh)
     {
         active = TRUE;
     }
-    if (!have_accel && sens_count > (BAND_WIN / 4) &&
+#else
+    if (sens_count > (BAND_WIN / 4) &&
         sens_abs >= SMART_HELMET_SENS_MOTION_ABS_MV)
     {
         active = TRUE;
     }
+#endif
 
     if (active)
     {

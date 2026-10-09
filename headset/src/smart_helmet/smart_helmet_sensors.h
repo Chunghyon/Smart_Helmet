@@ -61,6 +61,8 @@ const smart_helmet_accel_sample_t *SmartHelmet_SensorsAccelBurst(void);
 
 /*! \brief First probe + start 1 s retry on \a retry_task until expected IDs. */
 void SmartHelmet_SensorsStartVerify(Task retry_task);
+/*! \brief TRUE when every enabled I2C device has initialized. */
+bool SmartHelmet_SensorsReady(void);
 
 /*! \brief Cancel pending probe-retry timer. */
 void SmartHelmet_SensorsStopVerify(void);

@@ -51,6 +51,11 @@ static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
     }
     if (SmartHelmet_SensorsHandleMessage(task, id, message))
     {
+        /* BR payload starts only after every enabled I2C device is up. */
+        if (SmartHelmet_SensorsReady() && SmartHelmet_UartInPassthrough())
+        {
+            SmartHelmet_ReportStart();
+        }
         return;
     }
     if (SmartHelmet_HandleMessage(task, id, message))
@@ -417,6 +422,12 @@ void SmartHelmet_ReportStart(void)
     {
         SmartHelmet_ReportStop();
         CC_LOGN("SmartHelmet report held: not passthrough");
+        return;
+    }
+    if (!SmartHelmet_SensorsReady())
+    {
+        SmartHelmet_ReportStop();
+        CC_LOGN("SmartHelmet report held: I2C devices not ready");
         return;
     }
     SmartHelmet_SensorsPoll();
