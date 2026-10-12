@@ -3,7 +3,7 @@ color f
 
 ::trb or usbdbg
 SET "PROGRAM_TOOL=usbdbg"
-SET "PORT_NUMBER=102"
+SET "PORT_NUMBER=100"
 
 call chkNameType.bat
 if %errorlevel% neq 0 (

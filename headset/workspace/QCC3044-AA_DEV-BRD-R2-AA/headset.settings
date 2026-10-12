@@ -349,7 +349,7 @@
             <item name="number">0</item>
         </item>
         <item name="deploy">
-            <item name="device">device://tc/usb2tc/102/qcc3044</item>
+            <item name="device">device://trb/usb2trb/176244/qcc3044</item>
         </item>
     </group>
     <group name="mde#1/SH_debug"/>

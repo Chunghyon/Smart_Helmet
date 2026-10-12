@@ -420,13 +420,24 @@ static uint8 headset_limbo_charge_led = 0;
 static bool headset_limbo_charge_high = FALSE;
 static bool headset_limbo_soc_registered = FALSE;
 
-/*! Green from 95% while charging. Stay green through 93-94%. Yellow again at 92% or below. */
+/*! Green from 95% while charging. Stay green through 93-94%. Yellow again at 92% or below.
+ * After complete, if SoC falls to 90% or below while the cable is still attached,
+ * clear the charged disable reason so charging can restart. */
+#define SMART_HELMET_LIMBO_RECHARGE_SOC    (90)
 static uint8 headsetSmLimboChargeLedChoice(void)
 {
     uint8 soc = Soc_GetBatterySoc();
 
     if (headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED)
     {
+        if (soc <= SMART_HELMET_LIMBO_RECHARGE_SOC)
+        {
+            DEBUG_LOG_ALWAYS("headsetSmLimboChargeLedChoice : SoC %u%% <= %u, re-enable charger",
+                             soc, SMART_HELMET_LIMBO_RECHARGE_SOC);
+            Charger_DisableReasonClear(CHARGER_DISABLE_REASON_CHARGED);
+            headset_limbo_charge_high = FALSE;
+            return 1;   /* show charging again while we wait for the new status */
+        }
         headset_limbo_charge_high = TRUE;
         return 2;
     }
@@ -491,6 +502,17 @@ static void headsetSmApplyLimboChargeLed(void)
     }
     else
     {
+        /* Cable still attached (complete/disabled after full, or attached).
+         * Do not start the limbo timer / power off while the charger is connected. */
+        if (Charger_IsConnected() ||
+            headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED ||
+            headset_limbo_charge_event == CHARGER_MESSAGE_ATTACHED)
+        {
+            DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : cable still in (event %u), keep powered",
+                             headset_limbo_charge_event);
+            headsetSmStopLimboTimer();
+            return;
+        }
         DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : cable out, limbo timer");
         LedManager_StopPattern(LED_PRI_MEDIUM);
         headsetSmStartLimboTimer();
@@ -673,8 +695,19 @@ static void headsetSmHandleTimeoutIdle(void)
 static void headsetSmHandleTimeoutLimbo(void)
 {
 	DEBUG_LOG_ALWAYS("headsetSmHandleTimeoutLimbo, state %d", headsetGetState());
-    if((HEADSET_STATE_LIMBO == headsetGetState()))
+    if (HEADSET_STATE_LIMBO == headsetGetState())
     {
+        /* Never power off while the charging cable is still attached. */
+        if (Charger_IsConnected() ||
+            headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED ||
+            headset_limbo_charge_event == CHARGER_MESSAGE_ATTACHED ||
+            headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_OK ||
+            headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_LOW)
+        {
+            DEBUG_LOG_ALWAYS("headsetSmHandleTimeoutLimbo : cable still connected, stay in limbo");
+            headsetSmStopLimboTimer();
+            return;
+        }
         SmartHelmet_PowerSave();
         appPowerOffRequest();
     }
