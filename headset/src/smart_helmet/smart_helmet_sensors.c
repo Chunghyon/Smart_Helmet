@@ -481,6 +481,35 @@ static bool shSsdClear(void)
     return TRUE;
 }
 
+static bool shSsdClearPage(uint8 page)
+{
+    uint8 zeros[16];
+    uint8 col;
+    uint8 i;
+    for (i = 0; i < 16; i++)
+    {
+        zeros[i] = 0;
+    }
+    if (!shSsdSetPageCol(page, 0))
+    {
+        return FALSE;
+    }
+    for (col = 0; col < SSD1315_WIDTH; )
+    {
+        uint8 n = (uint8)(SSD1315_WIDTH - col);
+        if (n > 16)
+        {
+            n = 16;
+        }
+        if (!shSsdData(zeros, n))
+        {
+            return FALSE;
+        }
+        col = (uint8)(col + n);
+    }
+    return TRUE;
+}
+
 static bool shSsdDrawText(uint8 page, uint8 col, const char *s)
 {
     if (!shSsdSetPageCol(page, col))
@@ -666,6 +695,8 @@ static void shFmtPct(char *line, uint8 pct)
 }
 
 static bool sh_display_blanked;
+static char sh_oled_prev[4][16];
+static bool sh_oled_have_prev;
 
 void SmartHelmet_SensorsDisplayOff(void)
 {
@@ -681,6 +712,8 @@ void SmartHelmet_SensorsDisplayBlank(void)
     static const uint8 pump_off[] = {0x8D, 0x10, 0xAE};
 
     sh_display_blanked = TRUE;
+    sh_oled_have_prev = FALSE;
+    memset(sh_oled_prev, 0, sizeof(sh_oled_prev));
     if (!sh_sensors.ssd1315_ok)
     {
         return;
@@ -759,22 +792,45 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
         return;
     }
     SmartHelmet_SensorsDisplayOn();
-    if (!shSsdClear())
     {
-        return;
+        const char *lines[4];
+        uint8 pages[4];
+        uint8 i;
+
+        lines[0] = shStateText(state);
+        pages[0] = 0;
+        mv = appBatteryGetVoltageInstantaneous();
+        pct = Soc_ConvertLevelToPercentage(mv);
+        if (pct >= 99)
+        {
+            pct = 100;
+        }
+        shFmtPct(line, pct);
+        lines[1] = line;
+        pages[1] = 2;
+        lines[2] = (state == 2u) ? "" : shBrText();
+        pages[2] = 4;
+        lines[3] = (state == 2u) ? "" : shAudioText();
+        pages[3] = 6;
+        for (i = 0; i < 4; i++)
+        {
+            if (sh_oled_have_prev && strcmp(sh_oled_prev[i], lines[i]) == 0)
+            {
+                continue;
+            }
+            if (!shSsdClearPage(pages[i]))
+            {
+                return;
+            }
+            if (lines[i][0] && !shSsdDrawText(pages[i], 4, lines[i]))
+            {
+                return;
+            }
+            strncpy(sh_oled_prev[i], lines[i], sizeof(sh_oled_prev[i]) - 1);
+            sh_oled_prev[i][sizeof(sh_oled_prev[i]) - 1] = '\0';
+        }
+        sh_oled_have_prev = TRUE;
     }
-    (void)shSsdDrawText(0, 4, shStateText(state));
-    mv = appBatteryGetVoltageInstantaneous();
-    pct = Soc_ConvertLevelToPercentage(mv);
-    if(pct>=99) pct = 100;
-    shFmtPct(line, pct);
-    (void)shSsdDrawText(2, 4, line);
-    if (state == 2u)
-    {
-        return;
-    }
-    (void)shSsdDrawText(4, 4, shBrText());
-    (void)shSsdDrawText(6, 4, shAudioText());
 }
 #endif /* SMART_HELMET_ENABLE_SSD1315 */
 
