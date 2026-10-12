@@ -207,14 +207,17 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_UDP_PORT        "1234"
 
 /* Passthrough report to the border router. PDF: +++ enters passthrough,
- * at_dest sets the destination. Multicast is the live network UDP group. */
+ * at_dest sets the destination. Unicast to the Border Router global IPv6 (match mon BR_UNICAST_ADDRESS). */
 #ifndef SMART_HELMET_ENABLE_WISUN_REPORT
 #define SMART_HELMET_ENABLE_WISUN_REPORT    (1)
 #endif
 #ifndef SMART_HELMET_WISUN_REPORT_MS
 #define SMART_HELMET_WISUN_REPORT_MS       (5000)
 #endif
-#define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"
+
+//#define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"
+#define SMART_HELMET_WISUN_BR_ADDR         "2020:abcd::1"
+
 /* Fall: a 25-sample window aged out before the 5 s report, and a vertical
  * shake often stays under 1.8 g / above 0.35 g. Latch any hit until reported,
  * and treat a moderate peak, dip, RMS, or peak-min swing as a fall. */
