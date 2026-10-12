@@ -199,7 +199,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 #define SMART_HELMET_WISUN_NETNAME         "SmartHelmetWisun"
 #define SMART_HELMET_WISUN_PAN_HEX         "dcba"   //orc abcd
-#define SMART_HELMET_WISUN_DOMAIN          "3"      //org 1 (1=NA, 2=JP, 3=EU, 7=BZ)
+#define SMART_HELMET_WISUN_DOMAIN          "1"      //org 1 (1=NA, 2=JP, 3=EU, 7=BZ)
 #define SMART_HELMET_WISUN_CHRATE_KBPS     "50"
 #define SMART_HELMET_WISUN_CLASS           "1"
 #define SMART_HELMET_WISUN_TXPOWER_DBM     "20"
@@ -216,7 +216,8 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 
 //#define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"
-#define SMART_HELMET_WISUN_BR_ADDR         "2020:abcd::1"
+//#define SMART_HELMET_WISUN_BR_ADDR         "2020:abcd::1"
+#define SMART_HELMET_WISUN_BR_ADDR         "2020:dcba::99"
 
 /* Fall: a 25-sample window aged out before the 5 s report, and a vertical
  * shake often stays under 1.8 g / above 0.35 g. Latch any hit until reported,
