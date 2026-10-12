@@ -198,13 +198,13 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_PROVISION       (1)
 #endif
 #define SMART_HELMET_WISUN_NETNAME         "SmartHelmetWisun"
-#define SMART_HELMET_WISUN_PAN_HEX         "abcd"
-#define SMART_HELMET_WISUN_DOMAIN          "1"
+#define SMART_HELMET_WISUN_PAN_HEX         "dcba"   //orc abcd
+#define SMART_HELMET_WISUN_DOMAIN          "2"      //org 1
 #define SMART_HELMET_WISUN_CHRATE_KBPS     "50"
 #define SMART_HELMET_WISUN_CLASS           "1"
 #define SMART_HELMET_WISUN_TXPOWER_DBM     "20"
 #define SMART_HELMET_WISUN_CCA_DBM         "-83"
-#define SMART_HELMET_WISUN_UDP_PORT        "1234"
+#define SMART_HELMET_WISUN_UDP_PORT        "4321"   //org 1234
 
 /* Passthrough report to the border router. PDF: +++ enters passthrough,
  * at_dest sets the destination. Unicast to the Border Router global IPv6 (match mon BR_UNICAST_ADDRESS). */
@@ -214,7 +214,10 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #ifndef SMART_HELMET_WISUN_REPORT_MS
 #define SMART_HELMET_WISUN_REPORT_MS       (5000)
 #endif
+
+//#define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"
 #define SMART_HELMET_WISUN_BR_ADDR         "2020:abcd::1"
+
 /* Fall: a 25-sample window aged out before the 5 s report, and a vertical
  * shake often stays under 1.8 g / above 0.35 g. Latch any hit until reported,
  * and treat a moderate peak, dip, RMS, or peak-min swing as a fall. */
