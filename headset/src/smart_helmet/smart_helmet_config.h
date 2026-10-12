@@ -217,7 +217,8 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 
 //#define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"
 //#define SMART_HELMET_WISUN_BR_ADDR         "2020:abcd::1"
-#define SMART_HELMET_WISUN_BR_ADDR         "2020:dcba::99"
+//#define SMART_HELMET_WISUN_BR_ADDR         "2020:dcba::99"
+#define SMART_HELMET_WISUN_BR_ADDR         "2020:abcd::212:4b00:2de1:f9ff"
 
 /* Fall: a 25-sample window aged out before the 5 s report, and a vertical
  * shake often stays under 1.8 g / above 0.35 g. Latch any hit until reported,
