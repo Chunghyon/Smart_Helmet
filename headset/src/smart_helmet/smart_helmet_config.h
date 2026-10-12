@@ -199,7 +199,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #endif
 #define SMART_HELMET_WISUN_NETNAME         "SmartHelmetWisun"
 #define SMART_HELMET_WISUN_PAN_HEX         "dcba"   //orc abcd
-#define SMART_HELMET_WISUN_DOMAIN          "2"      //org 1
+#define SMART_HELMET_WISUN_DOMAIN          "3"      //org 1 (1=NA, 2=JP, 3=EU, 7=BZ)
 #define SMART_HELMET_WISUN_CHRATE_KBPS     "50"
 #define SMART_HELMET_WISUN_CLASS           "1"
 #define SMART_HELMET_WISUN_TXPOWER_DBM     "20"
