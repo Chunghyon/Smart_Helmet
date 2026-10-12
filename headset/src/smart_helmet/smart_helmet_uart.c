@@ -466,7 +466,7 @@ static void shWisunSendProbe(const char *cmd)
      * "Command have no CR-LF" / "invalid cmd". */
     sh_wisun.tx_ok = SmartHelmet_UartSend(frame, len);
     //CC_LOGN("SmartHelmet WS8856: send cmd tx=%u try=%u baud=115200 8N1", sh_wisun.tx_ok, sh_wisun.tries);
-    CC_LOGN("UART TX");
+    //CC_LOGN("UART TX");
     shLogAscii(frame, len);
 }
 
@@ -691,7 +691,7 @@ static void shAtSendCurrent(void)
 
 static void shLogAsmKeywords(void)
 {
-    CC_LOGN("SmartHelmet AT asm n=%u inv=%u ok=%u role=%u sta=%u ip=%u rst=%u",
+    DEBUG_LOG("SmartHelmet AT asm n=%u inv=%u ok=%u role=%u sta=%u ip=%u rst=%u",
             sh_rx_asm_len,
             shContainsFold(sh_rx_asm, sh_rx_asm_len, "invalid"),
             shContainsFold(sh_rx_asm, sh_rx_asm_len, "ok"),
@@ -703,7 +703,7 @@ static void shLogAsmKeywords(void)
 
 static void shAtNoteResult(bool pass)
 {
-    CC_LOGN("SmartHelmet AT: result pass=%u", pass);
+    DEBUG_LOG("SmartHelmet AT: result pass=%u", pass);
     shLogAscii((const uint8 *)sh_wisun.at_cmd, 8);
     if (pass)
     {

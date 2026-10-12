@@ -20,6 +20,7 @@ void SmartHelmet_PowerOff(void);
 void SmartHelmet_UiRefresh(unsigned state);
 void SmartHelmet_PowerSave(void);
 void SmartHelmet_SensorsDisplayResume(void);
+void SmartHelmet_SensorsDisplayBlank(void);
 #include "headset_sm_private.h"
 #include "adk_log.h"
 #include "headset_led.h"
@@ -40,6 +41,7 @@ void SmartHelmet_SensorsDisplayResume(void);
 #include <power_manager_conditions.h>
 #include <charger_monitor.h>
 #include <state_of_charge.h>
+#include <battery_monitor.h>
 #include <led_manager.h>
 #include <ui_indicator_leds.h>
 #include <stereo_topology.h>
@@ -413,27 +415,73 @@ static void headsetSmStopLimboTimer(void)
     MessageCancelAll(headsetSmGetTask(), SM_INTERNAL_TIMEOUT_LIMBO);
 }
 
+/* Periodic VBAT log while the charge cable is attached, so a deep-discharge
+ * recovery can be watched even when the LED and button have no VDD33. */
+#define SMART_HELMET_CHARGE_VBAT_LOG_MS    (5000)
 /* Last charger indication. Applied again on entry to LIMBO, because the
    charger message may already have been delivered before the state change. */
 static MessageId headset_limbo_charge_event = CHARGER_MESSAGE_DETACHED;
+
+static void headsetSmStartChargeVbatLog(void)
+{
+    MessageCancelAll(headsetSmGetTask(), SM_INTERNAL_CHARGE_VBAT_LOG);
+    MessageSendLater(headsetSmGetTask(), SM_INTERNAL_CHARGE_VBAT_LOG,
+                     NULL, SMART_HELMET_CHARGE_VBAT_LOG_MS);
+}
+
+static void headsetSmStopChargeVbatLog(void)
+{
+    MessageCancelAll(headsetSmGetTask(), SM_INTERNAL_CHARGE_VBAT_LOG);
+}
+
+static void headsetSmLogChargeVbat(void)
+{
+    uint16 mv = appBatteryGetVoltageInstantaneous();
+    uint8 soc = Soc_GetBatterySoc();
+
+    DEBUG_LOG_ALWAYS("SmartHelmet charge VBAT %umV soc %u%% event %u connected %u",
+                     mv, soc, headset_limbo_charge_event, Charger_IsConnected());
+    if (Charger_IsConnected() ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_ATTACHED ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_OK ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_LOW ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED)
+    {
+        headsetSmStartChargeVbatLog();
+    }
+}
+
+/* Last charger indication. Applied again on entry to LIMBO, because the
+   charger message may already have been delivered before the state change. */
 static uint8 headset_limbo_charge_led = 0;
 static bool headset_limbo_charge_high = FALSE;
 static bool headset_limbo_soc_registered = FALSE;
 
 /*! Green from 95% while charging. Stay green through 93-94%. Yellow again at 92% or below.
- * After complete, if SoC falls to 90% or below while the cable is still attached,
- * clear the charged disable reason so charging can restart. */
+ * After complete the charger is disabled (CHARGER_MESSAGE_DISABLED, reason
+ * CHARGED). If SoC then falls to 90% or below while the cable is still
+ * attached, clear that reason so charging restarts. */
 #define SMART_HELMET_LIMBO_RECHARGE_SOC    (90)
+static bool headsetSmChargeCompleted(MessageId event)
+{
+    return event == CHARGER_MESSAGE_COMPLETED ||
+           event == CHARGER_MESSAGE_DISABLED;
+}
+
 static uint8 headsetSmLimboChargeLedChoice(void)
 {
     uint8 soc = Soc_GetBatterySoc();
 
-    if (headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED)
+    if (headsetSmChargeCompleted(headset_limbo_charge_event) &&
+        (Charger_IsConnected() ||
+         headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED ||
+         headset_limbo_charge_event == CHARGER_MESSAGE_DISABLED))
     {
         if (soc <= SMART_HELMET_LIMBO_RECHARGE_SOC)
         {
-            DEBUG_LOG_ALWAYS("headsetSmLimboChargeLedChoice : SoC %u%% <= %u, re-enable charger",
-                             soc, SMART_HELMET_LIMBO_RECHARGE_SOC);
+            DEBUG_LOG_ALWAYS("headsetSmLimboChargeLedChoice : SoC %u%% <= %u event %u, re-enable charger",
+                             soc, SMART_HELMET_LIMBO_RECHARGE_SOC,
+                             headset_limbo_charge_event);
             Charger_DisableReasonClear(CHARGER_DISABLE_REASON_CHARGED);
             headset_limbo_charge_high = FALSE;
             return 1;   /* show charging again while we wait for the new status */
@@ -478,6 +526,29 @@ static void headsetSmApplyLimboChargeLed(void)
     }
 
     choice = headsetSmLimboChargeLedChoice();
+
+    /* Warm LIMBO (entered from a powered state while the cable is still
+     * attached): other I2C sensors were slept by PowerOff, but the OLED
+     * stayed initialized. Resume it so the battery percent stays visible.
+     * Cold LIMBO never initialized the OLED, so DisplayResume is a no-op.
+     * Cable out: blank so the display does not stay on during the limbo timer. */
+    if (choice == 1 || choice == 2 || choice == 3 ||
+        Charger_IsConnected() ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_ATTACHED ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_OK ||
+        headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_LOW)
+    {
+        SmartHelmet_SensorsDisplayResume();
+        SmartHelmet_UiRefresh(2u);
+        headsetSmLogChargeVbat();
+    }
+    else
+    {
+        SmartHelmet_SensorsDisplayBlank();
+        headsetSmStopChargeVbatLog();
+    }
+
     if (choice == 3 || choice == headset_limbo_charge_led)
     {
         return;
@@ -488,16 +559,12 @@ static void headsetSmApplyLimboChargeLed(void)
     {
         DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : charging %u%%, LED_YELLOW", Soc_GetBatterySoc());
         headsetSmStopLimboTimer();
-        SmartHelmet_SensorsDisplayResume();
-        SmartHelmet_UiRefresh(2u);
         LedManager_SetPattern(app_led_pattern_limbo_charging, LED_PRI_MEDIUM, NULL, 0);
     }
     else if (choice == 2)
     {
         DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : charging %u%%, LED_GREEN", Soc_GetBatterySoc());
         headsetSmStopLimboTimer();
-        SmartHelmet_SensorsDisplayResume();
-        SmartHelmet_UiRefresh(2u);
         LedManager_SetPattern(app_led_pattern_limbo_charged, LED_PRI_MEDIUM, NULL, 0);
     }
     else
@@ -506,6 +573,7 @@ static void headsetSmApplyLimboChargeLed(void)
          * Do not start the limbo timer / power off while the charger is connected. */
         if (Charger_IsConnected() ||
             headset_limbo_charge_event == CHARGER_MESSAGE_COMPLETED ||
+            headset_limbo_charge_event == CHARGER_MESSAGE_DISABLED ||
             headset_limbo_charge_event == CHARGER_MESSAGE_ATTACHED)
         {
             DEBUG_LOG_ALWAYS("headsetSmApplyLimboChargeLed : cable still in (event %u), keep powered",
@@ -1597,6 +1665,10 @@ void headsetSmHandleMessage(Task task, MessageId id, Message message)
 
         case SM_INTERNAL_TIMEOUT_LIMBO:
             headsetSmHandleTimeoutLimbo();
+            break;
+
+        case SM_INTERNAL_CHARGE_VBAT_LOG:
+            headsetSmLogChargeVbat();
             break;
 
         case SM_INTERNAL_LINK_DISCONNECTION_COMPLETE:

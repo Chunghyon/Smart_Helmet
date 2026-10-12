@@ -93,16 +93,13 @@ bool SmartHelmet_Init(Task client_task)
         DEBUG_LOG_ERROR("SmartHelmet: UART init failed");
         /* Non-fatal for sensor-only bring-up */
     }
-    /* Sensors and Wi-SUN stay down until headset power-on.
-     * OLED comes up so LIMBO can show battery percent.
-     * LIS3DH boot test is separate and preprocessor-gated. */
-    SmartHelmet_SensorsInitDisplay();
+    /* Sensors, OLED and Wi-SUN stay down until headset power-on.
+     * Cold LIMBO (power-off + cable) must not touch I2C peripherals so a
+     * deeply discharged battery can boot from VCHG and charge only.
+     * OLED init moves into SmartHelmet_PowerOn. */
     SmartHelmet_SensorsSetLogTask(&sh_task_data);
-#if SMART_HELMET_LIS3DH_BOOT_LOG
-    SmartHelmet_SensorsBootLis3dhTest(&sh_task_data);
-#endif
     sh_ready = TRUE;
-    CC_LOGN("SmartHelmet: buses ready, sensors and Wi-SUN held until power-on");
+    CC_LOGN("SmartHelmet: buses ready, OLED and sensors held until power-on");
     return TRUE;
 }
 
@@ -115,10 +112,12 @@ void SmartHelmet_PowerOn(void)
         return;
     }
     sh_powered = TRUE;
-    SmartHelmet_SensorsDisplayResume();
-    CC_LOGN("SmartHelmet: power on, start sensors and Wi-SUN");
+    CC_LOGN("SmartHelmet: power on, start OLED, sensors and Wi-SUN");
     SmartHelmet_AdcInit(&sh_task_data);
+    /* OLED and the other I2C sensors come up only on power-on.
+     * SensorsInit probes SSD1315 as well as the gas/motion/temp parts. */
     SmartHelmet_SensorsInit();
+    SmartHelmet_SensorsDisplayResume();
     SmartHelmet_SensorsStartVerify(&sh_task_data);
     SmartHelmet_VitalsInit();
 #if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
@@ -132,7 +131,7 @@ void SmartHelmet_PowerOff(void)
 {
     if (!sh_powered)
     {
-        SmartHelmet_SensorsDisplayBlank();
+        /* Cold LIMBO: OLED was never brought up. Leave it dark. */
         return;
     }
     sh_powered = FALSE;
@@ -142,6 +141,9 @@ void SmartHelmet_PowerOff(void)
     SmartHelmet_SensorsSleep();
     SmartHelmet_UartSleep();
     SmartHelmet_AdcStop();
+    /* OLED stays initialized (ssd1315_ok). Warm LIMBO (cable still
+     * attached after power-off) resumes it from the charge path.
+     * Cold LIMBO never set ssd1315_ok, so resume is a no-op. */
     SmartHelmet_SensorsDisplayBlank();
 }
 

@@ -23,6 +23,7 @@ enum sm_internal_message_ids
     SM_INTERNAL_TIMEOUT_LIMBO,                      /*!< Timeout when in limbo state and no charger connected*/
 #ifdef INCLUDE_SMART_HELMET
 	SM_INTERNAL_DUMMY_LOG,
+    SM_INTERNAL_CHARGE_VBAT_LOG,                /*!< Periodic VBAT log while cable attached */
 #endif
 };
 
