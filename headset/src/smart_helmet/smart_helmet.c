@@ -44,6 +44,8 @@ static void smartHelmetTelemetrySink(const char *line, uint16 len, void *ctx)
 #endif
 
 static bool sh_powered;
+/* Set by the 200 ms LIS3DH poll. Consumed by the 2 s report. */
+static bool sh_motion_since_report;
 
 static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
 {
@@ -58,9 +60,6 @@ static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
         {
             static int16 prev_x, prev_y, prev_z;
             static bool have_prev;
-            const smart_helmet_vitals_status_t *before = SmartHelmet_VitalsGetStatus();
-            bool was_active = before &&
-                              before->motion == smart_helmet_motion_active;
 
             SmartHelmet_SensorsPollLis3dh();
             {
@@ -88,13 +87,13 @@ static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
                     prev_z = s->lis3dh_z;
                     have_prev = TRUE;
                     SmartHelmet_VitalsPushAccel(s->lis3dh_x, s->lis3dh_y, s->lis3dh_z);
-                    /* One 200 ms step over the gate is enough. Report at once
-                     * so the web sees it inside the 2 s report period. */
-                    if (step >= SMART_HELMET_MOTION_RMS_MG && !was_active)
+                    /* Latch only. The 2 s report sends moving if any step
+                     * in the window crossed the gate. */
+                    if (step >= SMART_HELMET_MOTION_RMS_MG &&
+                        !sh_motion_since_report)
                     {
-                        SmartHelmet_VitalsProcess();
-                        CC_LOGN("SmartHelmet motion: shake %umg, report now", step);
-                        SmartHelmet_ReportStart();
+                        sh_motion_since_report = TRUE;
+                        CC_LOGN("SmartHelmet motion: shake %umg, latched", step);
                     }
                 }
             }
@@ -189,6 +188,7 @@ void SmartHelmet_PowerOff(void)
         return;
     }
     sh_powered = FALSE;
+    sh_motion_since_report = FALSE;
     CC_LOGN("SmartHelmet: power off, sleep sensors and Wi-SUN");
     SmartHelmet_ReportStop();
     MessageCancelAll(&sh_task_data, SMART_HELMET_MOTION_POLL);
@@ -256,6 +256,7 @@ void SmartHelmet_Close(void)
     SmartHelmet_I2cClose();
     sh_ready = FALSE;
     sh_powered = FALSE;
+    sh_motion_since_report = FALSE;
 }
 
 bool SmartHelmet_HandleMessage(Task task, MessageId id, Message message)
@@ -547,8 +548,10 @@ void SmartHelmet_ReportStart(void)
 #if !SMART_HELMET_ENABLE_LIS3DH
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
+    /* Any LIS3DH step over the gate since the previous report. */
     n = shAppend(line, n, sizeof(line),
-                 (v && v->motion == smart_helmet_motion_active) ? "moving" : "still");
+                 sh_motion_since_report ? "moving" : "still");
+    sh_motion_since_report = FALSE;
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nrestart:");
     n = shAppend(line, n, sizeof(line), SmartHelmet_UartTakeRestart() ? "yes" : "no");
