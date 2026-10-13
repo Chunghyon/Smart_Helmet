@@ -248,7 +248,13 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
  * Motion gate: RMS of the LIS3DH magnitude around its own mean (gravity
  * removed) above this (mg) => ACTIVITY. PD-V12 must not feed this gate.
  */
-#define SMART_HELMET_MOTION_RMS_MG         (80)
+#define SMART_HELMET_MOTION_RMS_MG         (40)
+
+/*! How often to read LIS3DH for the activity gate. A shake that returns to
+ * the same pose is invisible if we only sample at the 5 s report. */
+#ifndef SMART_HELMET_MOTION_POLL_MS
+#define SMART_HELMET_MOTION_POLL_MS        (200)
+#endif
 
 /*! Consecutive below-threshold samples before ACTIVITY returns to still. */
 #ifndef SMART_HELMET_MOTION_STILL_SAMPLES

@@ -1454,6 +1454,29 @@ void SmartHelmet_SensorsPoll(void)
 	UNUSED(buf);
 }
 
+void SmartHelmet_SensorsPollLis3dh(void)
+{
+#if SMART_HELMET_ENABLE_LIS3DH
+    uint8 buf[6];
+
+    if (!sh_sensors.lis3dh_ok)
+    {
+        return;
+    }
+    if (SmartHelmet_I2cReadReg(smart_helmet_i2c_bus_0,
+                               SMART_HELMET_ADDR_LIS3DH,
+                               (uint8)(LIS3DH_REG_OUT_X_L | 0x80),
+                               buf, 6))
+    {
+        sh_sensors.lis3dh_x = shLis3dhRawToMg(buf[0], buf[1]);
+        sh_sensors.lis3dh_y = shLis3dhRawToMg(buf[2], buf[3]);
+        sh_sensors.lis3dh_z = shLis3dhRawToMg(buf[4], buf[5]);
+    }
+#else
+    return;
+#endif
+}
+
 void SmartHelmet_SensorsStartVerify(Task retry_task)
 {
     sh_probe_task = retry_task;

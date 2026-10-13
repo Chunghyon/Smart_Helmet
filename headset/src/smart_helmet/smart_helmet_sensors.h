@@ -53,6 +53,8 @@ void SmartHelmet_SensorsSetLogTask(Task task);
 /*! \brief pydbg: apps1.fw.call.lis3dh_chk(1) on, lis3dh_chk(0) off. */
 int lis3dh_chk(int enable);
 void SmartHelmet_SensorsPoll(void);
+/*! \brief LIS3DH only. Used by the fast activity poll; does not touch gas/temp. */
+void SmartHelmet_SensorsPollLis3dh(void);
 const smart_helmet_sensor_data_t *SmartHelmet_SensorsGetData(void);
 
 /*!

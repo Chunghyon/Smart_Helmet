@@ -57,7 +57,9 @@ void SmartHelmet_ReportStart(void);
 
 enum
 {
-    SMART_HELMET_REPORT_TICK = 0x5300
+    SMART_HELMET_REPORT_TICK = 0x5300,
+    /*! Fast LIS3DH poll so one shake is seen before the next report. */
+    SMART_HELMET_MOTION_POLL = 0x5301
 };
 
 #endif /* SMART_HELMET_H */

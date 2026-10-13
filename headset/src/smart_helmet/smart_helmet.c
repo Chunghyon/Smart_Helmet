@@ -43,11 +43,64 @@ static void smartHelmetTelemetrySink(const char *line, uint16 len, void *ctx)
 }
 #endif
 
+static bool sh_powered;
+
 static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
 {
     if (id == SMART_HELMET_REPORT_TICK)
     {
         SmartHelmet_ReportStart();
+        return;
+    }
+    if (id == SMART_HELMET_MOTION_POLL)
+    {
+        if (sh_powered)
+        {
+            static int16 prev_x, prev_y, prev_z;
+            static bool have_prev;
+            const smart_helmet_vitals_status_t *before = SmartHelmet_VitalsGetStatus();
+            bool was_active = before &&
+                              before->motion == smart_helmet_motion_active;
+
+            SmartHelmet_SensorsPollLis3dh();
+            {
+                const smart_helmet_sensor_data_t *s = SmartHelmet_SensorsGetData();
+                if (s && s->lis3dh_ok)
+                {
+                    uint16 step = 0;
+                    if (have_prev)
+                    {
+                        uint16 dx = (uint16)(s->lis3dh_x > prev_x
+                                             ? s->lis3dh_x - prev_x
+                                             : prev_x - s->lis3dh_x);
+                        uint16 dy = (uint16)(s->lis3dh_y > prev_y
+                                             ? s->lis3dh_y - prev_y
+                                             : prev_y - s->lis3dh_y);
+                        uint16 dz = (uint16)(s->lis3dh_z > prev_z
+                                             ? s->lis3dh_z - prev_z
+                                             : prev_z - s->lis3dh_z);
+                        step = dx;
+                        if (dy > step) step = dy;
+                        if (dz > step) step = dz;
+                    }
+                    prev_x = s->lis3dh_x;
+                    prev_y = s->lis3dh_y;
+                    prev_z = s->lis3dh_z;
+                    have_prev = TRUE;
+                    SmartHelmet_VitalsPushAccel(s->lis3dh_x, s->lis3dh_y, s->lis3dh_z);
+                    /* One 200 ms step over the gate is enough. Report at once
+                     * so the web sees it inside the 2 s report period. */
+                    if (step >= SMART_HELMET_MOTION_RMS_MG && !was_active)
+                    {
+                        SmartHelmet_VitalsProcess();
+                        CC_LOGN("SmartHelmet motion: shake %umg, report now", step);
+                        SmartHelmet_ReportStart();
+                    }
+                }
+            }
+            MessageSendLater(&sh_task_data, SMART_HELMET_MOTION_POLL, NULL,
+                             SMART_HELMET_MOTION_POLL_MS);
+        }
         return;
     }
     if (SmartHelmet_SensorsHandleMessage(task, id, message))
@@ -99,8 +152,6 @@ bool SmartHelmet_Init(Task client_task)
     return TRUE;
 }
 
-static bool sh_powered;
-
 void SmartHelmet_PowerOn(void)
 {
     if (!sh_ready || sh_powered)
@@ -125,6 +176,9 @@ void SmartHelmet_PowerOn(void)
     SmartHelmet_AdcRequestScan();
     /* Log the BR payload even if Wi-SUN never reaches passthrough. */
     SmartHelmet_ReportStart();
+    MessageCancelAll(&sh_task_data, SMART_HELMET_MOTION_POLL);
+    MessageSendLater(&sh_task_data, SMART_HELMET_MOTION_POLL, NULL,
+                     SMART_HELMET_MOTION_POLL_MS);
 }
 
 void SmartHelmet_PowerOff(void)
@@ -137,6 +191,7 @@ void SmartHelmet_PowerOff(void)
     sh_powered = FALSE;
     CC_LOGN("SmartHelmet: power off, sleep sensors and Wi-SUN");
     SmartHelmet_ReportStop();
+    MessageCancelAll(&sh_task_data, SMART_HELMET_MOTION_POLL);
     SmartHelmet_SensorsStopVerify();
     SmartHelmet_SensorsSleep();
     SmartHelmet_UartSleep();
@@ -194,6 +249,7 @@ void SmartHelmet_Close(void)
 {
     SmartHelmet_SensorsStopVerify();
     SmartHelmet_ReportStop();
+    MessageCancelAll(&sh_task_data, SMART_HELMET_MOTION_POLL);
     SmartHelmet_AdcStop();
     /* UartClose sends exit while the sink is still open. */
     SmartHelmet_UartClose();
@@ -382,6 +438,7 @@ static void shLogBrReport(const char *line, uint16 n, bool sent)
 
     //CC_LOGN("SmartHelmet BR report %s", sent ? "sent" : "not sent");
     UNUSED(sent);
+    CC_LOGN("=========================================");
     while (i < n)
     {
         char piece[40];
