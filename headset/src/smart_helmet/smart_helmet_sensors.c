@@ -20,6 +20,7 @@ SSD1315     = 128x64 OLED on I2C1 (or I2C0) — probe, init, splash
 #include <message.h>
 #include <logging.h>
 #include <system_clock.h>
+#include <string.h>
 #include "battery_monitor.h"
 #include "state_of_charge.h"
 #include <av.h>
@@ -697,6 +698,58 @@ static void shFmtPct(char *line, uint8 pct)
 static bool sh_display_blanked;
 static char sh_oled_prev[4][16];
 static bool sh_oled_have_prev;
+/* Latched until power-on is left (DisplayBlank / SensorsSleep). */
+static bool sh_init_fail_latched;
+static char sh_init_fail_line[16];
+
+static void shLatchInitFail(void)
+{
+    char *p = sh_init_fail_line;
+    char *end = sh_init_fail_line + sizeof(sh_init_fail_line) - 1;
+    bool any = FALSE;
+
+    sh_init_fail_line[0] = '\0';
+#if SMART_HELMET_ENABLE_CCS811
+    if (!sh_sensors.ccs811_ok && (p + 4) <= end)
+    {
+        if (any) { *p++ = ' '; }
+        memcpy(p, "CCS", 3); p += 3; any = TRUE;
+    }
+#endif
+#if SMART_HELMET_ENABLE_HDC1080
+    if (!sh_sensors.hdc1080_ok && (p + 4) <= end)
+    {
+        if (any) { *p++ = ' '; }
+        memcpy(p, "HDC", 3); p += 3; any = TRUE;
+    }
+#endif
+#if SMART_HELMET_ENABLE_MLX90614
+    if (!sh_sensors.mlx90614_ok && (p + 4) <= end)
+    {
+        if (any) { *p++ = ' '; }
+        memcpy(p, "MLX", 3); p += 3; any = TRUE;
+    }
+#endif
+#if SMART_HELMET_ENABLE_LIS3DH
+    if (!sh_sensors.lis3dh_ok && (p + 4) <= end)
+    {
+        if (any) { *p++ = ' '; }
+        memcpy(p, "LIS", 3); p += 3; any = TRUE;
+    }
+#endif
+    *p = '\0';
+    sh_init_fail_latched = any;
+    if (any)
+    {
+        CC_LOGN("SmartHelmet init fail latched: %s", sh_init_fail_line);
+    }
+}
+
+static void shClearInitFail(void)
+{
+    sh_init_fail_latched = FALSE;
+    sh_init_fail_line[0] = '\0';
+}
 
 void SmartHelmet_SensorsDisplayOff(void)
 {
@@ -714,6 +767,7 @@ void SmartHelmet_SensorsDisplayBlank(void)
     sh_display_blanked = TRUE;
     sh_oled_have_prev = FALSE;
     memset(sh_oled_prev, 0, sizeof(sh_oled_prev));
+    shClearInitFail();
     if (!sh_sensors.ssd1315_ok)
     {
         return;
@@ -768,6 +822,7 @@ void SmartHelmet_SensorsSleep(void)
     sh_sensors.mlx90614_ok = FALSE;
 #endif
     CC_LOGN("SmartHelmet: sensors sleep");
+    shClearInitFail();
 }
 
 void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
@@ -808,10 +863,20 @@ void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
         shFmtPct(line, pct);
         lines[1] = line;
         pages[1] = 2;
-        lines[2] = (state == 2u) ? "" : shBrText();
-        pages[2] = 4;
-        lines[3] = (state == 2u) ? "" : shAudioText();
-        pages[3] = 6;
+        if (sh_init_fail_latched && shStateIsOn(state))
+        {
+            lines[2] = "INIT FAIL";
+            pages[2] = 4;
+            lines[3] = sh_init_fail_line;
+            pages[3] = 6;
+        }
+        else
+        {
+            lines[2] = (state == 2u) ? "" : shBrText();
+            pages[2] = 4;
+            lines[3] = (state == 2u) ? "" : shAudioText();
+            pages[3] = 6;
+        }
         for (i = 0; i < 4; i++)
         {
             if (sh_oled_have_prev && strcmp(sh_oled_prev[i], lines[i]) == 0)
@@ -1016,6 +1081,8 @@ static void shSensorsVerifyPass(void)
         {
             MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
         }
+        shLatchInitFail();
+        SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
         return;
     }
 
@@ -1155,6 +1222,7 @@ void SmartHelmet_SensorsBootLis3dhTest(Task task)
 void SmartHelmet_SensorsInit(void)
 {
 	CC_LOGN("%s: enter", __func__);
+    shClearInitFail();
     sh_sensors.ccs811_ok = FALSE;
     sh_sensors.hdc1080_ok = FALSE;
     sh_sensors.lis3dh_ok = FALSE;

@@ -88,15 +88,10 @@ bool SmartHelmet_Init(Task client_task)
     /* ADC gas + SENS_IN vitals timers on the module task (not headset SM). */
     SmartHelmet_AdcInit(&sh_task_data);
 
-    if (!SmartHelmet_UartInit(&sh_task_data))
-    {
-        DEBUG_LOG_ERROR("SmartHelmet: UART init failed");
-        /* Non-fatal for sensor-only bring-up */
-    }
-    /* Sensors, OLED and Wi-SUN stay down until headset power-on.
-     * Cold LIMBO (power-off + cable) must not touch I2C peripherals so a
-     * deeply discharged battery can boot from VCHG and charge only.
-     * OLED init moves into SmartHelmet_PowerOn. */
+    /* UART / Wi-SUN stay down until power-on. Cold LIMBO must not open the
+     * stream or the 50 ms RX poll, or the apps core keeps waking.
+     * Hold WS8856 RESET_N so the module is not running on the rail. */
+    SmartHelmet_UartResetHold(TRUE);
     SmartHelmet_SensorsSetLogTask(&sh_task_data);
     sh_ready = TRUE;
     CC_LOGN("SmartHelmet: buses ready, OLED and sensors held until power-on");
@@ -123,6 +118,8 @@ void SmartHelmet_PowerOn(void)
 #if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
     SmartHelmet_VitalsSetSink(smartHelmetTelemetrySink, NULL);
 #endif
+    SmartHelmet_UartResetHold(FALSE);
+    SmartHelmet_UartInit(&sh_task_data);
     SmartHelmet_UartStartVerify();
     SmartHelmet_AdcRequestScan();
 }

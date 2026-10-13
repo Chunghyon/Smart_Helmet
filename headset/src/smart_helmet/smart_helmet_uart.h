@@ -18,6 +18,9 @@ extern char rx_str[48];
 /*! \brief Configure PIO mux and open Stream UART. */
 bool SmartHelmet_UartInit(Task client_task);
 
+/*! \brief Drive WS8856 RESET_N. held=TRUE keeps the module in reset (PIO low). */
+void SmartHelmet_UartResetHold(bool held);
+
 /*! \brief Close UART stream. */
 void SmartHelmet_UartClose(void);
 

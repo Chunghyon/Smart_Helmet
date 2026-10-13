@@ -69,6 +69,41 @@ static bool shUartMapPio(uint16 pio, pin_function_id fn)
     return PioSetFunction(pio, fn);
 }
 
+/* Drop the UART mux so limbo does not keep the peripheral and the pins
+ * driven. No module power PIO exists; the WS8856 rail stays up. RESET_N
+ * (PIO3, active low) is held to keep the module in reset. */
+static void shUartReleasePio(uint16 pio)
+{
+#if SMART_HELMET_ENABLE_WISUN_UART
+    uint16 bank = PioCommonPioBank(pio);
+    uint32 mask = PioCommonPioMask(pio);
+
+    (void)PioSetFunction(pio, OTHER);
+    (void)PioSetMapPins32Bank(bank, mask, mask);
+    (void)PioSetDir32Bank(bank, mask, 0);
+#else
+    UNUSED(pio);
+#endif
+}
+
+void SmartHelmet_UartResetHold(bool held)
+{
+#if SMART_HELMET_ENABLE_WISUN_UART
+    uint16 pio = SMART_HELMET_WISUN_RESET_PIO;
+    uint16 bank = PioCommonPioBank(pio);
+    uint32 mask = PioCommonPioMask(pio);
+
+    (void)PioSetFunction(pio, OTHER);
+    (void)PioSetMapPins32Bank(bank, mask, mask);
+    (void)PioSetDir32Bank(bank, mask, mask);
+    (void)PioSet32Bank(bank, mask, held ? 0u : mask);
+    CC_LOGN("SmartHelmet UART: RESET_N PIO%u %s",
+            pio, held ? "low (held)" : "high (run)");
+#else
+    UNUSED(held);
+#endif
+}
+
 static bool shContainsFold(const uint8 *data, uint16 len, const char *needle)
 {
     uint16 nlen = 0;
@@ -754,6 +789,11 @@ bool SmartHelmet_UartInit(Task client_task)
 #else
     sh_uart_task = client_task;
 
+    if (sh_uart_sink && sh_uart_source)
+    {
+        return TRUE;
+    }
+
     if (!shUartMapPio(SMART_HELMET_WISUN_UART_TX_PIO, UART_TX))
     {
         DEBUG_LOG_ERROR("SmartHelmet UART: TX PIO %u mux failed",
@@ -796,8 +836,8 @@ bool SmartHelmet_UartInit(Task client_task)
 
 void SmartHelmet_UartClose(void)
 {
-    /* Module stays powered across headset power-off. Leave passthrough
-     * before the UART TX pin drops, or the next boot's reset is payload. */
+    /* Leave passthrough before the TX pin is released, or the next
+     * power-on reset is seen as payload. */
     if (sh_uart_sink)
     {
         shWisunSendProbe("exit");
@@ -807,9 +847,14 @@ void SmartHelmet_UartClose(void)
     if (sh_uart_task)
     {
         MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_RX_POLL);
+        MessageCancelAll(sh_uart_task, SMART_HELMET_WISUN_LINK_CHECK);
     }
     sh_uart_sink = 0;
     sh_uart_source = 0;
+    shUartReleasePio(SMART_HELMET_WISUN_UART_TX_PIO);
+    shUartReleasePio(SMART_HELMET_WISUN_UART_RX_PIO);
+    SmartHelmet_UartResetHold(TRUE);
+    CC_LOGN("SmartHelmet UART: closed for limbo");
 }
 
 void SmartHelmet_UartSetRxCallback(smart_helmet_uart_rx_cb_t cb, void *ctx)
@@ -960,13 +1005,16 @@ bool SmartHelmet_UartIsRejoining(void)
 void SmartHelmet_UartSleep(void)
 {
     SmartHelmet_UartStopVerify();
-    if (sh_passthrough)
+    if (sh_passthrough && sh_uart_sink)
     {
         sh_passthrough = FALSE;
         (void)SmartHelmet_UartSend((const uint8 *)"exit\r\n", 6);
     }
     sh_wisun.online = FALSE;
-    CC_LOGN("SmartHelmet AT: sleep, exit passthrough");
+    /* Drop the stream and the 50 ms RX poll. No module-power PIO, so the
+     * WS8856 rail stays up, but the host UART no longer wakes the apps. */
+    SmartHelmet_UartClose();
+    CC_LOGN("SmartHelmet AT: sleep, UART closed");
 }
 
 /* Report tick lives on the same task. Held here so a CLI reject stops the

@@ -143,6 +143,8 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /* -------------------------------------------------------------------------- */
 #define SMART_HELMET_WISUN_UART_TX_PIO     (14)
 #define SMART_HELMET_WISUN_UART_RX_PIO     (13)
+/* WS8856 RESET_N, active low. Held low in LIMBO so the module stays reset. */
+#define SMART_HELMET_WISUN_RESET_PIO       (3)
 #define SMART_HELMET_WISUN_UART_BAUD       (VM_UART_RATE_115K2)
 
 /*! RX assemble buffer */
@@ -198,13 +200,13 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_WISUN_PROVISION       (1)
 #endif
 #define SMART_HELMET_WISUN_NETNAME         "SmartHelmetWisun"
-#define SMART_HELMET_WISUN_PAN_HEX         "dcba"   //orc abcd
-#define SMART_HELMET_WISUN_DOMAIN          "1"      //org 1 (1=NA, 2=JP, 3=EU, 7=BZ)
+#define SMART_HELMET_WISUN_PAN_HEX         "dcba"
+#define SMART_HELMET_WISUN_DOMAIN          "1"
 #define SMART_HELMET_WISUN_CHRATE_KBPS     "50"
 #define SMART_HELMET_WISUN_CLASS           "1"
 #define SMART_HELMET_WISUN_TXPOWER_DBM     "20"
 #define SMART_HELMET_WISUN_CCA_DBM         "-83"
-#define SMART_HELMET_WISUN_UDP_PORT        "4321"   //org 1234
+#define SMART_HELMET_WISUN_UDP_PORT        "4321"
 
 /* Passthrough report to the border router. PDF: +++ enters passthrough,
  * at_dest sets the destination. Unicast to the Border Router global IPv6 (match mon BR_UNICAST_ADDRESS). */
