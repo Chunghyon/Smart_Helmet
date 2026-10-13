@@ -214,7 +214,7 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 #define SMART_HELMET_ENABLE_WISUN_REPORT    (1)
 #endif
 #ifndef SMART_HELMET_WISUN_REPORT_MS
-#define SMART_HELMET_WISUN_REPORT_MS       (5000)
+#define SMART_HELMET_WISUN_REPORT_MS       (2000)
 #endif
 
 //#define SMART_HELMET_WISUN_BR_ADDR         "ff15::810a:64d1"

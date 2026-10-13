@@ -436,8 +436,17 @@ static void headsetSmStopChargeVbatLog(void)
 
 static void headsetSmLogChargeVbat(void)
 {
-    uint16 mv = appBatteryGetVoltageInstantaneous();
-    uint8 soc = Soc_GetBatterySoc();
+    uint16 mv;
+    uint8 soc;
+
+    if (HEADSET_STATE_LIMBO != headsetGetState())
+    {
+        headsetSmStopChargeVbatLog();
+        return;
+    }
+
+    mv = appBatteryGetVoltageInstantaneous();
+    soc = Soc_GetBatterySoc();
 
     DEBUG_LOG_ALWAYS("SmartHelmet charge VBAT %umV soc %u%% event %u connected %u",
                      mv, soc, headset_limbo_charge_event, Charger_IsConnected());
@@ -465,7 +474,7 @@ static bool headset_limbo_soc_registered = FALSE;
 /* TEST: force the charge-complete disable at 99% so the 90% resume
  * path can be exercised without waiting for a true 100%/4200mV standby.
  * Set to 0 to restore normal behaviour. */
-#define SMART_HELMET_TEST_DISABLE_AT_SOC   (0)
+#define SMART_HELMET_TEST_DISABLE_AT_SOC   (99)
 static bool headsetSmChargeCompleted(MessageId event)
 {
     /* COMPLETED is only sent after a real charge cycle.

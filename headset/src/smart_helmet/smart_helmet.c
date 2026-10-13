@@ -4,6 +4,7 @@
 */
 #ifdef DEBUG
 #define PP_DEBUG_LOG_ON
+#include "stdio.h"
 #endif
 
 #include "smart_helmet.h"
@@ -122,6 +123,8 @@ void SmartHelmet_PowerOn(void)
     SmartHelmet_UartInit(&sh_task_data);
     SmartHelmet_UartStartVerify();
     SmartHelmet_AdcRequestScan();
+    /* Log the BR payload even if Wi-SUN never reaches passthrough. */
+    SmartHelmet_ReportStart();
 }
 
 void SmartHelmet_PowerOff(void)
@@ -373,9 +376,47 @@ static uint16 shGasValue(uint8 ch, uint16 mv)
     return shGasRatioX100(mv, sh_gas_r0_mv[ch] ? sh_gas_r0_mv[ch] : mv);
 }
 
+static void shLogBrReport(const char *line, uint16 n, bool sent)
+{
+    uint16 i = 0;
+
+    //CC_LOGN("SmartHelmet BR report %s", sent ? "sent" : "not sent");
+    UNUSED(sent);
+    while (i < n)
+    {
+        char piece[40];
+        uint16 pn = 0;
+
+        while (i < n && (line[i] == '\r' || line[i] == '\n'))
+        {
+            i++;
+        }
+        while (i < n && line[i] != '\r' && line[i] != '\n' &&
+               pn + 1 < sizeof(piece))
+        {
+            piece[pn++] = line[i++];
+        }
+        while (i < n && line[i] != '\r' && line[i] != '\n')
+        {
+            i++;
+        }
+        if (!pn)
+        {
+            continue;
+        }
+        piece[pn] = '\0';
+#ifdef PP_DEBUG_LOG_ON
+        DEBUG_PRINT("SmartHelmet BR: %s\n", piece);
+#else
+        UNUSED(piece);
+#endif
+    }
+}
+
 static void shSendReportLines(const char *line, uint16 n)
 {
     uint16 i = 0;
+    bool sent = TRUE;
 
     while (i < n)
     {
@@ -404,10 +445,15 @@ static void shSendReportLines(const char *line, uint16 n)
         if (!SmartHelmet_UartSend((const uint8 *)frame, fn))
         {
             SmartHelmet_UartNoteReportSent(FALSE);
-            return;
+            sent = FALSE;
+            break;
         }
     }
-    SmartHelmet_UartNoteReportSent(TRUE);
+    if (sent)
+    {
+        SmartHelmet_UartNoteReportSent(TRUE);
+    }
+    shLogBrReport(line, n, sent);
 }
 
 void SmartHelmet_ReportStart(void)
@@ -419,28 +465,25 @@ void SmartHelmet_ReportStart(void)
 #endif
     const smart_helmet_vitals_status_t *v = SmartHelmet_VitalsGetStatus();
     const smart_helmet_adc_sample_t *adc = SmartHelmet_AdcGetLastSample();
+    bool can_send = SmartHelmet_UartInPassthrough() && SmartHelmet_SensorsReady();
 
-    /* Command mode max is below this blob. PowerOn used to send it anyway
-     * and the module answered "format err:cmd too long" every 5 s. */
-    if (!SmartHelmet_UartInPassthrough())
+    /* Always build and log the payload. UART/passthrough failure must not
+     * hide what would have been sent to the border router. */
+    if (!can_send)
     {
-        SmartHelmet_ReportStop();
-        CC_LOGN("SmartHelmet report held: not passthrough");
-        return;
+        CC_LOGN("SmartHelmet report held: %s",
+                SmartHelmet_UartInPassthrough() ? "I2C not ready" : "not passthrough");
     }
-    if (!SmartHelmet_SensorsReady())
+    else
     {
-        SmartHelmet_ReportStop();
-        CC_LOGN("SmartHelmet report held: I2C devices not ready");
-        return;
-    }
-    SmartHelmet_SensorsPoll();
-    {
-        const smart_helmet_sensor_data_t *accel = SmartHelmet_SensorsGetData();
-        if (accel && accel->lis3dh_ok)
+        SmartHelmet_SensorsPoll();
         {
-            SmartHelmet_VitalsPushAccel(accel->lis3dh_x, accel->lis3dh_y, accel->lis3dh_z);
-            SmartHelmet_VitalsProcess();
+            const smart_helmet_sensor_data_t *accel = SmartHelmet_SensorsGetData();
+            if (accel && accel->lis3dh_ok)
+            {
+                SmartHelmet_VitalsPushAccel(accel->lis3dh_x, accel->lis3dh_y, accel->lis3dh_z);
+                SmartHelmet_VitalsProcess();
+            }
         }
     }
     n = shAppend(line, n, sizeof(line), "motion:");
@@ -586,7 +629,14 @@ void SmartHelmet_ReportStart(void)
     }
 #endif
     n = shAppend(line, n, sizeof(line), "\r\n");
-    shSendReportLines(line, n);
+    if (can_send)
+    {
+        shSendReportLines(line, n);
+    }
+    else
+    {
+        shLogBrReport(line, n, FALSE);
+    }
     MessageCancelAll(&sh_task_data, SMART_HELMET_REPORT_TICK);
     MessageSendLater(&sh_task_data, SMART_HELMET_REPORT_TICK, NULL,
                      SMART_HELMET_WISUN_REPORT_MS);
