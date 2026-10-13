@@ -46,6 +46,9 @@ static void smartHelmetTelemetrySink(const char *line, uint16 len, void *ctx)
 static bool sh_powered;
 /* Set by the 200 ms LIS3DH poll. Consumed by the 2 s report. */
 static bool sh_motion_since_report;
+/* Once moving, stay moving until this many quiet reports in a row. */
+static uint8 sh_motion_quiet_reports;
+static bool sh_motion_holding;
 
 static void smartHelmetTaskHandler(Task task, MessageId id, Message message)
 {
@@ -189,6 +192,8 @@ void SmartHelmet_PowerOff(void)
     }
     sh_powered = FALSE;
     sh_motion_since_report = FALSE;
+    sh_motion_holding = FALSE;
+    sh_motion_quiet_reports = 0;
     CC_LOGN("SmartHelmet: power off, sleep sensors and Wi-SUN");
     SmartHelmet_ReportStop();
     MessageCancelAll(&sh_task_data, SMART_HELMET_MOTION_POLL);
@@ -257,6 +262,8 @@ void SmartHelmet_Close(void)
     sh_ready = FALSE;
     sh_powered = FALSE;
     sh_motion_since_report = FALSE;
+    sh_motion_holding = FALSE;
+    sh_motion_quiet_reports = 0;
 }
 
 bool SmartHelmet_HandleMessage(Task task, MessageId id, Message message)
@@ -548,9 +555,27 @@ void SmartHelmet_ReportStart(void)
 #if !SMART_HELMET_ENABLE_LIS3DH
     n = shAppend(line, n, sizeof(line), "Disabled");
 #else
-    /* Any LIS3DH step over the gate since the previous report. */
+    /* Any step in this window keeps moving. A single quiet window must
+     * not flip to still; require several quiet reports in a row. */
+    if (sh_motion_since_report)
+    {
+        sh_motion_holding = TRUE;
+        sh_motion_quiet_reports = 0;
+    }
+    else if (sh_motion_holding)
+    {
+        if (sh_motion_quiet_reports < 255)
+        {
+            sh_motion_quiet_reports++;
+        }
+        if (sh_motion_quiet_reports >= SMART_HELMET_MOTION_STILL_REPORTS)
+        {
+            sh_motion_holding = FALSE;
+            sh_motion_quiet_reports = 0;
+        }
+    }
     n = shAppend(line, n, sizeof(line),
-                 sh_motion_since_report ? "moving" : "still");
+                 sh_motion_holding ? "moving" : "still");
     sh_motion_since_report = FALSE;
 #endif
     n = shAppend(line, n, sizeof(line), "\r\nrestart:");

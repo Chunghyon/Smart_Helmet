@@ -221,7 +221,6 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 //#define SMART_HELMET_WISUN_BR_ADDR         "2020:abcd::1"
 //#define SMART_HELMET_WISUN_BR_ADDR         "2020:dcba::99"
 #define SMART_HELMET_WISUN_BR_ADDR         "2020:abcd::212:4b00:2de1:f9ff"
-
 /* Fall: a 25-sample window aged out before the 5 s report, and a vertical
  * shake often stays under 1.8 g / above 0.35 g. Latch any hit until reported,
  * and treat a moderate peak, dip, RMS, or peak-min swing as a fall. */
@@ -259,6 +258,12 @@ before building — schematic labels such as P3.4/P3.5 are not QCC PIO ids.
 /*! Consecutive below-threshold samples before ACTIVITY returns to still. */
 #ifndef SMART_HELMET_MOTION_STILL_SAMPLES
 #define SMART_HELMET_MOTION_STILL_SAMPLES  (3)
+#endif
+
+/*! Consecutive quiet 2 s reports before moving returns to still.
+ * 3 * 2000 ms = 6 s with no step over the gate. */
+#ifndef SMART_HELMET_MOTION_STILL_REPORTS
+#define SMART_HELMET_MOTION_STILL_REPORTS  (2)
 #endif
 
 /*!
