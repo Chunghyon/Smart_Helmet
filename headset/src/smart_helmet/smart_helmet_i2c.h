@@ -7,7 +7,6 @@
 #define SMART_HELMET_I2C_H
 
 #include <csrtypes.h>
-#include <stdbool.h>
 
 typedef enum
 {

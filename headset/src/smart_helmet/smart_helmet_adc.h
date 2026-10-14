@@ -12,7 +12,6 @@ Two cadences (same pads, no HW change):
 
 #include <csrtypes.h>
 #include <message.h>
-#include <stdbool.h>
 
 typedef enum
 {

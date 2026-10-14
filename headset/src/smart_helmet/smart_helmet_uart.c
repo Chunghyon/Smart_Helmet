@@ -11,6 +11,7 @@
 #include "smart_helmet_uart.h"
 #include "smart_helmet_sensors.h"
 #include "smart_helmet_vitals.h"
+#include "headset_sm.h"
 
 #include <stream.h>
 #include <source.h>
@@ -420,19 +421,29 @@ static void shWisunNoteRx(const uint8 *data, uint16 len)
      * "send fail" can follow "report sent ok". */
     if (shContainsFold(data, len, "send fail"))
     {
+        bool was_online = sh_wisun.online;
         sh_wisun.online = FALSE;
         sh_send_ok_wait = FALSE;
         CC_LOGN("SmartHelmet AT: BR send fail");
         SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
+        if (was_online)
+        {
+            headsetSmOnWisunBrOnlineChanged(FALSE);
+        }
         SmartHelmet_UartRejoin("send fail");
     }
     else if (shContainsFold(data, len, "send ok"))
     {
+        bool was_online = sh_wisun.online;
         sh_wisun.online = TRUE;
         sh_send_ok_wait = FALSE;
         sh_missed_ok = 0;
         sh_rejoining = FALSE;
         sh_too_long_retry = 0;
+        if (!was_online)
+        {
+            headsetSmOnWisunBrOnlineChanged(TRUE);
+        }
         if (sh_wisun_step == SH_STEP_LEAVE || sh_wisun_step == SH_STEP_DEST ||
             sh_wisun_step == SH_STEP_PASS)
         {
@@ -948,7 +959,12 @@ void SmartHelmet_UartNoteReportSent(bool ok)
     /* Local write only. online waits for the module "send OK" line. */
     if (!ok)
     {
+        bool was_online = sh_wisun.online;
         sh_wisun.online = FALSE;
+        if (was_online)
+        {
+            headsetSmOnWisunBrOnlineChanged(FALSE);
+        }
         SmartHelmet_UartRejoin("report write fail");
         return;
     }
@@ -986,7 +1002,14 @@ void SmartHelmet_UartRejoin(const char *why)
     sh_rejoin_ms = now;
     sh_rejoining = TRUE;
     sh_passthrough = FALSE;
-    sh_wisun.online = FALSE;
+    {
+        bool was_online = sh_wisun.online;
+        sh_wisun.online = FALSE;
+        if (was_online)
+        {
+            headsetSmOnWisunBrOnlineChanged(FALSE);
+        }
+    }
     sh_send_ok_wait = FALSE;
     SmartHelmet_ReportStop();
     SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
@@ -1000,6 +1023,12 @@ void SmartHelmet_UartRejoin(const char *why)
 bool SmartHelmet_UartIsRejoining(void)
 {
     return sh_rejoining;
+}
+
+bool SmartHelmet_UartIsBrOnline(void)
+{
+    /* online is latched on module "send OK" and cleared on send fail / rejoin. */
+    return sh_wisun.online && !sh_rejoining;
 }
 
 void SmartHelmet_UartSleep(void)

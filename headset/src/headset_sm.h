@@ -136,5 +136,9 @@ bool headsetSmDisconnectLink(void);
 bool headetSmHandleTopologyStopCfm(Message message);
 
 
-#endif /* HEADSET_SM_H_ */
+#ifdef INCLUDE_SMART_HELMET
+/*! \brief Wi-SUN BR online state changed. Start/stop the idle power-off timer. */
+void headsetSmOnWisunBrOnlineChanged(bool online);
+#endif
 
+#endif /* HEADSET_SM_H_ */

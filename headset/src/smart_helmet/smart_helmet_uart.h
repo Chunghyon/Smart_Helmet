@@ -8,7 +8,6 @@
 
 #include <csrtypes.h>
 #include <message.h>
-#include <stdbool.h>
 
 typedef void (*smart_helmet_uart_rx_cb_t)(const uint8 *data, uint16 len, void *ctx);
 
@@ -79,6 +78,8 @@ void SmartHelmet_UartStartVerify(void);
 /*! \brief True only after +++ was accepted. Report must not be sent otherwise. */
 bool SmartHelmet_UartInPassthrough(void);
 bool SmartHelmet_UartIsRejoining(void);
+/*! \brief True while a recent BR UDP send was acknowledged (send OK). */
+bool SmartHelmet_UartIsBrOnline(void);
 void SmartHelmet_UartRejoin(const char *why);
 bool SmartHelmet_UartTakeRestart(void);
 

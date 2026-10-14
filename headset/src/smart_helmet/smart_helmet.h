@@ -13,7 +13,6 @@ Schematic: SMART_HELMET_260816_1.DSN
 #define SMART_HELMET_H
 
 #include <message.h>
-#include <stdbool.h>
 #include "smart_helmet_config.h"
 #include "smart_helmet_i2c.h"
 #include "smart_helmet_adc.h"

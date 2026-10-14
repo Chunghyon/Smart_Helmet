@@ -7,7 +7,6 @@
 #define SMART_HELMET_SENSORS_H
 
 #include <csrtypes.h>
-#include <stdbool.h>
 #include <message.h>
 
 enum

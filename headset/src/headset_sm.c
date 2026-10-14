@@ -76,6 +76,7 @@ void SmartHelmet_SensorsDisplayBlank(void);
 #include "logging.h"
 #include "rtime.h"
 #include "system_clock.h"
+#include "smart_helmet/smart_helmet_uart.h"
 #endif
 
 #include <telephony_messages.h>
@@ -137,8 +138,14 @@ const message_group_t sm_ui_inputs[] =
 #define IsBtConnectionIdle() (headsetSmStateIsIdle(headsetGetState()) && (!appDeviceIsHandsetConnected()) && \
                                                                           headsetConfigIdleTimeoutMs())
 /*! \brief Return TRUE if the idle timer needs to start */
+#ifdef INCLUDE_SMART_HELMET
+#define headsetSmIsIdleTimerNeedToStart()  (IsUsbNotConnected() && IsBtConnectionIdle() && (!IsWiredAudioActive()) && \
+                           (!AncStateManager_IsEnabled()) && (!AecLeakthrough_IsLeakthroughEnabled()) \
+                           && (!SmartHelmet_UartIsBrOnline()))
+#else
 #define headsetSmIsIdleTimerNeedToStart()  (IsUsbNotConnected() && IsBtConnectionIdle() && (!IsWiredAudioActive()) && \
                            (!AncStateManager_IsEnabled()) && (!AecLeakthrough_IsLeakthroughEnabled()))
+#endif
 
 /*! \brief Return TRUE if A2DP state is 'connected media streaming' and avrcp status is paused  */
 #define IsA2dpStreamingAndAvrcpPaused() ( Av_IsA2dpSinkStreaming() && Av_IsPaused())
@@ -275,6 +282,21 @@ static void headsetSMStopIdleTimer(void)
 {
     MessageCancelAll(headsetSmGetTask(), SM_INTERNAL_TIMEOUT_IDLE);
 }
+
+#ifdef INCLUDE_SMART_HELMET
+void headsetSmOnWisunBrOnlineChanged(bool online)
+{
+    if (online)
+    {
+        /* BR is accepting reports. Do not auto power-off. */
+        headsetSMStopIdleTimer();
+    }
+    else if (headsetSmIsIdleTimerNeedToStart())
+    {
+        headsetSMStartIdleTimer();
+    }
+}
+#endif
 
 /*! \brief function to check if the last reset was caused by Panic */
 static bool isHeadsetResetSourcePanic(void)
@@ -786,6 +808,18 @@ static void headsetSmHandleTimeoutIdle(void)
 	DEBUG_LOG_ALWAYS("headsetSmHandleTimeoutIdle, state %d, handset connected %d", headsetGetState(), appDeviceIsHandsetConnected());
     if((HEADSET_STATE_IDLE == headsetGetState()) && (!appDeviceIsHandsetConnected()))
     {
+        /* Wi-SUN is joined and the last BR UDP send was acknowledged.
+         * Keep the helmet up so reports continue; re-arm the idle timer. */
+#ifdef INCLUDE_SMART_HELMET
+        if (SmartHelmet_UartIsBrOnline())
+        {
+            DEBUG_LOG_ALWAYS("headsetSmHandleTimeoutIdle: Wi-SUN BR online, stay powered");
+            /* Re-arm directly. StartIdleTimer skips while BR is online. */
+            MessageCancelAll(headsetSmGetTask(), SM_INTERNAL_TIMEOUT_IDLE);
+            MessageSendLater(headsetSmGetTask(), SM_INTERNAL_TIMEOUT_IDLE, NULL, headsetConfigIdleTimeoutMs());
+            return;
+        }
+#endif
         headsetSmPowerOff();
     }
 }

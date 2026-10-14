@@ -13,7 +13,6 @@ Pipeline:
 #define SMART_HELMET_VITALS_H
 
 #include <csrtypes.h>
-#include <stdbool.h>
 
 typedef enum
 {
