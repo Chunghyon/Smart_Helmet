@@ -25,6 +25,7 @@ SSD1315     = 128x64 OLED on I2C1 (or I2C0) — probe, init, splash
 #include "state_of_charge.h"
 #include <av.h>
 #include <hfp_profile.h>
+#include "bt_device.h"
 
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
@@ -613,7 +614,13 @@ static const char *shStateText(unsigned state)
         case 2u:        return "STATE LIMBO";
         case 3u:  return "STATE PWR ON";
         case 4u:      return "STATE PAIR";
-        case 5u:         return "STATE IDLE";
+        case 5u:
+            /* IDLE with a handset link vs pure idle. */
+            if (appDeviceIsHandsetConnected())
+            {
+                return "CONNECTED IDLE";
+            }
+            return "IDLE";
         case 6u:         return "STATE BUSY";
         case 8u: return "STATE PWR OFF";
         case 7u:  return "STATE TERM";

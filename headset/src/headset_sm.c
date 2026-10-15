@@ -249,6 +249,13 @@ static void headsetSmHandleAncUpdateStateDisableInd(void)
     {
         headsetSMStartIdleTimer();
     }
+#ifdef INCLUDE_SMART_HELMET
+    /* Refresh OLED top line back to "IDLE" if still idle. */
+    if (headsetSmStateIsIdle(headsetGetState()))
+    {
+        SmartHelmet_UiRefresh((unsigned)headsetGetState());
+    }
+#endif
 }
 
 /*! \brief Function to start or stop headset idle timer for leakthrough*/
@@ -1431,6 +1438,10 @@ static void headsetSmHandleHandsetServiceConnectedInd(HANDSET_SERVICE_CONNECTED_
         /* Inform UI that a handset has been connected */
         Ui_InformContextChange(ui_provider_app_sm, context_app_sm_idle_connected);
         headsetSMStopIdleTimer();
+#ifdef INCLUDE_SMART_HELMET
+        /* Refresh OLED top line to "CONNECTED IDLE" immediately. */
+        SmartHelmet_UiRefresh((unsigned)headsetGetState());
+#endif
     }
 }
 
