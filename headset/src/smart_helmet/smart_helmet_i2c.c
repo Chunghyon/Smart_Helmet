@@ -249,6 +249,8 @@ bool SmartHelmet_I2cInit(void)
                       SMART_HELMET_I2C0_SCL_PIO,
                       SMART_HELMET_I2C0_SDA_PIO,
                       SMART_HELMET_I2C0_SPEED_KHZ) && ok;
+#else
+    UNUSED(shI2cOpenBus);
 #endif
 
 #if SMART_HELMET_ENABLE_I2C1

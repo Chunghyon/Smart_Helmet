@@ -19,8 +19,10 @@ void SmartHelmet_PowerOn(void);
 void SmartHelmet_PowerOff(void);
 void SmartHelmet_UiRefresh(unsigned state);
 void SmartHelmet_PowerSave(void);
+#if SMART_HELMET_ENABLE_SSD1315
 void SmartHelmet_SensorsDisplayResume(void);
 void SmartHelmet_SensorsDisplayBlank(void);
+#endif
 #include "headset_sm_private.h"
 #include "adk_log.h"
 #include "headset_led.h"
@@ -600,13 +602,17 @@ static void headsetSmApplyLimboChargeLed(void)
         headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_OK ||
         headset_limbo_charge_event == CHARGER_MESSAGE_CHARGING_LOW)
     {
+#if SMART_HELMET_ENABLE_SSD1315
         SmartHelmet_SensorsDisplayResume();
+#endif
         SmartHelmet_UiRefresh(2u);
         headsetSmLogChargeVbat();
     }
     else
     {
+#if SMART_HELMET_ENABLE_SSD1315
         SmartHelmet_SensorsDisplayBlank();
+#endif
         headsetSmStopChargeVbatLog();
     }
 

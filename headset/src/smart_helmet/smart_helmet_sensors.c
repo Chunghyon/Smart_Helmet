@@ -1088,7 +1088,9 @@ static void shSensorsVerifyPass(void)
         {
             MessageCancelAll(sh_probe_task, SMART_HELMET_I2C_PROBE_RETRY);
         }
+#if SMART_HELMET_ENABLE_SSD1315
         shLatchInitFail();
+#endif
         SmartHelmet_SensorsShowAdcMv(0, 0, 0, 0);
         return;
     }
@@ -1229,7 +1231,9 @@ void SmartHelmet_SensorsBootLis3dhTest(Task task)
 void SmartHelmet_SensorsInit(void)
 {
 	CC_LOGN("%s: enter", __func__);
+#if SMART_HELMET_ENABLE_SSD1315
     shClearInitFail();
+#endif
     sh_sensors.ccs811_ok = FALSE;
     sh_sensors.hdc1080_ok = FALSE;
     sh_sensors.lis3dh_ok = FALSE;

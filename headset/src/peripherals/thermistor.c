@@ -9,7 +9,11 @@
 */
 
 #ifdef INCLUDE_TEMPERATURE
-#ifdef HAVE_THERMISTOR
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
+#include "logging.h"
+
 #include <panic.h>
 #include <pio.h>
 #include <hydra_macros.h>
@@ -67,14 +71,14 @@ static int8 appThermistorMillivoltsToDegreesCelsius(uint16 thermistor_mv, int8 t
         for (i = prev_index + 1; i < ARRAY_DIM(thermistor_voltage_lookup_table); i++)
         {
             this_mv = thermistor_voltage_lookup_table[i];
-            DEBUG_LOG_V_VERBOSE("appThermistorMillivoltsToDegreesCelsius, search forwards i=%d, thermistor_mv=%d, this_mv=%d",
-                       i, thermistor_mv, this_mv);
             if (thermistor_mv >= this_mv)
             {
+				CC_LOGN("appThermistorMillivoltsToDegreesCelsius, %d C", THERMISTOR_TEMP_MIN + i);
                 return THERMISTOR_TEMP_MIN + i;
             }
         }
-        return THERMISTOR_TEMP_MAX;
+		CC_LOGN("appThermistorMillivoltsToDegreesCelsius, %d C", THERMISTOR_TEMP_MAX);
+		return THERMISTOR_TEMP_MAX;
     }
     else /* thermistor_mv >= prev_mv */
     {
@@ -83,14 +87,14 @@ static int8 appThermistorMillivoltsToDegreesCelsius(uint16 thermistor_mv, int8 t
         {
             this_mv = prev_mv;
             prev_mv = thermistor_voltage_lookup_table[i-1];
-            DEBUG_LOG_V_VERBOSE("appThermistorMillivoltsToDegreesCelsius, search backwards i=%d, thermistor_mv=%d, this_mv=%d, prev_mv=%d",
-                       i, thermistor_mv, this_mv, prev_mv);
             if (thermistor_mv >= this_mv && thermistor_mv < prev_mv)
             {
-                return THERMISTOR_TEMP_MIN + i;
+				CC_LOGN("appThermistorMillivoltsToDegreesCelsius, %d C", THERMISTOR_TEMP_MIN + i);
+				return THERMISTOR_TEMP_MIN + i;
             }
         }
-        return THERMISTOR_TEMP_MIN;
+		CC_LOGN("appThermistorMillivoltsToDegreesCelsius, %d C", THERMISTOR_TEMP_MIN);
+		return THERMISTOR_TEMP_MIN;
     }
 }
 
@@ -116,20 +120,23 @@ static bool appThermistorHandleMeasurement(const MessageAdcResult* result, int8 
         uint32 vref_const = VmReadVrefConstant();
         uint16 thermistor_mv = (uint16)(vref_const * reading / vref_raw);
         int8 celsius = appThermistorMillivoltsToDegreesCelsius(thermistor_mv, *temperature);
-        DEBUG_LOG_V_VERBOSE("appThermistorHandleMeasurement, %u, %u, %u, %d", vref_const, vref_raw, thermistor_mv, celsius);
+		CC_LOGN("appThermistorHandleMeasurement\n"
+		        "vref %u mV, vref_raw %u, thermistor_mv %u mV, celcious %d degC",
+		        vref_const, vref_raw, thermistor_mv, celsius);
         *temperature = celsius;
         return TRUE;
     }
     else
     {
-        DEBUG_LOG_WARN("appThermistorHandleMeasurement unexpected source - %d",result->adc_source);
+		CC_LOGN("appThermistorHandleMeasurement unexpected source - %d",result->adc_source);
     }
 
     return FALSE;
 }
 
 /*! \brief Enable/disable the thermistor 'on' PIO */
-static void appThermistorPIOEnable(bool enable)
+void appThermistorPIOEnable(bool enable);
+void appThermistorPIOEnable(bool enable)
 {
     uint8 on = appConfigThermistor()->on;
     if (on != THERMISTOR_PIO_UNUSED)
@@ -140,15 +147,24 @@ static void appThermistorPIOEnable(bool enable)
     }
 }
 
+#ifdef HJC_11Be
+void retrigger_temperature_measurement(void);
+#endif
 void appTemperatureSensorRequestMeasurement(Task task)
 {
+	CC_LOGN("appTemperatureSensorRequestMeasurement");
     appThermistorPIOEnable(TRUE);
-    AdcReadRequest(task, adcsel_vref_hq_buff, 0, 0);
-    AdcReadRequest(task, appConfigThermistor()->adc, 0, 0);
+	AdcReadRequest(task, adcsel_vref_hq_buff, 0, 0);
+	AdcReadRequest(task, appConfigThermistor()->adc, 0, 0);
+
+#ifdef HJC_11Be
+	retrigger_temperature_measurement();
+#endif
 }
 
 bool appTemperatureSensorHandleMessage(Task task, MessageId id, Message message, int8 *temperature)
 {
+	CC_LOGN("appTemperatureSensorHandleMessage");
     UNUSED(task);
     switch (id)
     {
@@ -188,5 +204,4 @@ vm_adc_source_type appTemperatureSensorAdcSource(void)
     return appConfigThermistor()->adc;
 }
 
-#endif /* HAVE_THERMISTOR */
 #endif /* INCLUDE_TEMPERATURE */

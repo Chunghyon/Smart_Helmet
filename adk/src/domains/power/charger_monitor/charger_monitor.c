@@ -6,6 +6,9 @@
 \file       charger_monitor.c
 \brief      Charger monitoring
 */
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
 
 #include "charger_monitor.h"
 #include "charger_monitor_config.h"
@@ -22,6 +25,11 @@
 
 #include "charger_detect.h"
 #include "charger_data.h"
+
+#ifdef HJC_11Be
+#define ENABLE_CHARGER_HYSTERESIS_SW
+#include "headset_init.h"
+#endif
 
 #ifdef INCLUDE_CHARGER_DETECT
 #include "led_manager_protected.h"
@@ -179,18 +187,15 @@ static void Charger_StatusChanged(MessageChargerStatus *message)
 
     MessageCancelAll(&theCharger->task, CHARGER_INTERNAL_DISABLE_AFTER_CHARGED);
 
-    switch (theCharger->status)
+	CC_LOGN("Charger_StatusChanged: enum:charger_status:%d -> enum:charger_status:%d", old_status, theCharger->status);
+	switch (theCharger->status)
     {
         case TRICKLE_CHARGE:
-            DEBUG_LOG_INFO("Charger: trickle charge");
             break;
         case FAST_CHARGE:
-            DEBUG_LOG_INFO("Charger: fast charge");
             charge_timeout_ms = appConfigChargerFastChargeTimeoutMs();
             break;
         case DISABLED_ERROR:
-            DEBUG_LOG_INFO("Charger: disabled");
-
 #ifdef ENABLE_CHARGER_HYSTERESIS_SW
             /* If charging has completed, the HW is disabled however it is still reported
              * as if was enabled to keep state consistent. */
@@ -201,35 +206,28 @@ static void Charger_StatusChanged(MessageChargerStatus *message)
 #endif
             break;
         case STANDBY:
-            DEBUG_LOG_INFO("Charger: standby");
-
 #ifdef ENABLE_CHARGER_HYSTERESIS_SW
             MessageSendLater(&theCharger->task, CHARGER_INTERNAL_DISABLE_AFTER_CHARGED,
                              NULL, appConfigChargerDisableAfterStandbyTimeoutMs());
 #endif
             break;
         case PRE_CHARGE:
-            DEBUG_LOG_INFO("Charger: pre charge");
             charge_timeout_ms = appConfigChargerPreChargeTimeoutMs();
             break;
         case NO_POWER:
-            DEBUG_LOG_INFO("Charger: no power");
             break;
         case HEADROOM_ERROR:
-            DEBUG_LOG_INFO("Charger: headroom error");
             Charger_Error();
             break;
         case VBAT_OVERVOLT_ERROR:
-            DEBUG_LOG_INFO("Charger: vbat overvolt");
             Charger_Error();
             break;
         case CONFIG_FAIL_VALUES_OUT_OF_RANGE:
-            DEBUG_LOG_INFO("Charger: error value out of range");
             if (theCharger->fast_current > appConfigChargerInternalMaxCurrent())
             {
                 /* Current is too high: ChargerConfigure() or ChargerEnable()
                  * requested current that can not be supported. */
-                DEBUG_LOG_INFO("Charger: current too high %d", theCharger->fast_current);
+				CC_LOGN("Charger: current too high %d", theCharger->fast_current);
 
                 /* reduce supported current and re-try */
                 theCharger->max_supported_current = theCharger->fast_current - 50;
@@ -248,7 +246,7 @@ static void Charger_StatusChanged(MessageChargerStatus *message)
             break;
 
         default:
-            DEBUG_LOG_INFO("Charger: unexpected status %d", theCharger->status);
+			CC_LOGN("Charger: unexpected status %d", theCharger->status);
             break;
     }
 
@@ -266,8 +264,12 @@ static void Charger_StatusChanged(MessageChargerStatus *message)
     }
 }
 
+#ifdef ACTIVE_BATTERY_CHARGING
+extern bool active_charging_enabled;
+#endif
 static void charger_SetFastCurrent(uint16 fast_current)
 {
+	CC_LOGN("charger_SetFastCurrent, fast_current %u", fast_current);
     chargerTaskData *theCharger = appGetCharger();
 
     if (fast_current == 0)
@@ -285,12 +287,12 @@ static void charger_SetFastCurrent(uint16 fast_current)
             /* turn off the charger to enable external mode */
             Charger_DisableReasonAdd(CHARGER_DISABLE_REASON_INTERNAL);
 
-            DEBUG_LOG_INFO("Charger: enable external mode");
+			CC_LOGN("Charger: enable external mode");
             PanicFalse(ChargerConfigure(CHARGER_USE_EXTERNAL_RESISTOR_FOR_FAST_CHARGE, 1));
             theCharger->ext_mode_enabled = 1;
         }
 #else
-        DEBUG_LOG_WARN("Charger: %dmA current too high for internal mode",
+		CC_LOGN("Charger: %dmA current too high for internal mode",
                        fast_current);
         /* External charging mode not supported */
         fast_current = appConfigChargerInternalMaxCurrent();
@@ -303,13 +305,13 @@ static void charger_SetFastCurrent(uint16 fast_current)
         /* turn off charger to disable external mode */
         Charger_DisableReasonAdd(CHARGER_DISABLE_REASON_INTERNAL);
 
-        DEBUG_LOG_INFO("Charger: disable external mode");
+		CC_LOGN("Charger: disable external mode");
         PanicFalse(ChargerConfigure(CHARGER_USE_EXTERNAL_RESISTOR_FOR_FAST_CHARGE, 0));
         theCharger->ext_mode_enabled = 0;
     }
 #endif
 
-    DEBUG_LOG_INFO("Charger: set fast current %dmA", fast_current);
+	CC_LOGN("\n!!!!! Charger Current Change : %d -> %d mA !!!!!", theCharger->fast_current, fast_current);
 
     PanicFalse(ChargerConfigure(CHARGER_FAST_CURRENT, fast_current));
     theCharger->fast_current = fast_current;
@@ -334,7 +336,17 @@ void Charger_UpdateCurrent(void)
 #endif
     fast_current = MIN(BatteryRegion_GetCurrent(), fast_current);
 
-    if (theCharger->fast_current != fast_current)
+#ifdef ACTIVE_BATTERY_CHARGING
+	if(active_charging_enabled) {
+		CC_LOGN("\n$$$Charger_UpdateCurrent, Active_Charging");
+		fast_current = MIN(ACTIVE_CURRENT_mA, fast_current);
+	}
+	else {
+		CC_LOGN("\n###Charger_UpdateCurrent, Normal");
+	}
+#endif
+
+	if (theCharger->fast_current != fast_current)
     {
         charger_SetFastCurrent(fast_current);
 #ifdef INCLUDE_CHARGER_DETECT
@@ -408,7 +420,7 @@ void Charger_HandleChange(void)
         {
             /* Switch failed, this can only be because VCHG is not OK (< 4v4).
              * Possibly a glitch, we could re-try but for now just ignore. */
-            DEBUG_LOG_WARN("Charger: PSU switch failed, leave in current state");
+			CC_LOGN("Charger: PSU switch failed, leave in current state");
         }
     }
 }
@@ -427,7 +439,7 @@ void Charger_UpdateConnected(bool charger_is_connected)
 
     if (theCharger->is_connected)
     {
-        DEBUG_LOG_INFO("Charger: CONNECTED");
+		CC_LOGN("Charger: CONNECTED");
 
         Charger_UpdateCurrent();
 
@@ -435,7 +447,7 @@ void Charger_UpdateConnected(bool charger_is_connected)
     }
     else
     {
-        DEBUG_LOG_INFO("Charger: DETACHED");
+		CC_LOGN("Charger: DETACHED");
 
         Charger_DisableReasonAdd(CHARGER_DISABLE_REASON_NOT_CONNECTED);
         /* Allow the battery to charge after timeout if the charger is disconnected */
@@ -450,15 +462,15 @@ void Charger_UpdateConnected(bool charger_is_connected)
 
     Charger_HandleChange();
 
-    if (theCharger->is_connected)
-        DEBUG_LOG_INFO("CHARGER_MESSAGE_ATTACHED");
-    else
-        DEBUG_LOG_INFO("CHARGER_MESSAGE_DETACHED");
-
     Charger_NotifyClients(theCharger->is_connected ?
                              CHARGER_MESSAGE_ATTACHED:
                              CHARGER_MESSAGE_DETACHED);
 }
+
+#ifdef HJC_11Be
+extern void forced_stop_charging_timer(void);
+extern void forced_restart_charging_timer(void);
+#endif
 
 #ifdef ENABLE_CHARGER_HYSTERESIS_SW
 /**
@@ -467,7 +479,7 @@ void Charger_UpdateConnected(bool charger_is_connected)
  */
 static void Charger_HandleBatteryLevelUpdate(uint16 battery_voltage)
 {
-    DEBUG_LOG("Charger: battery level update voltage: %d", battery_voltage);
+	CC_LOGN("Charger_HandleBatteryLevelUpdate: %d mV", battery_voltage);
 
     /* If the battery voltage has fallen below the termination voltage
      * hysteresis, we should re-enable the charger. */
@@ -475,7 +487,7 @@ static void Charger_HandleBatteryLevelUpdate(uint16 battery_voltage)
         >= appConfigChargerStandbyFastVoltageHysteresis())
     {
         Charger_DisableReasonClear(CHARGER_DISABLE_REASON_CHARGED);
-    }
+	}
 }
 #endif
 
@@ -489,13 +501,13 @@ static void charger_HandleMessage(Task task, MessageId id, Message message)
     switch (id)
     {
         case CHARGER_INTERNAL_CHARGE_TIMEOUT:
-            DEBUG_LOG_INFO("Charger: timeout, status %d", theCharger->status);
+			CC_LOGN("Charger: timeout, status %d", theCharger->status);
 
             Charger_DisableReasonAdd(CHARGER_DISABLE_REASON_TIMEOUT);
             break;
 
         case CHARGER_INTERNAL_RE_ENABLE_TIMEOUT:
-            DEBUG_LOG_INFO("Charger: re-enable after an error, status %d", theCharger->status);
+			CC_LOGN("Charger: re-enable after an error, status %d", theCharger->status);
 
             Charger_DisableReasonClear(CHARGER_DISABLE_REASON_ERROR);
             break;
@@ -521,6 +533,7 @@ static void charger_HandleMessage(Task task, MessageId id, Message message)
             break;
 
         case MESSAGE_CHARGER_STATUS:
+			CC_LOGN("MESSAGE_CHARGER_STATUS");
             if (!theCharger->test_mode)
             {
                 Charger_StatusChanged((MessageChargerStatus *)message);
@@ -540,19 +553,20 @@ static void charger_HandleMessage(Task task, MessageId id, Message message)
             break;
 
         case MESSAGE_ADC_RESULT:
-            Charger_VChgMonitorReading(theCharger, (MessageAdcResult*)message);
+		    CC_LOGN("charger_HandleMessage, [MESSAGE_ADC_RESULT]");
+			Charger_VChgMonitorReading(theCharger, (MessageAdcResult*)message);
             break;
 
 #endif /* INCLUDE_CHARGER_DETECT */
 
 #ifdef ENABLE_CHARGER_HYSTERESIS_SW
-        case MESSAGE_BATTERY_LEVEL_UPDATE_VOLTAGE:
-            Charger_HandleBatteryLevelUpdate(((const MESSAGE_BATTERY_LEVEL_UPDATE_VOLTAGE_T*)message)->voltage_mv);
+	    case MESSAGE_BATTERY_LEVEL_UPDATE_VOLTAGE:
+		    Charger_HandleBatteryLevelUpdate(((const MESSAGE_BATTERY_LEVEL_UPDATE_VOLTAGE_T*)message)->voltage_mv);
             break;
 
 
         case CHARGER_INTERNAL_DISABLE_AFTER_CHARGED:
-            DEBUG_LOG_INFO("Charger: disable after charging complete");
+			CC_LOGN("Charger: disable after charging complete");
 
             Charger_DisableReasonAdd(CHARGER_DISABLE_REASON_CHARGED);
             break;
@@ -567,7 +581,7 @@ static void Charger_Enable(void)
 {
     chargerTaskData *theCharger = appGetCharger();
 
-    DEBUG_LOG_WARN("Charger: enable");
+	CC_LOGN("Charger: enable");
 
     theCharger->is_enabled = 1;
     PanicFalse(ChargerConfigure(CHARGER_ENABLE, 1));
@@ -577,7 +591,7 @@ static void Charger_Disable(void)
 {
     chargerTaskData *theCharger = appGetCharger();
 
-    DEBUG_LOG_WARN("Charger: disable");
+	CC_LOGN("Charger_Disable()");
 
     theCharger->is_enabled = 0;
     PanicFalse(ChargerConfigure(CHARGER_ENABLE, 0));
@@ -595,7 +609,7 @@ static void charger_ConfigureCharger(void)
     PanicFalse(ChargerConfigure(CHARGER_ITERM_CTRL, appConfigChargerTerminationCurrent()));
 
 #if FAST_CHARGE_EXTERNAL_RESISTOR
-    DEBUG_LOG_INFO("Charger: external resistor value %u", FAST_CHARGE_EXTERNAL_RESISTOR);
+	CC_LOGN("Charger: external resistor value %u", FAST_CHARGE_EXTERNAL_RESISTOR);
     PanicFalse(ChargerConfigure(CHARGER_EXTERNAL_RESISTOR, FAST_CHARGE_EXTERNAL_RESISTOR));
 #endif
 
@@ -604,7 +618,7 @@ static void charger_ConfigureCharger(void)
 
     /* Voltages */
     PanicFalse(ChargerConfigure(CHARGER_PRE_FAST_THRESHOLD, appConfigChargerPreFastThresholdVoltage()));
-    PanicFalse(ChargerConfigure(CHARGER_TERM_VOLTAGE, appConfigChargerTerminationVoltage()));
+	PanicFalse(ChargerConfigure(CHARGER_TERM_VOLTAGE, appConfigChargerTerminationVoltage()));
 
     /* Thresholds/timing */
 #ifdef ENABLE_CHARGER_HYSTERESIS_SW
@@ -620,6 +634,7 @@ static void charger_ConfigureCharger(void)
 
 void Charger_DisableReasonAdd(ChargerDisableReason reason)
 {
+	CC_LOGN("Charger_DisableReasonAdd, enum:ChargerDisableReason:0x%08x", reason);
     chargerTaskData *theCharger = appGetCharger();
 
     if ((theCharger->disable_reason & reason) == 0)
@@ -627,15 +642,15 @@ void Charger_DisableReasonAdd(ChargerDisableReason reason)
         switch (reason)
         {
             case CHARGER_DISABLE_REASON_TIMEOUT:
-                DEBUG_LOG_INFO("Charger: set DISABLE reason TIMEOUT"); break;
+			    CC_LOGN("Charger: set DISABLE_REASON_TIMEOUT"); break;
             case CHARGER_DISABLE_REASON_REQUEST:
-                DEBUG_LOG_INFO("Charger: set DISABLE reason REQUEST"); break;
+			    CC_LOGN("Charger: set DISABLE_REASON_REQUEST"); break;
             case CHARGER_DISABLE_REASON_ERROR:
-                DEBUG_LOG_INFO("Charger: set DISABLE reason ERROR"); break;
+			    CC_LOGN("Charger: set DISABLE_REASON_ERROR"); break;
             case CHARGER_DISABLE_REASON_ZERO_CURRENT:
-                DEBUG_LOG_INFO("Charger: set DISABLE reason ZERO CURRENT"); break;
+			    CC_LOGN("Charger: set DISABLE_REASON_ZERO_CURRENT"); break;
             case CHARGER_DISABLE_REASON_NOT_CONNECTED:
-                DEBUG_LOG_INFO("Charger: set DISABLE reason NOT CONNECTED"); break;
+			    CC_LOGN("Charger: set DISABLE_REASON_NOT_CONNECTED"); break;
             default:
                 break;
         }
@@ -647,8 +662,12 @@ void Charger_DisableReasonAdd(ChargerDisableReason reason)
         {
             Charger_Disable();
         }
+
         theCharger->disable_reason |= reason;
-    }
+		CC_LOGN("theCharger->disable_reason 0x%08x", theCharger->disable_reason);
+
+
+	}
 
 #ifdef ENABLE_CHARGER_HYSTERESIS_SW
     if (reason != CHARGER_DISABLE_REASON_CHARGED)
@@ -660,6 +679,9 @@ void Charger_DisableReasonAdd(ChargerDisableReason reason)
 #endif
 }
 
+#ifdef ACTIVE_BATTERY_CHARGING
+extern bool check_app_sm_active(void);
+#endif
 void Charger_DisableReasonClear(ChargerDisableReason reason)
 {
     chargerTaskData *theCharger = appGetCharger();
@@ -669,15 +691,15 @@ void Charger_DisableReasonClear(ChargerDisableReason reason)
         switch (reason)
         {
             case CHARGER_DISABLE_REASON_TIMEOUT:
-                DEBUG_LOG_ALWAYS("Charger: clear DISABLE reason TIMEOUT"); break;
+				CC_LOGN("Charger: clear DISABLE_REASON_TIMEOUT"); break;
             case CHARGER_DISABLE_REASON_REQUEST:
-                DEBUG_LOG_ALWAYS("Charger: clear DISABLE reason REQUEST"); break;
+				CC_LOGN("Charger: clear DISABLE_REASON_REQUEST"); break;
             case CHARGER_DISABLE_REASON_ERROR:
-                DEBUG_LOG_ALWAYS("Charger: clear DISABLE reason ERROR"); break;
+				CC_LOGN("Charger: clear DISABLE_REASON_ERROR"); break;
             case CHARGER_DISABLE_REASON_ZERO_CURRENT:
-                DEBUG_LOG_ALWAYS("Charger: clear DISABLE reason ZERO CURRENT"); break;
+				CC_LOGN("Charger: clear DISABLE_REASON_ZERO_CURRENT"); break;
             case CHARGER_DISABLE_REASON_NOT_CONNECTED:
-                DEBUG_LOG_ALWAYS("Charger: clear DISABLE reason NOT CONNECTED"); break;
+				CC_LOGN("Charger: clear DISABLE_REASON_NOT_CONNECTED"); break;
             default:
                 break;
         }
@@ -686,21 +708,36 @@ void Charger_DisableReasonClear(ChargerDisableReason reason)
     if (reason && theCharger->disable_reason)
     {
         theCharger->disable_reason &= ~reason;
-        if (!theCharger->disable_reason)
+		CC_LOGN("theCharger->disable_reason 0x%08x", theCharger->disable_reason);
+		if (!theCharger->disable_reason)
         {
             Charger_Enable();
         }
     }
+
+}
+
+ChargerDisableReason get_charger_disable_reason(void)
+{
+	return appGetCharger()->disable_reason;
 }
 
 void Charger_ForceDisable(void)
 {
-    Charger_DisableReasonAdd(CHARGER_DISABLE_REASON_REQUEST);
+	CC_LOGN("%s", __func__);
+	Charger_DisableReasonAdd(CHARGER_DISABLE_REASON_REQUEST);
+#ifdef HJC_11Be
+	forced_stop_charging_timer();
+#endif
 }
 
 void Charger_RestoreState(void)
 {
+	CC_LOGN("%s", __func__);
     Charger_DisableReasonClear(CHARGER_DISABLE_REASON_REQUEST);
+#ifdef HJC_11Be
+	forced_restart_charging_timer();
+#endif
 }
 
 bool Charger_IsEnabled(void)
@@ -712,8 +749,7 @@ bool Charger_IsEnabled(void)
 
 bool Charger_IsCharging(void)
 {
-    if (Charger_IsConnected() &&
-            Charger_IsEnabled())
+	if (Charger_IsConnected() && Charger_IsEnabled())
     {
         chargerTaskData *theCharger = appGetCharger();
 
@@ -893,7 +929,7 @@ void Charger_TestChargerDetected(usb_attached_status attached_status,
     UNUSED(charger_dp_millivolts);
     UNUSED(charger_dm_millivolts);
     UNUSED(cc_status);
-    DEBUG_LOG_INFO("Charger_TestChargerDetected: charger detect is not enabled");
+	CC_LOGN("Charger_TestChargerDetected: charger detect is not enabled");
 #endif
 }
 

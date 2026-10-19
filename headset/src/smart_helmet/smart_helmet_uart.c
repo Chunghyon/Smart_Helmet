@@ -1221,6 +1221,13 @@ static void shWisunOnTimeout(void)
         shAtNoteResult(shAtReplyOk());
     }
 #else
+    UNUSED(SmartHelmet_ReportStart);
+    UNUSED(sh_prov_done);
+    UNUSED(shProvPlan);
+    UNUSED(shProvSendCurrent);
+    UNUSED(shAtReplyOk);
+    UNUSED(shLogAsmKeywords);
+    UNUSED(shAtNoteResult);
     UNUSED(shWisunSendProbe);
 #endif
 }

@@ -12,14 +12,14 @@
 #include "battery_region.h"
 #include "charger_monitor_config.h"
 
-#define TRICKLE appConfigChargerTrickleCurrent()
-#define PRE     appConfigChargerPreCurrent()
-#define FAST    appConfigChargerFastCurrent()
+#define TRICKLE appConfigChargerTrickleCurrent()			//10
+#define PRE     appConfigChargerPreCurrent()				//20
+#define FAST    appConfigChargerFastCurrent()				//1470 (200 for internal)
 
 #define Vpre   2100
-#define Vcrit  appConfigChargerCriticalThresholdVoltage()
-#define Vfast  appConfigChargerPreFastThresholdVoltage()
-#define Vfloat appConfigChargerTerminationVoltage()
+#define Vfast  appConfigChargerPreFastThresholdVoltage()	//3000
+#define Vcrit  appConfigChargerCriticalThresholdVoltage()	//3300
+#define Vfloat appConfigChargerTerminationVoltage()			//4200
 
 /* Accuracy of 1.03 applied on Vfloat value to take into account 
  * VBAT measurement inaccuracies. */
@@ -29,7 +29,11 @@
 #ifdef CF133_BATT
 #define CHARGING_TIMER_TIMEOUT 15
 #else
-#define CHARGING_TIMER_TIMEOUT 509
+#ifdef DEBUG
+#define CHARGING_TIMER_TIMEOUT 509	//ORG 509
+#else
+#define CHARGING_TIMER_TIMEOUT 509	//ORG 509
+#endif
 #endif
 
 /*! \brief Return the charge mode region configuration table for the headset application.

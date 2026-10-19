@@ -2541,6 +2541,7 @@ void SmartHelmet_VitalsProcess(void)
         }
     }
 #else
+    UNUSED(motion_thresh);
     if (sens_count > (BAND_WIN / 4) &&
         sens_abs >= SMART_HELMET_SENS_MOTION_ABS_MV)
     {

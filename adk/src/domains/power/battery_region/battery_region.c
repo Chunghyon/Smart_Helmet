@@ -9,6 +9,10 @@
 #ifndef HAVE_NO_BATTERY
 
 #define DEBUG_LOG_MODULE_NAME battery_region
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
+
 #include <logging.h>
 DEBUG_LOG_DEFINE_LEVEL_VAR
 
@@ -137,6 +141,23 @@ static bool batteryRegion_VolTempInRegion(battery_region_data_t *battery_region,
     return (volatage_in_region && temp_in_region);
 }
 
+#ifdef HJC_11Be
+#include "headset_region_config.h"
+void forced_stop_charging_timer(void);
+void forced_restart_charging_timer(void);
+void forced_stop_charging_timer(void)
+{
+	CC_LOGN("%s", __func__);
+	(void) MessageCancelAll(&GetBatteryRegionData()->task, MESSAGE_BATTERY_REGION_INTERNAL_CHARGING_TIMER);
+}
+void forced_restart_charging_timer(void)
+{
+	CC_LOGN("%s", __func__);
+	(void) MessageCancelAll(&GetBatteryRegionData()->task, MESSAGE_BATTERY_REGION_INTERNAL_CHARGING_TIMER);
+	Charger_DisableReasonClear(CHARGER_DISABLE_REASON_TIMEOUT);
+	MessageSendLater( &GetBatteryRegionData()->task, MESSAGE_BATTERY_REGION_INTERNAL_CHARGING_TIMER, 0, D_MIN(CHARGING_TIMER_TIMEOUT));
+}
+#endif
 /*! 
     \brief Determine if there has been battery region change and take appropriate actions based on that.
     \param battery_region pointer to battery_region_data_t structure.
@@ -149,35 +170,42 @@ static void batteryRegion_UpdateRegion(battery_region_data_t *battery_region)
     uint8 prev_region;
     chargerConnectionState is_connected = Charger_IsConnected();
 
-    if (is_connected)
+	static chargerConnectionState prev_connected = CHARGER_DISCONNECTED;
+	if(prev_connected != is_connected) {
+		CC_LOGN("batteryRegion_UpdateRegion, is_connected ? %s", is_connected ? "YES" : "NO");
+		prev_connected = is_connected;
+	}
+
+	static int8 prev_temperature = 100;
+	if(prev_temperature != temperature) {
+		CC_LOGN("batteryRegion_UpdateRegion, temperature %d -> %d", prev_temperature, temperature);
+		prev_temperature = temperature;
+	}
+
+	if (is_connected)
     {
         if(battery_region->region_table != region_ctx.charge_table)
         {
-            /* not set so this implies region change. Unset region number as no use of that. */
             battery_region->region = BATTERY_REGION_UNDEFINED;
             battery_region->region_table = region_ctx.charge_table;
             battery_region->region_table_len = region_ctx.charge_table_len;
-            DEBUG_LOG_INFO("batteryRegion: charge mode");
         }
     }
     else
     {
         if(battery_region->region_table != region_ctx.discharge_table)
         {
-            /* not set so this implies region change. Unset region number as no use of that. */
             battery_region->region = BATTERY_REGION_UNDEFINED;
             battery_region->region_table = region_ctx.discharge_table;
             battery_region->region_table_len = region_ctx.discharge_table_len;
-            DEBUG_LOG_INFO("batteryRegion: discharge mode");
         }
     }
 
-    if (batteryRegion_VolTempInRegion(battery_region, battery_region->region,
-                voltage, temperature, TRUE))          
+	if (batteryRegion_VolTempInRegion(battery_region, battery_region->region, voltage, temperature, TRUE))
     {
-        /* no change of region so nothing to be done until next check */
         return;
-    }    
+	}
+
     /* iterate over region table to match which region voltage and temperature lies */
     for (i=0; i<battery_region->region_table_len; i++) 
     {
@@ -187,14 +215,15 @@ static void batteryRegion_UpdateRegion(battery_region_data_t *battery_region)
             const charge_region_t *new_region = &battery_region->region_table[i];
 
             /* stop running charging timer */
-            (void) MessageCancelAll(&battery_region->task, 
-                            MESSAGE_BATTERY_REGION_INTERNAL_CHARGING_TIMER);
+			(void) MessageCancelAll(&battery_region->task, MESSAGE_BATTERY_REGION_INTERNAL_CHARGING_TIMER);
+
             prev_region = battery_region->region;
             battery_region->region = i;
 
-            DEBUG_LOG_INFO("batteryRegion: new region #%d V=[%d:%d] t=[%d:%d], "
-                    "current: %dmA", i,
-                    new_region->voltage_min,
+			CC_LOGN("batteryRegion_UpdateRegion\n"
+					"temperature %d C, battery new Region #%d, "
+			        "V=[%d:%d] t=[%d:%d], current: %dmA", temperature, i,
+			        new_region->voltage_min,
                     new_region->voltage_max,
                     new_region->temp_min,
                     new_region->temp_max,
@@ -203,14 +232,13 @@ static void batteryRegion_UpdateRegion(battery_region_data_t *battery_region)
             /* check if it is a critical region */
             if (new_region->region_type == CRITICAL_REGION)
             {
-                DEBUG_LOG_WARN("batteryRegion: CRITICAL region #%d", i);
-                
+				CC_LOGN("batteryRegion: CRITICAL region #%d", i);
                 battery_region->state = battery_region_critical;
             }
             /* check if it is a safety region */
             else if (new_region->region_type == SAFETY_REGION)
             {
-                DEBUG_LOG_WARN("batteryRegion: SAFETY region #%d", i);
+				CC_LOGN("batteryRegion: SAFETY region #%d", i);
                 battery_region->state = battery_region_unsafe;
             }
             else
@@ -219,10 +247,9 @@ static void batteryRegion_UpdateRegion(battery_region_data_t *battery_region)
             }
             Charger_UpdateCurrent();
 
-            if (new_region->current != 0 &&
-                    new_region->charging_timer != 0)
+			if (new_region->current != 0 && new_region->charging_timer != 0)
             {
-                /* start charging timer timeout for the region */
+				CC_LOGN("start charging timer timeout for the region");
                 MessageSendLater( &battery_region->task, 
                       MESSAGE_BATTERY_REGION_INTERNAL_CHARGING_TIMER,
                       0, D_MIN(new_region->charging_timer));
@@ -231,20 +258,22 @@ static void batteryRegion_UpdateRegion(battery_region_data_t *battery_region)
             /* since transition detected so call into transition handler */
             if (region_ctx.handler_funcs->transition_handler != NULL)
             {
+				CC_LOGN("calling region_ctx.handler_funcs->transition_handler");
                 region_ctx.handler_funcs->transition_handler(prev_region, battery_region->region);
             }
 
             if (battery_region->state == battery_region_unsafe && 
                 region_ctx.handler_funcs->safety_handler != NULL)
             {
-                region_ctx.handler_funcs->safety_handler(prev_region, battery_region->region);
+				CC_LOGN("calling region_ctx.handler_funcs->safety_handler");
+				region_ctx.handler_funcs->safety_handler(prev_region, battery_region->region);
             }
             
             batteryRegion_ServiceClients(battery_region);
             return;
         }
     }
-    DEBUG_LOG_WARN("batteryRegion: no operating region located for voltage: %d"
+	CC_LOGN("batteryRegion: no operating region located for voltage: %d"
             " and temperature: %d", voltage, temperature);
 }
 
@@ -261,6 +290,7 @@ static void batteryRegion_HandleMessage(Task task, MessageId id, Message message
     switch (id)
     {
         case MESSAGE_BATTERY_REGION_INTERNAL_CHARGING_TIMER:
+			CC_LOGN("MESSAGE_BATTERY_REGION_INTERNAL_CHARGING_TIMER");
             /* Timer expired so call into the timeout handler. Disable the charger and set flag  
              * indicating charger timer expiry the reason. 
              */
@@ -295,14 +325,16 @@ static void batteryRegion_HandleMessage(Task task, MessageId id, Message message
 
     \return battery region task pointer.
 */
+#ifdef INCLUDE_CHARGER  //byCC
 static Task batteryRegion_GetTask(void)
 {
     return &app_battery_region.task;
 }
+#endif
 
 void BatteryRegion_Init(void)
 {
-    DEBUG_LOG("BatteryRegion_Init");
+	CC_LOGN("BatteryRegion_Init");
     battery_region_data_t *battery_region = GetBatteryRegionData();
     memset(battery_region, 0, sizeof(*battery_region));
 
@@ -315,7 +347,9 @@ void BatteryRegion_Init(void)
     battery_region->period = batteryRegion_GetReadingPeriodMs();
     battery_region->region = BATTERY_REGION_UNDEFINED;
 
+#ifdef INCLUDE_CHARGER  //byCC
     Charger_ClientRegister(batteryRegion_GetTask());
+#endif
 
     batteryRegion_ScheduleNextRegionUpdate(battery_region, 0);    
 }
@@ -324,7 +358,7 @@ void BatteryRegion_SetChargeRegionConfigTable(charge_mode_t mode,
                                         const charge_region_t* config_table,                              
                                         unsigned config_size)
 {
-    DEBUG_LOG("BatteryRegion_SetChargeRegionConfigTable, set region config table for mode %u", mode);
+	CC_LOGN("BatteryRegion_SetChargeRegionConfigTable, set region config table for mode enum:charge_mode_t:%u", mode);
     if (mode == CHARGE_MODE)    
     {        
         region_ctx.charge_table = config_table;        
@@ -340,7 +374,7 @@ void BatteryRegion_SetChargeRegionConfigTable(charge_mode_t mode,
 void BatteryRegion_SetHandlerStructure(                              
                                 const battery_region_handlers_t* config_table)
 {
-    DEBUG_LOG("BatteryRegion_SetHandlerStructure");
+	CC_LOGN("BatteryRegion_SetHandlerStructure");
     region_ctx.handler_funcs = config_table;
 }
 
@@ -364,6 +398,14 @@ battery_region_state_t BatteryRegion_GetState(void)
     return battery_region->state;
 }
 
+#ifdef ACTIVE_BATTERY_CHARGING
+bool forced_charging_needed(void);
+bool forced_charging_needed(void)
+{
+	return (battery_region_ok != BatteryRegion_GetState());
+}
+#endif
+
 uint16 BatteryRegion_GetCurrent(void)
 {
     battery_region_data_t *battery_region = GetBatteryRegionData();
@@ -373,7 +415,7 @@ uint16 BatteryRegion_GetCurrent(void)
         return 0;
     }
     else
-    {
+	{
         return battery_region->region_table[battery_region->region].current;
     }
 }

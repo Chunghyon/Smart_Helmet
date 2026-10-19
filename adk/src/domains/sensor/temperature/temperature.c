@@ -9,6 +9,9 @@
 */
 
 #ifdef INCLUDE_TEMPERATURE
+#ifdef DEBUG
+#define PP_DEBUG_LOG_ON
+#endif
 
 #define DEBUG_LOG_MODULE_NAME temperature
 #include <logging.h>
@@ -27,6 +30,8 @@ DEBUG_LOG_DEFINE_LEVEL_VAR
 #include "temperature_config.h"
 #include "temperature_sensor.h"
 #include "unexpected_message.h"
+
+void appThermistorPIOEnable(bool enable);
 
 #include <stdlib.h>
 
@@ -48,6 +53,9 @@ enum headset_temperature_internal_messages
 {
     /*! Message sent to trigger a temperature measurement */
     MESSAGE_TEMPERATURE_INTERNAL_MEASUREMENT_TRIGGER,
+
+	//byCC
+	MESSAGE_TEMPERATURE_INTERNAL_MEASUREMENT_RETRIGGER
 };
 
 
@@ -122,7 +130,7 @@ static bool appTemperatureServiceClient(Task task, task_list_data_t *data, void 
                     (t <= lower_limit) ? TEMPERATURE_STATE_BELOW_LOWER_LIMIT :
                         TEMPERATURE_STATE_WITHIN_LIMITS;
 
-    if (next_state != data->arr_s8[CLIENT_CURRENT_STATE_INDEX])
+	if (next_state != (temperatureState)data->arr_s8[CLIENT_CURRENT_STATE_INDEX])
     {
         MESSAGE_MAKE(ind, TEMPERATURE_STATE_CHANGED_IND_T);
         ind->state = next_state;
@@ -222,25 +230,22 @@ static int8 temperature_MedianFiltering(temperatureTaskData *temp, int8 reading)
     return median_val;
 }
 
-static void handleTemperatureReading(temperatureTaskData *temperature, int8 reading)
+static void handleTemperatureReading(temperatureTaskData *temperature_task, int8 reading)
 {
     int8 median_reading;
     int32 ema_reading;
     
-    median_reading = temperature_MedianFiltering(temperature, reading);
+	median_reading = temperature_MedianFiltering(temperature_task, reading);
 
-    temperature->filter.instantaneous = median_reading;
+	temperature_task->filter.instantaneous = median_reading;
 
     /* calculate average */
-    temperature->average.last_ema = temperature->average.current_ema;
-    ema_reading = temperature_ExponentialAverage(temperature, median_reading);
+	temperature_task->average.last_ema = temperature_task->average.current_ema;
+	ema_reading = temperature_ExponentialAverage(temperature_task, median_reading);
 
-    temperature->average.current_ema = ema_reading;
+	temperature_task->average.current_ema = ema_reading;
 
-    DEBUG_LOG_V_VERBOSE("temp: %d median %d avg %d",
-            reading, median_reading, ema_reading / 100);
-
-    appTemperatureServiceClients(temperature);
+	appTemperatureServiceClients(temperature_task);
 }
 
 static uint16 Temperature_AdcResultHandler(const MessageAdcResult* result)
@@ -265,27 +270,39 @@ static uint16 Temperature_AdcResultHandler(const MessageAdcResult* result)
         }
         else
         {
-            DEBUG_LOG_WARN("Temperature_AdcResultHandler, vref_raw reading is 0.");
+			CC_LOGN("Temperature_AdcResultHandler, vref_raw reading is 0.");
         }
         
         return volt_mv;
     }
     else
     {
-        DEBUG_LOG_WARN("Temperature_AdcResultHandler unexpected source - %d",result->adc_source);
+		CC_LOGN("Temperature_AdcResultHandler unexpected source - %d",result->adc_source);
     }
 
     return 0;
 }
-
+#ifdef HJC_11Be
+void retrigger_temperature_measurement(void);
+void retrigger_temperature_measurement(void)
+{
+	temperatureTaskData *temperature = TemperatureGetTaskData();
+	MessageSendLater(&temperature->task,
+	                 MESSAGE_TEMPERATURE_INTERNAL_MEASUREMENT_RETRIGGER, NULL,
+	                 2*temperature->period);
+}
+#endif
 /*! \brief Handle temperature messages */
 static void appTemperatureHandleMessage(Task task, MessageId id, Message message)
 {
-    temperatureTaskData *temperature = (temperatureTaskData *)task;
+	temperatureTaskData *temperature_task = (temperatureTaskData *)task;
     uint16 voltage_mv;
     
     switch (id)
     {
+#ifdef HJC_11Be
+	    case MESSAGE_TEMPERATURE_INTERNAL_MEASUREMENT_RETRIGGER:
+#endif
         case MESSAGE_TEMPERATURE_INTERNAL_MEASUREMENT_TRIGGER:
         {
             appTemperatureSensorRequestMeasurement(task);
@@ -294,18 +311,39 @@ static void appTemperatureHandleMessage(Task task, MessageId id, Message message
                 
         case MESSAGE_ADC_RESULT:
         {
-            if (!battery_temp_test_on &&
-                fake_battery_temperature == INVALID_TEMPERATURE)
+#ifdef HJC_11Be
+#ifdef PP_DEBUG_LOG_ON
+            rtime_t now = SystemClockGetTimerTime();
+			if( rtime_gt(rtime_sub(now, timestamp_log), 60*1000*1000) ) {
+				CC_LOGN(".\n");
+			}
+#endif
+#endif
+			if (!battery_temp_test_on && fake_battery_temperature == INVALID_TEMPERATURE)
             {
                 voltage_mv = Temperature_AdcResultHandler((const MessageAdcResult*)message);
-                if (voltage_mv != 0)
+				if (voltage_mv != 0)
                 {
-                    int8 t_new = temperature_GetTemperature(voltage_mv, 
-                                            temperature->filter.instantaneous);
-                    handleTemperatureReading(temperature, t_new);
-                    MessageSendLater(&temperature->task,
+#ifdef HJC_11Be
+					MessageCancelAll(task, MESSAGE_TEMPERATURE_INTERNAL_MEASUREMENT_RETRIGGER);
+#endif
+					static uint16 prev_voltage_mv = 0;
+					if(prev_voltage_mv != voltage_mv) {
+						CC_LOGN("thermistor adc voltage change %u -> %u", prev_voltage_mv, voltage_mv);
+						prev_voltage_mv = voltage_mv;
+					}
+					static int8 prev_temperature = INVALID_TEMPERATURE;
+					int8 t_new = temperature_GetTemperature(voltage_mv, temperature_task->filter.instantaneous);
+					if(prev_temperature != t_new) {
+						CC_LOGN("temperature change %d -> %d", prev_temperature, t_new);
+						prev_temperature = t_new;
+					}
+
+					handleTemperatureReading(temperature_task, t_new);
+					appThermistorPIOEnable(FALSE);	//byCC
+					MessageSendLater(&temperature_task->task,
                              MESSAGE_TEMPERATURE_INTERNAL_MEASUREMENT_TRIGGER, NULL,
-                             temperature->period); 
+					         temperature_task->period);
                 }
             }
         }
@@ -325,7 +363,7 @@ bool appTemperatureInit(Task init_task)
 {
     temperatureTaskData *temperature = TemperatureGetTaskData();
 
-    DEBUG_LOG("appTemperatureInit");
+	CC_LOGN("appTemperatureInit, fake_battery_temperature %d", fake_battery_temperature);
 
     temperature->clients = TaskList_WithDataCreate();
     temperature->task.handler = appTemperatureHandleMessage;
@@ -336,6 +374,7 @@ bool appTemperatureInit(Task init_task)
     temperature->average.weight = appConfigTemperatureSmoothingWeight();
 
     appTemperatureSensorInit();
+
     if (fake_battery_temperature == INVALID_TEMPERATURE)
     {
         appTemperatureSensorRequestMeasurement(&temperature->task);
@@ -351,7 +390,7 @@ bool appTemperatureClientRegister(Task task, int8 lower_limit, int8 upper_limit)
     temperatureTaskData *temperature = TemperatureGetTaskData();
     task_list_data_t data = {0};
 
-    DEBUG_LOG("appTemperatureClientRegister Task=%p (%d, %d)", task, lower_limit, upper_limit);
+	CC_LOGN("appTemperatureClientRegister Task=%p (%d, %d)", task, lower_limit, upper_limit);
 
     data.arr_s8[CLIENT_LOWER_LIMIT_INDEX] = lower_limit;
     data.arr_s8[CLIENT_UPPER_LIMIT_INDEX] = upper_limit;
@@ -365,7 +404,7 @@ void appTemperatureClientUnregister(Task task)
 {
     temperatureTaskData *temperature = TemperatureGetTaskData();
 
-    DEBUG_LOG("appTemperatureClientUnregister Task=%p", task);
+	CC_LOGN("appTemperatureClientUnregister Task=%p", task);
 
     PanicFalse(TaskList_RemoveTask(temperature->clients, task));
 }
@@ -407,7 +446,7 @@ int8 appTemperatureGetInstantaneous(void)
 void Temperature_SetConfigurationTable(const temperature_lookup_t* config_table,
                               unsigned config_size)
 {
-    DEBUG_LOG("Temperature_SetConfigurationTable, set voltage->temperature lookup configuration table");
+	CC_LOGN("Temperature_SetConfigurationTable, set voltage->temperature lookup configuration table");
 
     temperature_ctx.temperature_config_table = config_table;
     temperature_ctx.temperature_config_size = config_size;
@@ -416,7 +455,7 @@ void Temperature_SetConfigurationTable(const temperature_lookup_t* config_table,
 void appTemperatureSetFakeValue(int8 temperature)
 {
     temperatureTaskData *temperature_data = TemperatureGetTaskData();
-    DEBUG_LOG("appTemperatureSetFakeValue, set test temperature: %d ", temperature);
+	CC_LOGN("appTemperatureSetFakeValue, set test temperature: %d ", temperature);
     
     fake_battery_temperature = temperature;
     appTemperatureServiceClients(temperature_data);    
@@ -424,7 +463,7 @@ void appTemperatureSetFakeValue(int8 temperature)
 
 void appTemperatureUnsetFakeValue(void)
 {
-    DEBUG_LOG("appTemperatureUnsetFakeValue, reset test temperature");
+	CC_LOGN("appTemperatureUnsetFakeValue, reset test temperature");
     temperatureTaskData *temperature = TemperatureGetTaskData();
     
     fake_battery_temperature = INVALID_TEMPERATURE;
@@ -436,7 +475,7 @@ void appTemperatureUnsetFakeValue(void)
 void appTemperatureTestInjectFakeLevel(int8 temperature)
 {
     temperatureTaskData *temperature_data = TemperatureGetTaskData();
-    DEBUG_LOG("appTemperatureTestInjectFakeLevel, inject test temperature: %d ", temperature);
+	CC_LOGN("appTemperatureTestInjectFakeLevel, inject test temperature: %d ", temperature);
     battery_temp_test_on = TRUE;
 
     handleTemperatureReading(temperature_data, temperature);
@@ -446,7 +485,7 @@ void appTemperatureResumeAdcMeasurements(void)
 {
     temperatureTaskData *temperature = TemperatureGetTaskData();
     
-    DEBUG_LOG("appTemperatureResumeAdcMeasurements");
+	CC_LOGN("appTemperatureResumeAdcMeasurements");
     battery_temp_test_on = FALSE;    
     
     MessageSendLater(&temperature->task,

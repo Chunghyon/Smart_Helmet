@@ -9,7 +9,7 @@
 #ifndef THERMISTOR_CONFIG_H_
 #define THERMISTOR_CONFIG_H_
 
-#ifdef HAVE_THERMISTOR
+#ifdef INCLUDE_TEMPERATURE
 
 #include "thermistor.h"
 
@@ -19,5 +19,5 @@ extern const thermistorConfig thermistor_config;
 /*! Returns the thermistor configration */
 #define appConfigThermistor() (&thermistor_config)
 
-#endif /* HAVE_THERMISTOR */
+#endif
 #endif /* THERMISTOR_CONFIG_H_ */

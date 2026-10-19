@@ -8,6 +8,7 @@
 
 #include <csrtypes.h>
 #include <message.h>
+#include "smart_helmet_config.h"
 
 enum
 {
@@ -84,11 +85,13 @@ bool SmartHelmet_SensorsHandleMessage(Task task, MessageId id, Message message);
 void SmartHelmet_SensorsShowAdcMv(uint16 sens_mv, uint16 co_mv,
                                  uint16 nh3_mv, uint16 no2_mv);
 
-#endif /* SMART_HELMET_SENSORS_H */
-
+#if SMART_HELMET_ENABLE_SSD1315
 void SmartHelmet_SensorsSleep(void);
 void SmartHelmet_SensorsDisplayOff(void);
 void SmartHelmet_SensorsDisplayBlank(void);
 void SmartHelmet_SensorsDisplayResume(void);
 void SmartHelmet_SensorsDisplayOn(void);
+#endif
+#endif /* SMART_HELMET_SENSORS_H */
+
 

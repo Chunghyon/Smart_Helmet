@@ -7,7 +7,7 @@
 */
 
 #include "thermistor_config.h"
-#ifdef HAVE_THERMISTOR
+#ifdef INCLUDE_TEMPERATURE
 
 /* Requrired for THERMISTOR_ADC */
 #include <app/adc/adc_if.h>
@@ -17,4 +17,4 @@ const thermistorConfig thermistor_config = {
     .adc = THERMISTOR_ADC,
 };
 
-#endif /* HAVE_THERMISTOR */
+#endif

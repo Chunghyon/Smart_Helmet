@@ -166,7 +166,9 @@ void SmartHelmet_PowerOn(void)
     /* OLED and the other I2C sensors come up only on power-on.
      * SensorsInit probes SSD1315 as well as the gas/motion/temp parts. */
     SmartHelmet_SensorsInit();
+#if SMART_HELMET_ENABLE_SSD1315
     SmartHelmet_SensorsDisplayResume();
+#endif
     SmartHelmet_SensorsStartVerify(&sh_task_data);
     SmartHelmet_VitalsInit();
 #if (SMART_HELMET_ENABLE_VITALS_CSV || SMART_HELMET_ENABLE_SENS_DUMP)
@@ -198,13 +200,17 @@ void SmartHelmet_PowerOff(void)
     SmartHelmet_ReportStop();
     MessageCancelAll(&sh_task_data, SMART_HELMET_MOTION_POLL);
     SmartHelmet_SensorsStopVerify();
+#if SMART_HELMET_ENABLE_SSD1315
     SmartHelmet_SensorsSleep();
+#endif
     SmartHelmet_UartSleep();
     SmartHelmet_AdcStop();
+#if SMART_HELMET_ENABLE_SSD1315
     /* OLED stays initialized (ssd1315_ok). Warm LIMBO (cable still
      * attached after power-off) resumes it from the charge path.
      * Cold LIMBO never set ssd1315_ok, so resume is a no-op. */
     SmartHelmet_SensorsDisplayBlank();
+#endif
 }
 
 void SmartHelmet_PowerSave(void)
@@ -683,6 +689,9 @@ void SmartHelmet_ReportStart(void)
     n = shAppend(line, n, sizeof(line), "\r\nco:");
 #if !SMART_HELMET_ENABLE_ADC
     n = shAppend(line, n, sizeof(line), "Disabled");
+    UNUSED(adc);
+    UNUSED(shGasValue);
+    UNUSED(shCoPpm);
 #else
     {
         uint16 mv = adc ? adc->millivolts[smart_helmet_adc_co] : 0;
@@ -694,6 +703,7 @@ void SmartHelmet_ReportStart(void)
     n = shAppend(line, n, sizeof(line), "\r\nnh3:");
 #if !SMART_HELMET_ENABLE_ADC
     n = shAppend(line, n, sizeof(line), "Disabled");
+    UNUSED(shNh3Ppm);
 #else
     {
         uint16 mv = adc ? adc->millivolts[smart_helmet_adc_nh3] : 0;
@@ -705,6 +715,7 @@ void SmartHelmet_ReportStart(void)
     n = shAppend(line, n, sizeof(line), "\r\nno2:");
 #if !SMART_HELMET_ENABLE_ADC
     n = shAppend(line, n, sizeof(line), "Disabled");
+    UNUSED(shNo2PpmX100);
 #else
     {
         uint16 mv = adc ? adc->millivolts[smart_helmet_adc_no2] : 0;

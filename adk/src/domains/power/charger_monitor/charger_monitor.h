@@ -264,6 +264,8 @@ bool Charger_ClientRegister(Task client_task);
 */
 void Charger_ClientUnregister(Task client_task);
 
+ChargerDisableReason get_charger_disable_reason(void);
+
 #else
 
 #define Charger_DisableReasonAdd(reason)
