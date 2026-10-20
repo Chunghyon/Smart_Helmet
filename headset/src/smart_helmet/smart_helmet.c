@@ -452,7 +452,9 @@ static void shLogBrReport(const char *line, uint16 n, bool sent)
 
     //CC_LOGN("SmartHelmet BR report %s", sent ? "sent" : "not sent");
     UNUSED(sent);
+#if (SMART_HELMET_ENABLE_I2C0 || SMART_HELMET_ENABLE_I2C1)
     CC_LOGN("=========================================");
+#endif
     while (i < n)
     {
         char piece[40];
@@ -476,7 +478,7 @@ static void shLogBrReport(const char *line, uint16 n, bool sent)
             continue;
         }
         piece[pn] = '\0';
-#ifdef PP_DEBUG_LOG_ON
+#if defined(PP_DEBUG_LOG_ON) && (SMART_HELMET_ENABLE_I2C0 || SMART_HELMET_ENABLE_I2C1)
         DEBUG_PRINT("SmartHelmet BR: %s\n", piece);
 #else
         UNUSED(piece);
@@ -542,8 +544,10 @@ void SmartHelmet_ReportStart(void)
      * hide what would have been sent to the border router. */
     if (!can_send)
     {
+#if (SMART_HELMET_ENABLE_I2C0 || SMART_HELMET_ENABLE_I2C1)
         CC_LOGN("SmartHelmet report held: %s",
                 SmartHelmet_UartInPassthrough() ? "I2C not ready" : "not passthrough");
+#endif
     }
     else
     {
